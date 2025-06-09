@@ -7,7 +7,7 @@ import logging
 import os
 import json  # For saving/loading settings
 import pgeocode  # For zip code to lat/lon conversion
-import xml.etree.ElementTree as ET  # For parsing DWML XML
+# import xml.etree.ElementTree as ET  # No longer needed for DWML
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
@@ -27,7 +27,7 @@ FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000  # Default: 15 minutes
 FALLBACK_DEFAULT_INTERVAL_KEY = "15 Minutes"
 FALLBACK_DEFAULT_STATION_ID = "KSLO"
 FALLBACK_INITIAL_REPEATER_INFO = ""
-FALLBACK_DEFAULT_ZIP_CODE = "90210"  # Example fallback zip
+# FALLBACK_DEFAULT_ZIP_CODE = "90210" # No longer needed
 FALLBACK_ANNOUNCE_ALERTS_CHECKED = False
 FALLBACK_SHOW_LOG_CHECKED = False
 
@@ -41,10 +41,7 @@ CHECK_INTERVAL_OPTIONS = {
 }
 
 NWS_STATION_API_URL_TEMPLATE = "https://api.weather.gov/stations/{station_id}"
-# NWS_POINTS_API_URL_TEMPLATE = "https://api.weather.gov/points/{latitude},{longitude}" # No longer primary for forecast
-
-# New URL template for DWML forecast
-DWML_FORECAST_URL_TEMPLATE = "https://forecast.weather.gov/MapClick.php?lat={latitude}&lon={longitude}&unit=0&lg=english&FcstType=dwml"
+# DWML_FORECAST_URL_TEMPLATE = "https://forecast.weather.gov/MapClick.php?lat={latitude}&lon={longitude}&unit=0&lg=english&FcstType=dwml" # No longer needed
 
 WEATHER_URL_PREFIX = "https://api.weather.gov/alerts/active.atom?point="
 WEATHER_URL_SUFFIX = "&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2CSevere%2CModerate%2CMinor&urgency=Future%2CExpected"
@@ -63,13 +60,13 @@ class WeatherAlertApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Weather Alert Monitor")
-        self.setGeometry(100, 100, 800, 950)  # Adjusted size
+        self.setGeometry(100, 100, 800, 800)  # Adjusted size back
 
         # Initialize default values (will be overridden by _load_settings if successful)
         self.current_repeater_info = FALLBACK_INITIAL_REPEATER_INFO
         self.current_station_id = FALLBACK_DEFAULT_STATION_ID
         self.current_interval_key = FALLBACK_DEFAULT_INTERVAL_KEY
-        self.current_zip_code = FALLBACK_DEFAULT_ZIP_CODE
+        # self.current_zip_code = FALLBACK_DEFAULT_ZIP_CODE # No longer needed
         self.current_announce_alerts_checked = FALLBACK_ANNOUNCE_ALERTS_CHECKED
         self.current_show_log_checked = FALLBACK_SHOW_LOG_CHECKED
 
@@ -94,7 +91,7 @@ class WeatherAlertApp(QMainWindow):
         self.countdown_timer.timeout.connect(self._update_countdown_display)
         self.remaining_time_seconds = 0
 
-        self.geo_locator = pgeocode.Nominatim('us')  # For zip to lat/lon
+        # self.geo_locator = pgeocode.Nominatim('us')  # No longer needed for forecast
 
         self._init_ui()  # Creates UI elements using current_... values
 
@@ -113,8 +110,7 @@ class WeatherAlertApp(QMainWindow):
         self.log_to_gui(
             f"Monitoring weather alerts for station: {self.station_id_entry.text()}",
             level="INFO")
-        # ... other initial logs ...
-        self.log_to_gui(f"Forecast will be attempted for ZIP: {self.zip_code_entry.text()}", level="INFO")
+        # self.log_to_gui(f"Forecast will be attempted for ZIP: {self.zip_code_entry.text()}", level="INFO") # No longer needed
 
         if self.announce_alerts_checkbox.isChecked():
             self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
@@ -155,7 +151,6 @@ class WeatherAlertApp(QMainWindow):
     def _load_settings(self):
         resources_path = self._get_resources_path()
         if not resources_path:
-            # self.log_to_gui("Cannot load settings, resources path issue.", level="ERROR") # GUI not up yet
             logging.error("Cannot load settings, resources path issue.")
             return
 
@@ -167,7 +162,7 @@ class WeatherAlertApp(QMainWindow):
                     self.current_repeater_info = settings.get("repeater_info", FALLBACK_INITIAL_REPEATER_INFO)
                     self.current_station_id = settings.get("station_id", FALLBACK_DEFAULT_STATION_ID)
                     self.current_interval_key = settings.get("check_interval_key", FALLBACK_DEFAULT_INTERVAL_KEY)
-                    self.current_zip_code = settings.get("zip_code", FALLBACK_DEFAULT_ZIP_CODE)
+                    # self.current_zip_code = settings.get("zip_code", FALLBACK_DEFAULT_ZIP_CODE) # No longer needed
                     self.current_announce_alerts_checked = settings.get("announce_alerts",
                                                                         FALLBACK_ANNOUNCE_ALERTS_CHECKED)
                     self.current_show_log_checked = settings.get("show_log", FALLBACK_SHOW_LOG_CHECKED)
@@ -176,11 +171,10 @@ class WeatherAlertApp(QMainWindow):
                 logging.info(f"Settings file not found at {settings_file}. Using fallback defaults.")
         except (json.JSONDecodeError, IOError, KeyError) as e:
             logging.error(f"Error loading settings from {settings_file}: {e}. Using fallback defaults.")
-            # Ensure fallbacks are set if error occurs mid-read
             self.current_repeater_info = FALLBACK_INITIAL_REPEATER_INFO
             self.current_station_id = FALLBACK_DEFAULT_STATION_ID
             self.current_interval_key = FALLBACK_DEFAULT_INTERVAL_KEY
-            self.current_zip_code = FALLBACK_DEFAULT_ZIP_CODE
+            # self.current_zip_code = FALLBACK_DEFAULT_ZIP_CODE # No longer needed
             self.current_announce_alerts_checked = FALLBACK_ANNOUNCE_ALERTS_CHECKED
             self.current_show_log_checked = FALLBACK_SHOW_LOG_CHECKED
 
@@ -197,7 +191,7 @@ class WeatherAlertApp(QMainWindow):
             "repeater_info": self.repeater_entry.text(),
             "station_id": self.station_id_entry.text(),
             "check_interval_key": self.interval_combobox.currentText(),
-            "zip_code": self.zip_code_entry.text(),
+            # "zip_code": self.zip_code_entry.text(), # No longer needed
             "announce_alerts": self.announce_alerts_checkbox.isChecked(),
             "show_log": self.show_log_checkbox.isChecked()
         }
@@ -220,21 +214,18 @@ class WeatherAlertApp(QMainWindow):
         config_group = QWidget()
         config_layout = QGridLayout(config_group)
         config_layout.addWidget(QLabel("Repeater Info:"), 0, 0, Qt.AlignmentFlag.AlignLeft)
-        self.repeater_entry = QLineEdit(self.current_repeater_info)  # Use loaded/fallback
-        config_layout.addWidget(self.repeater_entry, 0, 1, 1, 3)
+        self.repeater_entry = QLineEdit(self.current_repeater_info)
+        config_layout.addWidget(self.repeater_entry, 0, 1, 1, 3) # Span across remaining columns
 
         config_layout.addWidget(QLabel("NWS Station ID (for Alerts):"), 1, 0, Qt.AlignmentFlag.AlignLeft)
-        self.station_id_entry = QLineEdit(self.current_station_id)  # Use loaded/fallback
+        self.station_id_entry = QLineEdit(self.current_station_id)
         self.station_id_entry.setFixedWidth(150)
         config_layout.addWidget(self.station_id_entry, 1, 1, Qt.AlignmentFlag.AlignLeft)
-        # Zip Code for Forecast
-        config_layout.addWidget(QLabel("ZIP Code (for Forecast):"), 1, 2, Qt.AlignmentFlag.AlignRight)
-        self.zip_code_entry = QLineEdit(self.current_zip_code)  # Use loaded/fallback
-        self.zip_code_entry.setFixedWidth(100)
-        config_layout.addWidget(self.zip_code_entry, 1, 3, Qt.AlignmentFlag.AlignLeft)
+        # Removed Zip Code for Forecast
+        config_layout.setColumnStretch(2, 1) # Adjust column stretch as needed
+        config_layout.setColumnStretch(3, 1) # Adjust column stretch as needed
 
-        config_layout.setColumnStretch(1, 1)  # Allow some stretch
-        config_layout.setColumnStretch(3, 1)
+
         main_layout.addWidget(config_group)
 
         # --- Controls Frame ---
@@ -247,16 +238,13 @@ class WeatherAlertApp(QMainWindow):
         controls_layout.addWidget(self.speak_reset_button)
 
         self.announce_alerts_checkbox = QCheckBox("Announce Alerts")
-        # self.announce_alerts_checkbox.setChecked(self.current_announce_alerts_checked) # Set in __init__ after _init_ui
         self.announce_alerts_checkbox.stateChanged.connect(self._on_announce_alerts_toggled)
         controls_layout.addWidget(self.announce_alerts_checkbox)
 
         self.show_log_checkbox = QCheckBox("Show Log")
-        # self.show_log_checkbox.setChecked(self.current_show_log_checked) # Set in __init__ after _init_ui
         self.show_log_checkbox.stateChanged.connect(self._on_show_log_toggled)
         controls_layout.addWidget(self.show_log_checkbox)
 
-        # Save Defaults Button
         self.save_defaults_button = QPushButton("Save Current as Defaults")
         self.save_defaults_button.clicked.connect(self._save_settings)
         controls_layout.addWidget(self.save_defaults_button)
@@ -264,29 +252,19 @@ class WeatherAlertApp(QMainWindow):
         controls_layout.addWidget(QLabel("Check Interval:"))
         self.interval_combobox = QComboBox()
         self.interval_combobox.addItems(CHECK_INTERVAL_OPTIONS.keys())
-        self.interval_combobox.setCurrentText(self.current_interval_key)  # Use loaded/fallback
+        self.interval_combobox.setCurrentText(self.current_interval_key)
         self.interval_combobox.currentTextChanged.connect(self._on_interval_selected)
         controls_layout.addWidget(self.interval_combobox)
 
         controls_layout.addStretch(1)
         self.countdown_label = QLabel("Next check in: --:--")
-        # Corrected font setup for countdown_label
         font = self.countdown_label.font()
         font.setPointSize(10)
         self.countdown_label.setFont(font)
         controls_layout.addWidget(self.countdown_label)
         main_layout.addWidget(controls_group)
 
-        # --- Forecast Display Area ---
-        forecast_group = QWidget()
-        forecast_layout = QVBoxLayout(forecast_group)
-        forecast_layout.addWidget(QLabel("<b>24-Hour Forecast (DWML):</b>"))  # Label updated
-        self.forecast_display_area = QTextEdit()
-        self.forecast_display_area.setReadOnly(True)
-        self.forecast_display_area.setMinimumHeight(100)  # Give it some initial space
-        self.forecast_display_area.setMaximumHeight(150)  # Limit height
-        forecast_layout.addWidget(self.forecast_display_area)
-        main_layout.addWidget(forecast_group)
+        # --- Removed Forecast Display Area ---
 
         # --- Splitter for Web View and Log Area ---
         self.splitter = QSplitter(Qt.Orientation.Vertical)
@@ -424,7 +402,7 @@ class WeatherAlertApp(QMainWindow):
             if log_errors: self.log_to_gui("Station ID is empty. Cannot fetch coordinates for alerts.", level="ERROR")
             return None
         station_url = NWS_STATION_API_URL_TEMPLATE.format(station_id=station_id.upper())
-        headers = {'User-Agent': 'PyWeatherAlertGui/1.5 (your.email@example.com)',  # PLEASE CUSTOMIZE
+        headers = {'User-Agent': 'PyWeatherAlertGui/1.6 (your.email@example.com)',  # PLEASE CUSTOMIZE
                    'Accept': 'application/geo+json'}
         self.log_to_gui(f"Fetching coordinates for station {station_id} (for alerts) from {station_url}", level="DEBUG")
         try:
@@ -465,174 +443,7 @@ class WeatherAlertApp(QMainWindow):
                                            level="ERROR")
             return None
 
-    def _get_lat_lon_from_zip(self, zip_code, log_errors=True):
-        """Converts ZIP code to latitude and longitude using pgeocode."""
-        if not zip_code:
-            if log_errors: self.log_to_gui("ZIP code is empty for forecast.", level="WARNING")
-            return None
-        try:
-            # pgeocode can return a pandas Series/DataFrame. Access values using .latitude, .longitude
-            location_data = self.geo_locator.query_zip_code(zip_code)
-            if location_data.empty or pd.isna(location_data.latitude) or pd.isna(location_data.longitude):
-                if log_errors: self.log_to_gui(f"Could not find location data for ZIP code: {zip_code}",
-                                               level="WARNING")
-                return None
-            latitude = float(location_data.latitude)
-            longitude = float(location_data.longitude)
-            self.log_to_gui(f"Coordinates for ZIP {zip_code} (forecast): Lat={latitude}, Lon={longitude}",
-                            level="DEBUG")
-            return latitude, longitude
-        except Exception as e:
-            if log_errors: self.log_to_gui(f"Error converting ZIP {zip_code} to coordinates: {e}", level="ERROR")
-            return None
-
-    def _fetch_forecast_dwml(self, latitude, longitude, log_errors=True):
-        """Fetches DWML forecast data from NWS API using latitude and longitude."""
-        if latitude is None or longitude is None:
-            return None
-
-        dwml_url = DWML_FORECAST_URL_TEMPLATE.format(latitude=latitude, longitude=longitude)
-        headers = {'User-Agent': 'PyWeatherAlertGui/1.5 (your.email@example.com)'}  # PLEASE CUSTOMIZE
-        self.log_to_gui(f"Fetching DWML forecast from: {dwml_url}", level="DEBUG")
-
-        try:
-            response = requests.get(dwml_url, headers=headers, timeout=15)  # Increased timeout slightly for DWML
-            response.raise_for_status()
-            # Return the raw XML content as a string
-            return response.text
-        except requests.exceptions.RequestException as e:
-            if log_errors: self.log_to_gui(f"Error fetching DWML forecast data: {e}", level="ERROR")
-            return None
-
-    def _format_dwml_forecast_display(self, dwml_xml_string):
-        """Formats the NWS DWML XML string into a displayable string for the next 24 hours."""
-        if not dwml_xml_string:
-            return "Forecast data is unavailable."
-
-        try:
-            root = ET.fromstring(dwml_xml_string)
-            data_node = root.find("./data[@type='forecast']")
-            if data_node is None:
-                return "Could not find forecast data in DWML."
-
-            # Find the time-layout for hourly forecast (often contains 'k-p1h')
-            # This part can be tricky as layout keys can vary.
-            # We'll look for a layout with many 1-hour periods.
-            time_layouts = data_node.findall("./time-layout")
-            hourly_layout_key = None
-            max_periods = 0
-
-            for layout in time_layouts:
-                key_node = layout.find("./layout-key")
-                if key_node is not None:
-                    # Heuristic: look for layouts with 'p1h' (period 1 hour) and many entries
-                    # Or, more simply, the one with the most start-valid-time entries up to a limit
-                    num_valid_times = len(layout.findall("./start-valid-time"))
-                    if "p1h" in key_node.text.lower() and num_valid_times > max_periods:
-                        max_periods = num_valid_times
-                        hourly_layout_key = key_node.text
-                    elif num_valid_times > 20 and num_valid_times > max_periods:  # Fallback if no 'p1h'
-                        max_periods = num_valid_times
-                        hourly_layout_key = key_node.text
-
-            if not hourly_layout_key:
-                return "Could not determine hourly time-layout in DWML."
-
-            # Get all start times from the chosen layout
-            start_times_nodes = data_node.findall(f"./time-layout[layout-key='{hourly_layout_key}']/start-valid-time")
-            start_times = [st.text for st in start_times_nodes]
-
-            parameters = data_node.find("./parameters")
-            if parameters is None:
-                return "No parameters found in DWML forecast."
-
-            # Find temperature, weather, wind speed, wind direction data linked to this layout
-            temp_nodes = parameters.findall(f"./temperature[@type='hourly'][@time-layout='{hourly_layout_key}']/value")
-            weather_nodes = parameters.findall(f"./weather[@time-layout='{hourly_layout_key}']/weather-conditions")
-            wind_speed_nodes = parameters.findall(f"./wind-speed[@type='sustained'][@time-layout='{hourly_layout_key}']/value")
-            wind_dir_nodes = parameters.findall(f"./direction[@type='wind'][@time-layout='{hourly_layout_key}']/value")
-
-            # Get units
-            temp_units_node = parameters.find(f"./temperature[@type='hourly'][@time-layout='{hourly_layout_key}']")
-            temp_units = temp_units_node.get("units", "F") if temp_units_node is not None else "F"
-
-            wind_speed_units_node = parameters.find(f"./wind-speed[@type='sustained'][@time-layout='{hourly_layout_key}']")
-            wind_speed_units = wind_speed_units_node.get("units", "mph") if wind_speed_units_node is not None else "mph"
-
-
-            display_text = []
-            num_to_display = min(len(start_times), 24)  # Display up to 24 hours
-
-            for i in range(num_to_display):
-                try:
-                    time_str = start_times[i] if i < len(start_times) else "N/A"
-                    if time_str != "N/A":
-                        hour_part = time_str.split('T')[1].split(':')[0:2]
-                        friendly_time = ":".join(hour_part)
-                    else:
-                        friendly_time = "N/A"
-
-                    temp = temp_nodes[i].text if i < len(temp_nodes) and temp_nodes[i].text is not None else "N/A"
-                    short_forecast = weather_nodes[i].get('weather-summary', 'N/A') if i < len(weather_nodes) else "N/A"
-                    wind_speed = wind_speed_nodes[i].text if i < len(wind_speed_nodes) and wind_speed_nodes[i].text is not None else "N/A"
-                    wind_dir_val = wind_dir_nodes[i].text if i < len(wind_dir_nodes) and wind_dir_nodes[i].text is not None else ""
-
-                    # Convert wind direction from degrees to cardinal if possible (simplified)
-                    wind_direction_cardinal = ""
-                    if wind_dir_val.isdigit():
-                        deg = int(wind_dir_val)
-                        if 337.5 <= deg or deg < 22.5: wind_direction_cardinal = "N"
-                        elif 22.5 <= deg < 67.5: wind_direction_cardinal = "NE"
-                        elif 67.5 <= deg < 112.5: wind_direction_cardinal = "E"
-                        elif 112.5 <= deg < 157.5: wind_direction_cardinal = "SE"
-                        elif 157.5 <= deg < 202.5: wind_direction_cardinal = "S"
-                        elif 202.5 <= deg < 247.5: wind_direction_cardinal = "SW"
-                        elif 247.5 <= deg < 292.5: wind_direction_cardinal = "W"
-                        elif 292.5 <= deg < 337.5: wind_direction_cardinal = "NW"
-                    wind_direction_str = f"{wind_speed} {wind_speed_units} {wind_direction_cardinal}".strip()
-
-                    display_text.append(
-                        f"{friendly_time}: {temp}°{temp_units.replace('Fahrenheit','F').replace('Celsius','C')}, {short_forecast}, Wind: {wind_direction_str}"
-                    )
-                except IndexError:
-                    self.log_to_gui(f"Index error while formatting DWML period {i}. Data lengths might mismatch.", level="WARNING")
-                    display_text.append(f"{friendly_time}: Data mismatch for this hour.")
-                except Exception as e:
-                    self.log_to_gui(f"Error formatting a DWML forecast period: {e}", level="WARNING")
-                    display_text.append("Error in one period.")
-
-            if not display_text:
-                return "No forecast periods found for the next 24 hours in DWML."
-            return "\n".join(display_text)
-
-        except ET.ParseError as e:
-            self.log_to_gui(f"Error parsing DWML XML: {e}", level="ERROR")
-            return "Error parsing forecast data (XML)."
-        except Exception as e:
-            self.log_to_gui(f"Unexpected error formatting DWML forecast: {e}", level="ERROR")
-            return "Unexpected error processing forecast."
-
-    def _update_forecast_display(self):
-        """Gets the zip code, fetches DWML forecast, and updates the GUI."""
-        zip_code = self.zip_code_entry.text().strip()
-        if not zip_code:
-            self.forecast_display_area.setText("Please enter a ZIP code for the forecast.")
-            return
-
-        self.forecast_display_area.setText(f"Fetching forecast for {zip_code}...")
-        QApplication.processEvents()  # Allow GUI to update "Fetching..." message
-
-        lat_lon = self._get_lat_lon_from_zip(zip_code)
-        if lat_lon:
-            latitude, longitude = lat_lon
-            dwml_xml = self._fetch_forecast_dwml(latitude, longitude)  # Fetch DWML XML
-            if dwml_xml:
-                formatted_forecast = self._format_dwml_forecast_display(dwml_xml)  # Parse XML
-                self.forecast_display_area.setText(formatted_forecast)
-            else:
-                self.forecast_display_area.setText(f"Could not retrieve forecast for {zip_code}.")
-        else:
-            self.forecast_display_area.setText(f"Could not get location for ZIP code {zip_code}.")
+    # Removed _get_lat_lon_from_zip, _fetch_forecast_dwml, _format_dwml_forecast_display, _update_forecast_display
 
     def _get_current_weather_url(self, log_errors=True):  # For alerts
         """Constructs the weather alert URL using coordinates from the station ID."""
@@ -655,7 +466,7 @@ class WeatherAlertApp(QMainWindow):
         """Fetches weather alerts from the provided URL for a specific point."""
         if not url: return []
         self.log_to_gui(f"Fetching alerts from {url}...", level="DEBUG")
-        headers = {'User-Agent': 'PyWeatherAlertGui/1.5 (your.email@example.com)'}  # PLEASE CUSTOMIZE
+        headers = {'User-Agent': 'PyWeatherAlertGui/1.6 (your.email@example.com)'}  # PLEASE CUSTOMIZE
         try:
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
@@ -715,7 +526,7 @@ class WeatherAlertApp(QMainWindow):
 
     @Slot()
     def perform_check_cycle(self):
-        """Performs one cycle of checking alerts, radar, forecast, and speaking."""
+        """Performs one cycle of checking alerts, radar, and speaking."""
         if not self.announce_alerts_checkbox.isChecked():
             self.main_check_timer.stop()
             self.countdown_timer.stop()
@@ -731,14 +542,13 @@ class WeatherAlertApp(QMainWindow):
             self.log_to_gui(f"Reloading radar view: {RADAR_URL}", level="DEBUG")
             self.web_view.setUrl(QUrl(RADAR_URL))
 
-        # --- Update Forecast ---
-        self._update_forecast_display()  # Fetch and display new forecast
+        # --- Removed Forecast Update ---
 
         # --- Check Alerts ---
         current_station_id = self.station_id_entry.text().strip()
         self.log_to_gui(f"Starting alert check for station: {current_station_id}", level="INFO")
         self.update_status(
-            f"Checking for alerts for {current_station_id} & forecast... Last check: {time.strftime('%H:%M:%S')}")
+            f"Checking for alerts for {current_station_id}... Last check: {time.strftime('%H:%M:%S')}")
 
         current_weather_alert_url = self._get_current_weather_url()  # For alerts
         alerts = []
@@ -784,7 +594,6 @@ class WeatherAlertApp(QMainWindow):
             self.log_to_gui("Shutting down weather alert monitor...", level="INFO")
             self.main_check_timer.stop()
             self.countdown_timer.stop()
-            # ... (logging for timer cancellation) ...
             if hasattr(self.tts_engine, 'stop') and not self.is_tts_dummy:
                 try:
                     if self.tts_engine.isBusy(): self.tts_engine.stop()
@@ -795,9 +604,7 @@ class WeatherAlertApp(QMainWindow):
             event.ignore()
 
 if __name__ == "__main__":
-    # For pgeocode, pandas is a dependency. If it shows NaN issues, ensure pandas is installed.
-    # pip install pandas
-    import pandas as pd  # pgeocode uses pandas, good to have it explicitly if troubleshooting
+    import pandas as pd # pgeocode uses pandas, good to have it explicitly if troubleshooting
 
     app = QApplication(sys.argv)
     main_win = WeatherAlertApp()
