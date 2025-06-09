@@ -4,15 +4,18 @@ import feedparser
 import pyttsx3
 import time
 import logging
-import os  # Import os module for path joining
+import os
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QLineEdit, QPushButton, QComboBox, QTextEdit, QMessageBox,
-    QStatusBar, QCheckBox  # Added QCheckBox
+    QStatusBar, QCheckBox, QSplitter
 )
-from PySide6.QtCore import Qt, QTimer, Slot
+from PySide6.QtCore import Qt, QTimer, Slot, QUrl
 from PySide6.QtGui import QTextCursor, QIcon
+from PySide6.QtWebEngineWidgets import QWebEngineView
+# Note: If PySide6.QtWebEngineWidgets is not found, you might need to install it:
+# pip install PySide6-WebEngine
 
 # --- Configuration ---
 INITIAL_CHECK_INTERVAL_MS = 900 * 1000  # Default: 15 minutes
@@ -27,14 +30,16 @@ CHECK_INTERVAL_OPTIONS = {
 }
 DEFAULT_INTERVAL_KEY = "15 Minutes"
 
-# Changed from LAT/LON to STATION_ID
-DEFAULT_STATION_ID = "KSLO"  # Example Station ID
-# NWS API endpoint for station details
+DEFAULT_STATION_ID = "KSLO"
 NWS_STATION_API_URL_TEMPLATE = "https://api.weather.gov/stations/{station_id}"
 
 WEATHER_URL_PREFIX = "https://api.weather.gov/alerts/active.atom?point="
 WEATHER_URL_SUFFIX = "&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2CSevere%2CModerate%2CMinor&urgency=Future%2CExpected"
-INITIAL_REPEATER_INFO = ""  # "Repeater, W S D R 5 3 8 Salem 550 Repeater"
+INITIAL_REPEATER_INFO = ""
+
+# URL for the embedded radar
+RADAR_URL = "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOm51bGwsImNlbnRlciI6Wy04OS41MTcsMzguMTA0XSwibG9jYXRpb24iOm51bGwsInpvb20iOjguMDI4MDQ0MTQyMjY0NzY4fSwiYW5pbWF0aW5nIjp0cnVlLCJiYXNlIjoic3RhbmRhcmQiLCJhcnRjYyI6ZmFsc2UsImNvdW50eSI6ZmFsc2UsImN3YSI6ZmFsc2UsInJmYyI6ZmFsc2UsInN0YXRlIjpmYWxzZSwibWVudSI6dHJ1ZSwic2hvcnRGdXNlZE9ubHkiOmZhbHNlLCJvcGFjaXR5Ijp7ImFsZXJ0cyI6MC44LCJsb2NhbCI6MC42LCJsb2NhbFN0YXRpb25zIjowLjgsIm5hdGlvbmFsIjowLjZ9fQ%3D%3D"
+
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -44,7 +49,8 @@ class WeatherAlertApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Weather Alert Monitor")
-        self.setGeometry(100, 100, 700, 680) # Slightly increased height for checkbox
+        # Increased height to accommodate the web view
+        self.setGeometry(100, 100, 750, 850)
 
         # --- Set the Window Icon ---
         base_path = os.path.dirname(os.path.abspath(__file__))
@@ -74,7 +80,11 @@ class WeatherAlertApp(QMainWindow):
         self.countdown_timer.timeout.connect(self._update_countdown_display)
         self.remaining_time_seconds = 0
 
-        self._init_ui() # This will now set the checkbox to unchecked
+        self._init_ui() # Creates self.log_area
+
+        # Initially hide the log area as the checkbox is off by default
+        self.log_area.setVisible(False)
+
 
         if self.is_tts_dummy:
             self.log_to_gui(
@@ -88,14 +98,13 @@ class WeatherAlertApp(QMainWindow):
             level="INFO")
         self.log_to_gui(f"Initial repeater line: '{self.repeater_entry.text()}'", level="INFO")
         self.log_to_gui(f"Initial check interval: {self.current_check_interval_ms // 60000} minutes.", level="INFO")
+        self.log_to_gui(f"Radar view will load: {RADAR_URL}", level="INFO")
 
-        # Initial state based on checkbox
-        if self.announce_alerts_checkbox.isChecked(): # This will now be false initially
-            self.log_to_gui("Alert announcements enabled by default.", level="INFO") # This log might be misleading now
+
+        if self.announce_alerts_checkbox.isChecked():
             self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
-            QTimer.singleShot(1000, self.perform_check_cycle) # Start first check
+            QTimer.singleShot(1000, self.perform_check_cycle)
         else:
-            # This block will execute by default now
             self.log_to_gui("Alert announcements disabled by default. Check the box to start.", level="INFO")
             self.countdown_label.setText("Next check in: --:-- (Paused)")
 
@@ -127,12 +136,17 @@ class WeatherAlertApp(QMainWindow):
         self.speak_reset_button.clicked.connect(self._on_speak_and_reset_button_press)
         controls_layout.addWidget(self.speak_reset_button)
 
-        # --- Announce Alerts Checkbox ---
         self.announce_alerts_checkbox = QCheckBox("Announce Alerts")
-        self.announce_alerts_checkbox.setChecked(False) # <<< MODIFIED: Set to False for unchecked by default
+        self.announce_alerts_checkbox.setChecked(False)
         self.announce_alerts_checkbox.stateChanged.connect(self._on_announce_alerts_toggled)
         controls_layout.addWidget(self.announce_alerts_checkbox)
-        # --- End Announce Alerts Checkbox ---
+
+        # --- Show Log Checkbox ---
+        self.show_log_checkbox = QCheckBox("Show Log")
+        self.show_log_checkbox.setChecked(False) # Default to off
+        self.show_log_checkbox.stateChanged.connect(self._on_show_log_toggled)
+        controls_layout.addWidget(self.show_log_checkbox)
+        # --- End Show Log Checkbox ---
 
         controls_layout.addWidget(QLabel("Check Interval:"))
         self.interval_combobox = QComboBox()
@@ -150,13 +164,27 @@ class WeatherAlertApp(QMainWindow):
         controls_layout.addWidget(self.countdown_label)
         main_layout.addWidget(controls_group)
 
+        # --- Splitter for Log Area and Web View ---
+        self.splitter = QSplitter(Qt.Orientation.Vertical)
+
+        # MODIFICATION: Add web_view first, then log_area
+        self.web_view = QWebEngineView()
+        self.web_view.setUrl(QUrl(RADAR_URL)) # Load initial URL
+        self.splitter.addWidget(self.web_view) # Web view added first (top)
+
         self.log_area = QTextEdit()
         self.log_area.setReadOnly(True)
-        main_layout.addWidget(self.log_area, 1)
+        self.splitter.addWidget(self.log_area) # Log area added second (bottom)
+
+        # Set initial sizes for splitter panes
+        # You might want to adjust these if the default distribution isn't ideal
+        # For example, to give more space to the web view initially:
+        # self.splitter.setSizes([400, 200]) # web_view height, log_area height
+
+        main_layout.addWidget(self.splitter, 1) # Add splitter with stretch factor
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        # Consider changing the initial status message if announcements are off by default
         self.update_status("Application started. Check 'Announce Alerts' to begin monitoring.")
 
 
@@ -211,7 +239,6 @@ class WeatherAlertApp(QMainWindow):
         """Updates the countdown label every second."""
         if self.remaining_time_seconds > 0:
             self.remaining_time_seconds -= 1
-        # Ensure the label reflects the paused state if the checkbox is off
         if not self.announce_alerts_checkbox.isChecked() and self.remaining_time_seconds <= 0 :
              self.countdown_label.setText("Next check in: --:-- (Paused)")
         else:
@@ -223,21 +250,35 @@ class WeatherAlertApp(QMainWindow):
         self.countdown_timer.stop()
         self.remaining_time_seconds = total_seconds_for_interval
         self.countdown_label.setText(f"Next check in: {self._format_time(self.remaining_time_seconds)}")
-        if total_seconds_for_interval > 0 and self.announce_alerts_checkbox.isChecked(): # Only start if enabled
+        if total_seconds_for_interval > 0 and self.announce_alerts_checkbox.isChecked():
             self.countdown_timer.start(1000)
         elif not self.announce_alerts_checkbox.isChecked():
             self.countdown_label.setText("Next check in: --:-- (Paused)")
 
+    @Slot(int)
+    def _on_show_log_toggled(self, state):
+        """Handles the Show Log checkbox state change."""
+        is_checked = (state == Qt.CheckState.Checked.value)
+        self.log_area.setVisible(is_checked)
+        if is_checked:
+            self.log_to_gui("Log display enabled.", level="DEBUG")
+            # Optional: restore splitter sizes if you manipulated them
+            # current_sizes = self.splitter.sizes()
+            # if current_sizes[0] < 50: # If log area was effectively hidden by size
+            #     self.splitter.setSizes([200, current_sizes[1]]) # Restore a visible size
+        else:
+            self.log_to_gui("Log display disabled.", level="DEBUG")
+            # Optional: if you want to ensure web_view takes all space
+            # self.splitter.setSizes([0, self.splitter.sizes()[1] + self.splitter.sizes()[0]])
 
-    @Slot(int) # state is an integer (0 for Unchecked, 2 for Checked)
+
+    @Slot(int)
     def _on_announce_alerts_toggled(self, state):
-        is_checked = (state == Qt.CheckState.Checked.value) # Qt6 uses .value for enum comparison
+        is_checked = (state == Qt.CheckState.Checked.value)
         if is_checked:
             self.log_to_gui("Alert announcements enabled.", level="INFO")
             self.update_status("Alert announcements enabled. Starting check cycle...")
-            # Reset countdown and start the main check cycle
             self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
-            # Perform a check almost immediately, which will then schedule subsequent checks
             QTimer.singleShot(100, self.perform_check_cycle)
         else:
             self.log_to_gui("Alert announcements disabled.", level="INFO")
@@ -261,7 +302,7 @@ class WeatherAlertApp(QMainWindow):
             f"Check interval changed to: {selected_key} ({self.current_check_interval_ms // 60000} minutes).",
             level="INFO")
 
-        if self.announce_alerts_checkbox.isChecked(): # Only restart timers if announcements are on
+        if self.announce_alerts_checkbox.isChecked():
             self.main_check_timer.stop()
             self.log_to_gui(f"Restarting check cycle due to interval change.", level="DEBUG")
             self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
@@ -278,7 +319,7 @@ class WeatherAlertApp(QMainWindow):
             if log_errors: self.log_to_gui("Station ID is empty. Cannot fetch coordinates.", level="ERROR")
             return None
         station_url = NWS_STATION_API_URL_TEMPLATE.format(station_id=station_id.upper())
-        headers = {'User-Agent': 'PyWeatherAlertGui/1.1 (your.email@example.com)', 'Accept': 'application/geo+json'} # PLEASE CUSTOMIZE User-Agent
+        headers = {'User-Agent': 'PyWeatherAlertGui/1.3 (your.email@example.com)', 'Accept': 'application/geo+json'} # PLEASE CUSTOMIZE
         self.log_to_gui(f"Fetching coordinates for station {station_id} from {station_url}", level="DEBUG")
         try:
             response = requests.get(station_url, headers=headers, timeout=10)
@@ -304,7 +345,7 @@ class WeatherAlertApp(QMainWindow):
                 self.log_to_gui(f"Network error fetching station {station_id}: {req_err}", level="ERROR")
                 self.update_status(f"Error: Network issue getting station data.")
             return None
-        except ValueError:
+        except ValueError: # JSONDecodeError
             if log_errors:
                 self.log_to_gui(f"Invalid JSON response for station {station_id}.", level="ERROR")
                 self.update_status(f"Error: Invalid data from station API.")
@@ -333,7 +374,7 @@ class WeatherAlertApp(QMainWindow):
         """Fetches weather alerts from the provided URL for a specific point."""
         if not url: return []
         self.log_to_gui(f"Fetching alerts from {url}...", level="DEBUG")
-        headers = {'User-Agent': 'PyWeatherAlertGui/1.1 (your.email@example.com)'} # PLEASE CUSTOMIZE User-Agent
+        headers = {'User-Agent': 'PyWeatherAlertGui/1.3 (your.email@example.com)'} # PLEASE CUSTOMIZE
         try:
             response = requests.get(url, headers=headers, timeout=10)
             response.raise_for_status()
@@ -378,7 +419,7 @@ class WeatherAlertApp(QMainWindow):
         self.log_to_gui("Speak & Reset Timer button pressed.", level="INFO")
         self._speak_repeater_info()
 
-        if self.announce_alerts_checkbox.isChecked(): # Only reset alert timer if announcements are on
+        if self.announce_alerts_checkbox.isChecked():
             self.main_check_timer.stop()
             self.log_to_gui(f"Resetting alert announcement timer.", level="DEBUG")
             self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
@@ -392,18 +433,23 @@ class WeatherAlertApp(QMainWindow):
     def perform_check_cycle(self):
         """Performs one cycle of checking alerts and speaking."""
         if not self.announce_alerts_checkbox.isChecked():
-            self.main_check_timer.stop() # Ensure timer is stopped if checkbox got unchecked
+            self.main_check_timer.stop()
             self.countdown_timer.stop()
             self.countdown_label.setText("Next check in: --:-- (Paused)")
             self.log_to_gui("Alert announcements are disabled. Skipping check cycle.", level="DEBUG")
             return
 
-        self.main_check_timer.stop() # Stop timer before processing to avoid overlapping if processing is long
+        self.main_check_timer.stop()
         self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
 
         current_station_id = self.station_id_entry.text().strip()
         self.log_to_gui(f"Starting new check cycle for station: {current_station_id}", level="INFO")
         self.update_status(f"Checking for alerts for {current_station_id}... Last check: {time.strftime('%H:%M:%S')}")
+
+        # Reload the web view at the start of an active check cycle
+        if hasattr(self, 'web_view'): # Check if web_view exists
+            self.log_to_gui(f"Reloading radar view: {RADAR_URL}", level="DEBUG")
+            self.web_view.setUrl(QUrl(RADAR_URL)) # Or self.web_view.reload() if URL is static
 
         current_weather_url = self._get_current_weather_url()
         alerts = []
@@ -421,14 +467,13 @@ class WeatherAlertApp(QMainWindow):
                 if alert.id not in self.seen_alert_ids:
                     new_alerts_found_this_cycle = True
                     self.log_to_gui(f"New Weather Alert: {alert.title}", level="IMPORTANT")
-                    if self.announce_alerts_checkbox.isChecked(): # Double check, though cycle shouldn't run if not
+                    if self.announce_alerts_checkbox.isChecked():
                         self._speak_weather_alert(alert.title, alert.summary)
                     self.seen_alert_ids.add(alert.id)
 
         if not new_alerts_found_this_cycle and current_weather_url:
             self.log_to_gui(f"No new alerts in this cycle. Total unique alerts seen: {len(self.seen_alert_ids)}.", level="INFO")
 
-        # Speak repeater info at the end of the cycle, if announcements are generally on
         if self.announce_alerts_checkbox.isChecked():
             self._speak_repeater_info()
 
@@ -436,7 +481,7 @@ class WeatherAlertApp(QMainWindow):
         self.log_to_gui(f"Waiting for {self.current_check_interval_ms // 1000} seconds before next check.", level="INFO")
 
         if self.current_check_interval_ms > 0 and self.announce_alerts_checkbox.isChecked():
-            self.main_check_timer.start(self.current_check_interval_ms) # Schedule next check
+            self.main_check_timer.start(self.current_check_interval_ms)
 
     def closeEvent(self, event):
         """Handles graceful shutdown when the window is closed."""
