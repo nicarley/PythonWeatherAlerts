@@ -34,7 +34,7 @@ NWS_STATION_API_URL_TEMPLATE = "https://api.weather.gov/stations/{station_id}"
 
 WEATHER_URL_PREFIX = "https://api.weather.gov/alerts/active.atom?point="
 WEATHER_URL_SUFFIX = "&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2CSevere%2CModerate%2CMinor&urgency=Future%2CExpected"
-INITIAL_REPEATER_INFO = "Repeater, W S D R 5 3 8 Salem 550 Repeater"
+INITIAL_REPEATER_INFO = "" #"Repeater, W S D R 5 3 8 Salem 550 Repeater"
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -219,7 +219,7 @@ class WeatherAlertApp(QMainWindow):
 
         station_url = NWS_STATION_API_URL_TEMPLATE.format(station_id=station_id.upper())
         headers = {
-            'User-Agent': 'MyWeatherApp/1.0 (your-email@example.com)', # NWS API recommends a User-Agent
+            'User-Agent': 'PyWeatherAlert/1.0 (nicarley@gmail.com)', # NWS API recommends a User-Agent
             'Accept': 'application/geo+json' # Or application/ld+json
         }
         self.log_to_gui(f"Fetching coordinates for station {station_id} from {station_url}", level="DEBUG")
