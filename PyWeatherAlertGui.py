@@ -1,11 +1,18 @@
+import sys
 import requests
 import feedparser
 import pyttsx3
 import time
 import logging
-import tkinter as tk
-from tkinter import scrolledtext, messagebox, ttk  # ttk is already imported
-from threading import Thread
+# from threading import Thread # Still available if needed for advanced TTS handling
+
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QLabel, QLineEdit, QPushButton, QComboBox, QTextEdit, QMessageBox,
+    QStatusBar
+)
+from PySide6.QtCore import Qt, QTimer, Slot
+from PySide6.QtGui import QTextCursor
 
 # --- Configuration ---
 INITIAL_CHECK_INTERVAL_MS = 900 * 1000  # Default: 15 minutes
@@ -18,11 +25,13 @@ CHECK_INTERVAL_OPTIONS = {
     "30 Minutes": 30 * 60 * 1000,
     "1 Hour": 60 * 60 * 1000,
 }
-DEFAULT_INTERVAL_KEY = "15 Minutes"  # Should match a key in CHECK_INTERVAL_OPTIONS
+DEFAULT_INTERVAL_KEY = "15 Minutes"
 
-# Default values for URL construction and repeater info
-DEFAULT_LATITUDE = "38.6317"
-DEFAULT_LONGITUDE = "-88.9416"
+# Changed from LAT/LON to STATION_ID
+DEFAULT_STATION_ID = "KSLO"  # Example Station ID
+# NWS API endpoint for station details
+NWS_STATION_API_URL_TEMPLATE = "https://api.weather.gov/stations/{station_id}"
+
 WEATHER_URL_PREFIX = "https://api.weather.gov/alerts/active.atom?point="
 WEATHER_URL_SUFFIX = "&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2CSevere%2CModerate%2CMinor&urgency=Future%2CExpected"
 INITIAL_REPEATER_INFO = "Repeater, W S D R 5 3 8 Salem 550 Repeater"
@@ -31,80 +40,26 @@ INITIAL_REPEATER_INFO = "Repeater, W S D R 5 3 8 Salem 550 Repeater"
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-class WeatherAlertApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Weather Alert Monitor")
-        self.root.geometry("700x650")  # Adjusted height for new elements
+class WeatherAlertApp(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Weather Alert Monitor")
+        self.setGeometry(100, 100, 700, 650)
 
         self.seen_alert_ids = set()
         self.tts_engine = self._initialize_tts_engine()
         self.is_tts_dummy = isinstance(self.tts_engine, self._DummyEngine)
 
         self.current_check_interval_ms = CHECK_INTERVAL_OPTIONS.get(DEFAULT_INTERVAL_KEY, INITIAL_CHECK_INTERVAL_MS)
-        self.after_id = None  # For the main check cycle timer
-        self.countdown_after_id = None  # For the countdown display timer
+
+        self.main_check_timer = QTimer(self)
+        self.main_check_timer.timeout.connect(self.perform_check_cycle)
+
+        self.countdown_timer = QTimer(self)
+        self.countdown_timer.timeout.connect(self._update_countdown_display)
         self.remaining_time_seconds = 0
 
-        # --- Configuration Frame ---
-        config_frame = tk.Frame(root, padx=5, pady=5)
-        config_frame.pack(padx=10, pady=(10, 0), fill=tk.X)
-
-        tk.Label(config_frame, text="Repeater Info:").grid(row=0, column=0, padx=(0, 5), pady=2, sticky=tk.W)
-        self.repeater_info_var = tk.StringVar(value=INITIAL_REPEATER_INFO)
-        self.repeater_entry = tk.Entry(config_frame, textvariable=self.repeater_info_var, width=60)
-        self.repeater_entry.grid(row=0, column=1, columnspan=3, padx=5, pady=2, sticky=tk.EW)
-
-        tk.Label(config_frame, text="Latitude:").grid(row=1, column=0, padx=(0, 5), pady=2, sticky=tk.W)
-        self.latitude_var = tk.StringVar(value=DEFAULT_LATITUDE)
-        self.lat_entry = tk.Entry(config_frame, textvariable=self.latitude_var, width=15)
-        self.lat_entry.grid(row=1, column=1, padx=5, pady=2, sticky=tk.W)
-
-        tk.Label(config_frame, text="Longitude:").grid(row=1, column=2, padx=(10, 5), pady=2, sticky=tk.W)
-        self.longitude_var = tk.StringVar(value=DEFAULT_LONGITUDE)
-        self.lon_entry = tk.Entry(config_frame, textvariable=self.longitude_var, width=15)
-        self.lon_entry.grid(row=1, column=3, padx=5, pady=2, sticky=tk.W)
-
-        config_frame.columnconfigure(1, weight=1)
-        config_frame.columnconfigure(3, weight=1)
-
-        # --- Controls Frame ---
-        controls_frame = tk.Frame(root)
-        controls_frame.pack(padx=10, pady=(5, 0), fill=tk.X)
-
-        self.speak_reset_button = tk.Button(
-            controls_frame,
-            text="Speak Repeater Info & Reset Timer",
-            command=self._on_speak_and_reset_button_press
-        )
-        self.speak_reset_button.pack(side=tk.LEFT, pady=5, padx=(0, 10))
-
-        tk.Label(controls_frame, text="Check Interval:").pack(side=tk.LEFT, pady=5, padx=(10, 5))
-        self.interval_var = tk.StringVar(value=DEFAULT_INTERVAL_KEY)
-        self.interval_combobox = ttk.Combobox(
-            controls_frame,
-            textvariable=self.interval_var,
-            values=list(CHECK_INTERVAL_OPTIONS.keys()),
-            state="readonly",
-            width=12
-        )
-        self.interval_combobox.pack(side=tk.LEFT, pady=5)
-        self.interval_combobox.bind("<<ComboboxSelected>>", self._on_interval_selected)
-
-        # --- Countdown Display ---
-        self.countdown_label_var = tk.StringVar(value="Next check in: --:--")
-        countdown_display_label = tk.Label(controls_frame, textvariable=self.countdown_label_var, font=("Arial", 10))
-        countdown_display_label.pack(side=tk.RIGHT, pady=5, padx=10)
-
-        # --- GUI Elements (Log Area & Status Bar) ---
-        self.log_area = scrolledtext.ScrolledText(root, wrap=tk.WORD, height=20, width=80)
-        self.log_area.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
-        self.log_area.configure(state='disabled')
-
-        self.status_var = tk.StringVar()
-        self.status_label = tk.Label(root, textvariable=self.status_var, bd=1, relief=tk.SUNKEN, anchor=tk.W)
-        self.status_label.pack(side=tk.BOTTOM, fill=tk.X)
-        self.update_status("Application started. Waiting for the first check...")
+        self._init_ui() # Initializes UI elements including station_id_entry
 
         if self.is_tts_dummy:
             self.log_to_gui(
@@ -113,21 +68,76 @@ class WeatherAlertApp:
         else:
             self.log_to_gui("TTS engine initialized successfully.", level="INFO")
 
-        initial_url = self._get_current_weather_url(log_errors=False)
+        # Log initial setup using station ID
         self.log_to_gui(
-            f"Monitoring weather alerts. Initial URL will use Lat: {self.latitude_var.get()}, Lon: {self.longitude_var.get()}",
+            f"Monitoring weather alerts for station: {self.station_id_entry.text()}",
             level="INFO")
-        self.log_to_gui(f"Initial repeater line: '{self.repeater_info_var.get()}'", level="INFO")
+        self.log_to_gui(f"Initial repeater line: '{self.repeater_entry.text()}'", level="INFO")
         self.log_to_gui(f"Initial check interval: {self.current_check_interval_ms // 60000} minutes.", level="INFO")
-
-        self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
 
         # Start the first check cycle and the countdown
         self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
-        self.after_id = self.root.after(1000, self.perform_check_cycle)  # Start first check slightly delayed
+        QTimer.singleShot(1000, self.perform_check_cycle)
+
+    def _init_ui(self):
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QVBoxLayout(central_widget)
+
+        # --- Configuration Frame ---
+        config_group = QWidget()
+        config_layout = QGridLayout(config_group)
+
+        config_layout.addWidget(QLabel("Repeater Info:"), 0, 0, Qt.AlignmentFlag.AlignLeft)
+        self.repeater_entry = QLineEdit(INITIAL_REPEATER_INFO)
+        config_layout.addWidget(self.repeater_entry, 0, 1, 1, 3)
+
+        # Changed from Latitude/Longitude to Station ID
+        config_layout.addWidget(QLabel("NWS Station ID:"), 1, 0, Qt.AlignmentFlag.AlignLeft)
+        self.station_id_entry = QLineEdit(DEFAULT_STATION_ID)
+        self.station_id_entry.setFixedWidth(150) # Adjust width as needed
+        config_layout.addWidget(self.station_id_entry, 1, 1, Qt.AlignmentFlag.AlignLeft)
+        # Add a stretch to fill remaining space in the row if desired, or leave as is
+        config_layout.setColumnStretch(2, 1) # Make column 2 (and 3 by extension of repeater_entry) take space
+
+        main_layout.addWidget(config_group)
+
+        # --- Controls Frame (remains largely the same) ---
+        controls_group = QWidget()
+        controls_layout = QHBoxLayout(controls_group)
+        controls_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.speak_reset_button = QPushButton("Speak Repeater Info & Reset Timer")
+        self.speak_reset_button.clicked.connect(self._on_speak_and_reset_button_press)
+        controls_layout.addWidget(self.speak_reset_button)
+
+        controls_layout.addWidget(QLabel("Check Interval:"))
+        self.interval_combobox = QComboBox()
+        self.interval_combobox.addItems(CHECK_INTERVAL_OPTIONS.keys())
+        self.interval_combobox.setCurrentText(DEFAULT_INTERVAL_KEY)
+        self.interval_combobox.currentTextChanged.connect(self._on_interval_selected)
+        controls_layout.addWidget(self.interval_combobox)
+
+        controls_layout.addStretch(1)
+
+        self.countdown_label = QLabel("Next check in: --:--")
+        font = self.countdown_label.font()
+        font.setPointSize(10)
+        self.countdown_label.setFont(font)
+        controls_layout.addWidget(self.countdown_label)
+
+        main_layout.addWidget(controls_group)
+
+        # --- GUI Elements (Log Area & Status Bar) ---
+        self.log_area = QTextEdit()
+        self.log_area.setReadOnly(True)
+        main_layout.addWidget(self.log_area, 1)
+
+        self.status_bar = QStatusBar()
+        self.setStatusBar(self.status_bar)
+        self.update_status("Application started. Waiting for the first check...")
 
     def _initialize_tts_engine(self):
-        """Initializes and returns the TTS engine. Returns a dummy if fails."""
         try:
             engine = pyttsx3.init()
             if engine is None:
@@ -139,157 +149,141 @@ class WeatherAlertApp:
             return self._DummyEngine()
 
     class _DummyEngine:
-        """Fallback TTS engine that logs instead of speaking."""
-
         def say(self, text, name=None): logging.info(f"TTS (Fallback): {text}")
-
         def runAndWait(self): pass
-
         def stop(self): pass
-
         def isBusy(self): return False
-
         def getProperty(self, name): return None
-
         def setProperty(self, name, value): pass
 
     def log_to_gui(self, message, level="INFO"):
-        """Appends a message to the GUI log area (newest at the top) and console log."""
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        formatted_message = f"[{timestamp}] [{level}] {message}\n"
+        formatted_message = f"[{timestamp}] [{level}] {message}"
 
-        self.log_area.configure(state='normal')
-        self.log_area.insert("1.0", formatted_message)
-        self.log_area.see("1.0")
-        self.log_area.configure(state='disabled')
+        cursor = self.log_area.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.Start)
+        self.log_area.setTextCursor(cursor)
+        self.log_area.insertPlainText(formatted_message + "\n")
 
-        if level == "ERROR":
-            logging.error(message)
-        elif level == "WARNING":
-            logging.warning(message)
-        elif level == "DEBUG":
-            logging.debug(message)
-        else:
-            logging.info(message)
+        if level == "ERROR": logging.error(message)
+        elif level == "WARNING": logging.warning(message)
+        elif level == "DEBUG": logging.debug(message)
+        else: logging.info(message)
 
     def update_status(self, message):
-        self.status_var.set(message)
+        self.status_bar.showMessage(message)
 
     def _format_time(self, total_seconds):
-        """Formats total seconds into MM:SS or HH:MM:SS string."""
         if total_seconds < 0: total_seconds = 0
-        minutes, seconds = divmod(total_seconds, 60)
+        minutes, seconds = divmod(int(total_seconds), 60)
         hours, minutes = divmod(minutes, 60)
         if hours > 0:
             return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
         return f"{minutes:02d}:{seconds:02d}"
 
-    def _start_countdown_updater(self):
-        """Updates the countdown label every second."""
-        if self.countdown_after_id:  # Clear previous if any (shouldn't be necessary if managed well)
-            self.root.after_cancel(self.countdown_after_id)
-
+    @Slot()
+    def _update_countdown_display(self):
         if self.remaining_time_seconds > 0:
             self.remaining_time_seconds -= 1
-
-        self.countdown_label_var.set(f"Next check in: {self._format_time(self.remaining_time_seconds)}")
-
-        if self.remaining_time_seconds > 0:  # Continue countdown if time remains
-            self.countdown_after_id = self.root.after(1000, self._start_countdown_updater)
-        # else: countdown will be reset by the next check cycle or manual reset
+        self.countdown_label.setText(f"Next check in: {self._format_time(self.remaining_time_seconds)}")
 
     def _reset_and_start_countdown(self, total_seconds_for_interval):
-        """Resets the countdown timer to the new interval and starts updating the display."""
-        if self.countdown_after_id:
-            self.root.after_cancel(self.countdown_after_id)
-            self.countdown_after_id = None
-
+        self.countdown_timer.stop()
         self.remaining_time_seconds = total_seconds_for_interval
-        self.countdown_label_var.set(
-            f"Next check in: {self._format_time(self.remaining_time_seconds)}")  # Initial display
-        self._start_countdown_updater()  # Start the 1-second tick
+        self.countdown_label.setText(f"Next check in: {self._format_time(self.remaining_time_seconds)}")
+        if total_seconds_for_interval > 0:
+            self.countdown_timer.start(1000)
 
-    def _on_interval_selected(self, event=None):
-        """Handles selection change in the interval Combobox."""
-        selected_key = self.interval_var.get()
+    @Slot(str)
+    def _on_interval_selected(self, selected_key):
         new_interval_ms = CHECK_INTERVAL_OPTIONS.get(selected_key)
-
-        if new_interval_ms is None:
-            self.log_to_gui(f"Invalid interval key selected: {selected_key}. Reverting to default.", level="ERROR")
-            # Optionally revert to a default or the previous valid interval
-            # For now, we'll just log and not change if key is somehow invalid
+        if new_interval_ms is None or new_interval_ms == self.current_check_interval_ms:
             return
-
-        if new_interval_ms == self.current_check_interval_ms:
-            self.log_to_gui(f"Interval '{selected_key}' is already active.", level="DEBUG")
-            return  # No change needed
 
         self.current_check_interval_ms = new_interval_ms
         self.log_to_gui(
             f"Check interval changed to: {selected_key} ({self.current_check_interval_ms // 60000} minutes).",
             level="INFO")
-
-        # Cancel existing main check timer
-        if self.after_id:
-            self.root.after_cancel(self.after_id)
-            self.log_to_gui(f"Cancelled previous main timer (ID: {self.after_id}) due to interval change.",
-                            level="DEBUG")
-            self.after_id = None
-
-        # Reset and start countdown for the new interval
+        self.main_check_timer.stop()
         self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
-
-        # Schedule the perform_check_cycle to run *immediately* to reflect the change,
-        # then it will schedule itself with the new interval.
-        # Or, schedule it after the new interval. Let's schedule it immediately for responsiveness.
-        self.log_to_gui("Performing an immediate check due to interval change.", level="INFO")
-        self.after_id = self.root.after(100, self.perform_check_cycle)  # Small delay to allow GUI to update
-
+        QTimer.singleShot(100, self.perform_check_cycle)
         self.update_status(
             f"Interval set to {selected_key}. Next check in ~{self.current_check_interval_ms // 60000} mins.")
 
+    def _fetch_station_coordinates(self, station_id, log_errors=True):
+        """Fetches coordinates for a given NWS station ID."""
+        if not station_id:
+            if log_errors:
+                self.log_to_gui("Station ID is empty. Cannot fetch coordinates.", level="ERROR")
+            return None
+
+        station_url = NWS_STATION_API_URL_TEMPLATE.format(station_id=station_id.upper())
+        headers = {
+            'User-Agent': 'MyWeatherApp/1.0 (your-email@example.com)', # NWS API recommends a User-Agent
+            'Accept': 'application/geo+json' # Or application/ld+json
+        }
+        self.log_to_gui(f"Fetching coordinates for station {station_id} from {station_url}", level="DEBUG")
+
+        try:
+            response = requests.get(station_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            geometry = data.get('geometry')
+            if geometry and geometry.get('type') == 'Point':
+                coordinates = geometry.get('coordinates')
+                if coordinates and len(coordinates) == 2:
+                    # NWS API returns [longitude, latitude]
+                    longitude, latitude = coordinates[0], coordinates[1]
+                    self.log_to_gui(f"Coordinates for {station_id}: Lat={latitude}, Lon={longitude}", level="INFO")
+                    return latitude, longitude
+            if log_errors:
+                self.log_to_gui(f"Could not parse coordinates from station data for {station_id}.", level="ERROR")
+            return None
+        except requests.exceptions.HTTPError as http_err:
+            if log_errors:
+                self.log_to_gui(f"HTTP error fetching station {station_id}: {http_err}", level="ERROR")
+                if http_err.response.status_code == 404:
+                    self.update_status(f"Error: Station ID '{station_id}' not found.")
+                else:
+                    self.update_status(f"Error: Could not get data for station '{station_id}'.")
+            return None
+        except requests.exceptions.RequestException as req_err:
+            if log_errors:
+                self.log_to_gui(f"Network error fetching station {station_id}: {req_err}", level="ERROR")
+                self.update_status(f"Error: Network issue getting station data.")
+            return None
+        except ValueError: # JSONDecodeError
+            if log_errors:
+                self.log_to_gui(f"Invalid JSON response for station {station_id}.", level="ERROR")
+                self.update_status(f"Error: Invalid data from station API.")
+            return None
+
+
     def _get_current_weather_url(self, log_errors=True):
-        """Constructs the weather alert URL from GUI inputs, with validation."""
-        lat_str = self.latitude_var.get()
-        lon_str = self.longitude_var.get()
-        current_lat, current_lon = None, None
-
-        try:
-            current_lat = float(lat_str)
-            if not (-90 <= current_lat <= 90):
-                if log_errors:
-                    self.log_to_gui(
-                        f"Invalid latitude: {lat_str}. Must be between -90 and 90. Using default: {DEFAULT_LATITUDE}",
-                        level="ERROR")
-                    self.update_status(f"Error: Invalid latitude '{lat_str}'. Using default.")
-                current_lat = float(DEFAULT_LATITUDE)
-        except ValueError:
+        """Constructs the weather alert URL using coordinates from the station ID."""
+        station_id = self.station_id_entry.text().strip()
+        if not station_id:
             if log_errors:
-                self.log_to_gui(f"Latitude '{lat_str}' is not a valid number. Using default: {DEFAULT_LATITUDE}",
-                                level="ERROR")
-                self.update_status(f"Error: Invalid latitude '{lat_str}'. Using default.")
-            current_lat = float(DEFAULT_LATITUDE)
+                self.log_to_gui("Station ID is empty. Cannot construct alert URL.", level="ERROR")
+                self.update_status("Error: Station ID cannot be empty.")
+            return None
 
-        try:
-            current_lon = float(lon_str)
-            if not (-180 <= current_lon <= 180):
-                if log_errors:
-                    self.log_to_gui(
-                        f"Invalid longitude: {lon_str}. Must be between -180 and 180. Using default: {DEFAULT_LONGITUDE}",
-                        level="ERROR")
-                    self.update_status(f"Error: Invalid longitude '{lon_str}'. Using default.")
-                current_lon = float(DEFAULT_LONGITUDE)
-        except ValueError:
+        coordinates = self._fetch_station_coordinates(station_id, log_errors=log_errors)
+        if coordinates:
+            latitude, longitude = coordinates
+            # The NWS alerts API point parameter is latitude,longitude
+            return f"{WEATHER_URL_PREFIX}{latitude}%2C{longitude}{WEATHER_URL_SUFFIX}"
+        else:
             if log_errors:
-                self.log_to_gui(f"Longitude '{lon_str}' is not a valid number. Using default: {DEFAULT_LONGITUDE}",
-                                level="ERROR")
-                self.update_status(f"Error: Invalid longitude '{lon_str}'. Using default.")
-            current_lon = float(DEFAULT_LONGITUDE)
+                self.log_to_gui(f"Failed to get coordinates for station {station_id}. Cannot fetch alerts.", level="ERROR")
+                # self.update_status(f"Error: Could not get coordinates for '{station_id}'.") # Already updated by _fetch_station_coordinates
+            return None
 
-        return f"{WEATHER_URL_PREFIX}{current_lat}%2C{current_lon}{WEATHER_URL_SUFFIX}"
 
     def _get_alerts(self, url):
-        """Fetches weather alerts from the provided URL."""
+        if not url: # If URL construction failed
+            return []
         self.log_to_gui(f"Fetching alerts from {url}...", level="DEBUG")
         try:
             response = requests.get(url, timeout=10)
@@ -309,7 +303,6 @@ class WeatherAlertApp:
         return []
 
     def _speak_message_internal(self, text_to_speak, log_prefix="Spoken"):
-        """Internal method to handle speaking and logging."""
         if not text_to_speak:
             return
         try:
@@ -320,8 +313,7 @@ class WeatherAlertApp:
             self.log_to_gui(f"Error during text-to-speech for '{text_to_speak}': {e}", level="ERROR")
 
     def _speak_weather_alert(self, alert_title, alert_summary):
-        """Constructs and speaks the weather alert message, including current repeater info."""
-        repeater_info = self.repeater_info_var.get()
+        repeater_info = self.repeater_entry.text()
         message = f"Weather Alert: {alert_title}. Details: {alert_summary}"
         if repeater_info:
             if message and not message.endswith(('.', '!', '?')):
@@ -330,97 +322,87 @@ class WeatherAlertApp:
         self._speak_message_internal(message, log_prefix="Spoken Alert")
 
     def _speak_repeater_info(self):
-        """Speaks the repeater information line from the GUI input."""
-        repeater_text = self.repeater_info_var.get()
+        repeater_text = self.repeater_entry.text()
         if repeater_text:
             self._speak_message_internal(repeater_text, log_prefix="Spoken")
 
+    @Slot()
     def _on_speak_and_reset_button_press(self):
-        """Handles the 'Speak Repeater Info & Reset Timer' button press."""
         self.log_to_gui("Speak & Reset Timer button pressed.", level="INFO")
-
         self._speak_repeater_info()
-
-        if self.after_id:
-            self.root.after_cancel(self.after_id)
-            self.log_to_gui(f"Cancelled previous main timer (ID: {self.after_id}).", level="DEBUG")
-            self.after_id = None
-
-        self.log_to_gui(f"Resetting timer. Next check in {self.current_check_interval_ms // 60000} minutes.",
-                        level="INFO")
-
-        # Reset countdown for the current interval
+        self.main_check_timer.stop()
         self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
-
-        # Schedule the next perform_check_cycle using the current interval
-        # Perform check almost immediately after button press for responsiveness
-        self.after_id = self.root.after(100, self.perform_check_cycle)  # Small delay
-
+        QTimer.singleShot(100, self.perform_check_cycle)
         self.update_status(
-            f"Manual speak & reset. Next check in ~{self.current_check_interval_ms // 60000} mins. Last check: {time.strftime('%H:%M:%S')}")
+            f"Manual speak & reset. Next check in ~{self.current_check_interval_ms // 60000} mins.")
 
+    @Slot()
     def perform_check_cycle(self):
-        """Performs one cycle of checking alerts and speaking."""
-        # Reset countdown at the beginning of each cycle
+        self.main_check_timer.stop()
         self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
 
-        current_weather_url = self._get_current_weather_url()
+        current_station_id = self.station_id_entry.text().strip()
+        self.log_to_gui(
+            f"Starting new check cycle for station: {current_station_id}",
+            level="INFO")
+        self.update_status(f"Checking for alerts for {current_station_id}... Last check: {time.strftime('%H:%M:%S')}")
 
-        self.log_to_gui(f"Starting new check cycle for Lat: {self.latitude_var.get()}, Lon: {self.longitude_var.get()}",
-                        level="INFO")
-        self.update_status(f"Checking for alerts... Last check: {time.strftime('%H:%M:%S')}")
+        current_weather_url = self._get_current_weather_url() # This now handles station ID to Coords
+        alerts = []
+        if current_weather_url: # Only proceed if we got a valid URL
+            alerts = self._get_alerts(current_weather_url)
+        else:
+            self.log_to_gui("Skipping alert check as weather URL could not be determined.", level="WARNING")
 
-        alerts = self._get_alerts(current_weather_url)
+
         new_alerts_found_this_cycle = False
-
         if alerts:
             for alert in alerts:
                 if not hasattr(alert, 'id') or not hasattr(alert, 'title') or not hasattr(alert, 'summary'):
                     self.log_to_gui(f"Skipping malformed alert entry: {alert}", level="WARNING")
                     continue
-
                 if alert.id not in self.seen_alert_ids:
                     new_alerts_found_this_cycle = True
                     self.log_to_gui(f"New Weather Alert: {alert.title}", level="IMPORTANT")
                     self._speak_weather_alert(alert.title, alert.summary)
                     self.seen_alert_ids.add(alert.id)
 
-        if not new_alerts_found_this_cycle:
+        if not new_alerts_found_this_cycle and current_weather_url: # Only log "no new alerts" if we actually checked
             self.log_to_gui(f"No new alerts in this cycle. Total unique alerts seen: {len(self.seen_alert_ids)}.",
                             level="INFO")
 
         self._speak_repeater_info()
 
         self.update_status(
-            f"Check complete. Next check in ~{self.current_check_interval_ms // 60000} mins. Last check: {time.strftime('%H:%M:%S')}")
+            f"Check complete. Next check in ~{self.current_check_interval_ms // 60000} mins.")
         self.log_to_gui(f"Waiting for {self.current_check_interval_ms // 1000} seconds before next check.",
                         level="INFO")
 
-        # Schedule the next check using the current interval and store its ID
-        self.after_id = self.root.after(self.current_check_interval_ms, self.perform_check_cycle)
+        if self.current_check_interval_ms > 0:
+            self.main_check_timer.start(self.current_check_interval_ms)
 
-    def _on_closing(self):
-        """Handles graceful shutdown when the window is closed."""
-        if messagebox.askokcancel("Quit", "Do you want to quit Weather Alert Monitor?"):
+    def closeEvent(self, event):
+        reply = QMessageBox.question(self, 'Quit',
+                                     "Do you want to quit Weather Alert Monitor?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                     QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
             self.log_to_gui("Shutting down weather alert monitor...", level="INFO")
-
-            if self.after_id:
-                self.root.after_cancel(self.after_id)
-                self.log_to_gui(f"Cancelled main check timer (ID: {self.after_id}) on exit.", level="DEBUG")
-            if self.countdown_after_id:
-                self.root.after_cancel(self.countdown_after_id)
-                self.log_to_gui(f"Cancelled countdown timer (ID: {self.countdown_after_id}) on exit.", level="DEBUG")
-
+            self.main_check_timer.stop()
+            self.countdown_timer.stop()
             if hasattr(self.tts_engine, 'stop') and not self.is_tts_dummy:
                 try:
                     if self.tts_engine.isBusy():
                         self.tts_engine.stop()
                 except Exception as e:
                     logging.error(f"Error stopping TTS engine: {e}")
-            self.root.destroy()
+            event.accept()
+        else:
+            event.ignore()
 
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = WeatherAlertApp(root)
-    root.mainloop()
+    app = QApplication(sys.argv)
+    main_win = WeatherAlertApp()
+    main_win.show()
+    sys.exit(app.exec())
