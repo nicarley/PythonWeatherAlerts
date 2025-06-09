@@ -1,0 +1,8 @@
+{
+    "repeater_info": "",
+    "station_id": "KSLO",
+    "check_interval_key": "15 Minutes",
+    "zip_code": "62881",
+    "announce_alerts": false,
+    "show_log": false
+}
