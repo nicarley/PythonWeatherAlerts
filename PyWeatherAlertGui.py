@@ -25,7 +25,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 
-versionnumber = "2025.06.24"  # Updated version
+versionnumber = "2025.06.10"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
