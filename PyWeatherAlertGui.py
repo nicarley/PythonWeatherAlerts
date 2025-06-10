@@ -8,7 +8,7 @@ import os
 import json  # For saving/loading settings
 import pgeocode  # For zip code to lat/lon conversion
 # import xml.etree.ElementTree as ET  # No longer needed for DWML
-versionnumber = "2025.06.09"
+versionnumber = "2025.06.10"
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
