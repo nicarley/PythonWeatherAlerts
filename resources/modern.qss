@@ -1,0 +1,112 @@
+/* resources/modern.qss */
+
+QWidget {
+    font-family: "Segoe UI", Arial, sans-serif; /* Or another modern font */
+    font-size: 10pt;
+}
+
+QMainWindow {
+    background-color: #f0f0f0; /* A light gray background */
+}
+
+QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 5px;
+    margin-top: 1ex; /* Space for the title */
+    padding: 10px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 5px;
+    background-color: #f0f0f0;
+    border-radius: 3px;
+}
+
+QLabel {
+    color: #333333;
+}
+
+QLineEdit, QTextEdit, QComboBox {
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 5px;
+    background-color: #ffffff;
+    selection-background-color: #3498db; /* A nice blue for selection */
+    selection-color: #ffffff;
+}
+
+QTextEdit {
+    background-color: #fdfdfd; /* Slightly different for text areas if desired */
+}
+
+QPushButton {
+    background-color: #3498db; /* A modern blue */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    min-width: 80px;
+}
+
+QPushButton:hover {
+    background-color: #2980b9; /* Darker blue on hover */
+}
+
+QPushButton:pressed {
+    background-color: #1f618d; /* Even darker when pressed */
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #cccccc;
+    border-radius: 3px;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #3498db;
+    image: url(:/qt-project.org/styles/commonstyle/images/standardbutton-apply-16.png); /* Example checkmark, might need adjustment or a custom one */
+}
+
+QCheckBox::indicator:unchecked {
+    background-color: #ffffff;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left-width: 1px;
+    border-left-color: #cccccc;
+    border-left-style: solid;
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+QComboBox::down-arrow {
+    image: url(:/qt-project.org/styles/commonstyle/images/arrow-down-16.png); /* Default down arrow */
+}
+
+QStatusBar {
+    background-color: #e0e0e0;
+    color: #555555;
+}
+
+QSplitter::handle {
+    background-color: #cccccc;
+    height: 5px; /* For vertical splitter */
+    width: 5px;  /* For horizontal splitter */
+}
+
+QSplitter::handle:hover {
+    background-color: #bbbbbb;
+}
+
+/* Specific styling for forecast areas if needed */
+#StationHourlyForecastArea, #SevenDayForecastArea {
+    font-size: 9pt;
+    background-color: #f9f9f9;
+}

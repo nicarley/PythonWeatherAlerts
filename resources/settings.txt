@@ -1,8 +1,16 @@
 {
     "repeater_info": "",
-    "station_id": "KSLO",
-    "check_interval_key": "15 Minutes",
-    "zip_code": "62881",
+    "airport_id": "SLO",
+    "check_interval_key": "5 Minutes",
+    "radar_options_dict": {
+        "Apple Maps for Salem, IL": "https://maps.apple.com/search?map=hybrid&center=38.625824165947606%2C-88.95355326337172&span=0.047247173705066814%2C0.08257056924117023",
+        "N.W.S. Radar": "https://radar.weather.gov/",
+        "STL DSS Packet": "https://www.weather.gov/media/lsx/DssPacket.pdf",
+        "Salem,  IL Animated NWS": "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOm51bGwsImNlbnRlciI6Wy04OC44OTEsMzguNjEzXSwibG9jYXRpb24iOm51bGwsInpvb20iOjkuMjQxMDYzNzYxMjU0MTN9LCJhbmltYXRpbmciOnRydWUsImJhc2UiOiJzdGFuZGFyZCIsImFydGNjIjpmYWxzZSwiY291bnR5IjpmYWxzZSwiY3dhIjpmYWxzZSwicmZjIjpmYWxzZSwic3RhdGUiOmZhbHNlLCJtZW51Ijp0cnVlLCJzaG9ydEZ1c2VkT25seSI6ZmFsc2UsIm9wYWNpdHkiOnsiYWxlcnRzIjowLjgsImxvY2FsIjowLjYsImxvY2FsU3RhdGlvbnMiOjAuOCwibmF0aW9uYWwiOjAuNn19",
+        "Windy.com": "https://www.windy.com/",
+        "KSDK 7 Day Forecast": "https://cdn.tegna-media.com/ksdk/weather/7day.jpg"
+    },
+    "radar_url": "https://radar.weather.gov/",
     "announce_alerts": false,
-    "show_log": false
+    "show_log": true
 }
