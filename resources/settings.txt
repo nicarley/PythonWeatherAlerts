@@ -12,9 +12,10 @@
         "STL DSS Packet": "https://www.weather.gov/media/lsx/DssPacket.pdf",
         "Windy.com": "https://www.windy.com/"
     },
-    "radar_url": "https://radar.weather.gov/",
-    "announce_alerts": true,
+    "radar_url": "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOm51bGwsImNlbnRlciI6Wy04OC43NjcsMzguNDY1XSwibG9jYXRpb24iOm51bGwsInpvb20iOjkuODI0NzUwODkzMzE3ODg1fSwiYW5pbWF0aW5nIjpmYWxzZSwiYmFzZSI6InN0YW5kYXJkIiwiYXJ0Y2MiOmZhbHNlLCJjb3VudHkiOmZhbHNlLCJjd2EiOmZhbHNlLCJyZmMiOmZhbHNlLCJzdGF0ZSI6ZmFsc2UsIm1lbnUiOnRydWUsInNob3J0RnVzZWRPbmx5IjpmYWxzZSwib3BhY2l0eSI6eyJhbGVydHMiOjAuOCwibG9jYWwiOjAuNiwibG9jYWxTdGF0aW9ucyI6MC44LCJuYXRpb25hbCI6MC42fX0%3D",
+    "announce_alerts": false,
     "show_log": true,
-    "show_alerts_area": true,
-    "show_forecasts_area": true
+    "show_alerts_area": false,
+    "show_forecasts_area": false,
+    "auto_refresh_content": true
 }
