@@ -8,6 +8,7 @@ import os
 import json  # For saving/loading settings
 import pgeocode  # For zip code to lat/lon conversion
 # import xml.etree.ElementTree as ET  # No longer needed for DWML
+versionnumber = "2025.06.09"
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
@@ -59,7 +60,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 class WeatherAlertApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Weather Alert Monitor")
+        self.setWindowTitle(f"Weather Alert Monitor Version {versionnumber}")
         self.setGeometry(100, 100, 800, 800)  # Adjusted size back
 
         # Initialize default values (will be overridden by _load_settings if successful)
