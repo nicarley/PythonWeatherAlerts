@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QComboBox, QTextEdit, QMessageBox,
     QStatusBar, QCheckBox, QSplitter, QStyleFactory, QGroupBox, QDialog,
     QDialogButtonBox, QFormLayout, QListWidget, QListWidgetItem,
-    QSpacerItem, QSizePolicy, QFileDialog # Added QFileDialog
+    QSpacerItem, QSizePolicy, QFileDialog
 )
 from PySide6.QtCore import Qt, QTimer, Slot, QUrl, QFile, QTextStream
 from PySide6.QtGui import QTextCursor, QIcon, QColor, QDesktopServices
@@ -25,7 +25,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 
-versionnumber = "2025.06.10"  # Updated version yyyy.mm.yy
+versionnumber = "2025.06.10"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -42,6 +42,9 @@ FALLBACK_DEFAULT_RADAR_URL = DEFAULT_RADAR_OPTIONS[FALLBACK_DEFAULT_RADAR_DISPLA
 
 FALLBACK_ANNOUNCE_ALERTS_CHECKED = False
 FALLBACK_SHOW_LOG_CHECKED = False
+FALLBACK_SHOW_ALERTS_AREA_CHECKED = True  # New
+FALLBACK_SHOW_FORECASTS_AREA_CHECKED = True # New
+
 
 CHECK_INTERVAL_OPTIONS = {
     "1 Minute": 1 * 60 * 1000, "5 Minutes": 5 * 60 * 1000,
@@ -59,7 +62,7 @@ RESOURCES_FOLDER_NAME = "resources"
 STYLESHEET_FILE_NAME = "modern.qss"
 ADD_NEW_SOURCE_TEXT = "Add New Source..."
 MANAGE_SOURCES_TEXT = "Manage Sources..."
-ADD_CURRENT_SOURCE_TEXT = "Add Current View as Source..." # New constant
+ADD_CURRENT_SOURCE_TEXT = "Add Current View as Source..."
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -269,6 +272,9 @@ class WeatherAlertApp(QMainWindow):
         self.current_radar_url = FALLBACK_DEFAULT_RADAR_URL
         self.current_announce_alerts_checked = FALLBACK_ANNOUNCE_ALERTS_CHECKED
         self.current_show_log_checked = FALLBACK_SHOW_LOG_CHECKED
+        self.current_show_alerts_area_checked = FALLBACK_SHOW_ALERTS_AREA_CHECKED # New
+        self.current_show_forecasts_area_checked = FALLBACK_SHOW_FORECASTS_AREA_CHECKED # New
+
 
         self._load_settings()
         self._set_window_icon()
@@ -291,6 +297,18 @@ class WeatherAlertApp(QMainWindow):
         self.log_area.setVisible(self.current_show_log_checked)
         self.show_log_checkbox.setChecked(self.current_show_log_checked)
         self.announce_alerts_checkbox.setChecked(self.current_announce_alerts_checked)
+
+        # Set initial visibility for alerts and forecasts areas
+        if hasattr(self, 'alerts_group'):
+            self.alerts_group.setVisible(self.current_show_alerts_area_checked)
+        if hasattr(self, 'combined_forecast_widget'):
+            self.combined_forecast_widget.setVisible(self.current_show_forecasts_area_checked)
+
+        if hasattr(self, 'show_alerts_area_checkbox'):
+            self.show_alerts_area_checkbox.setChecked(self.current_show_alerts_area_checked)
+        if hasattr(self, 'show_forecasts_area_checkbox'):
+            self.show_forecasts_area_checkbox.setChecked(self.current_show_forecasts_area_checked)
+
 
         if self.is_tts_dummy:
             self.log_to_gui("TTS engine failed. Using fallback.", level="ERROR")
@@ -375,6 +393,9 @@ class WeatherAlertApp(QMainWindow):
                 self.current_announce_alerts_checked = settings.get("announce_alerts",
                                                                     FALLBACK_ANNOUNCE_ALERTS_CHECKED)
                 self.current_show_log_checked = settings.get("show_log", FALLBACK_SHOW_LOG_CHECKED)
+                self.current_show_alerts_area_checked = settings.get("show_alerts_area", FALLBACK_SHOW_ALERTS_AREA_CHECKED) # New
+                self.current_show_forecasts_area_checked = settings.get("show_forecasts_area", FALLBACK_SHOW_FORECASTS_AREA_CHECKED) # New
+
                 logging.info(f"Settings loaded from {settings_file}")
                 self._last_valid_radar_text = self._get_display_name_for_url(self.current_radar_url) or \
                                               (list(self.RADAR_OPTIONS.keys())[0] if self.RADAR_OPTIONS else "")
@@ -382,6 +403,8 @@ class WeatherAlertApp(QMainWindow):
                 self.RADAR_OPTIONS = DEFAULT_RADAR_OPTIONS.copy()
                 self.current_radar_url = FALLBACK_DEFAULT_RADAR_URL
                 self._last_valid_radar_text = FALLBACK_DEFAULT_RADAR_DISPLAY_NAME
+                self.current_show_alerts_area_checked = FALLBACK_SHOW_ALERTS_AREA_CHECKED # New
+                self.current_show_forecasts_area_checked = FALLBACK_SHOW_FORECASTS_AREA_CHECKED # New
                 logging.info(f"Settings file not found. Using defaults.")
 
         except (json.JSONDecodeError, IOError, KeyError, IndexError) as e:
@@ -393,6 +416,8 @@ class WeatherAlertApp(QMainWindow):
             self.current_radar_url = FALLBACK_DEFAULT_RADAR_URL
             self.current_announce_alerts_checked = FALLBACK_ANNOUNCE_ALERTS_CHECKED
             self.current_show_log_checked = FALLBACK_SHOW_LOG_CHECKED
+            self.current_show_alerts_area_checked = FALLBACK_SHOW_ALERTS_AREA_CHECKED # New
+            self.current_show_forecasts_area_checked = FALLBACK_SHOW_FORECASTS_AREA_CHECKED # New
             self._last_valid_radar_text = FALLBACK_DEFAULT_RADAR_DISPLAY_NAME
 
     @Slot()
@@ -410,7 +435,9 @@ class WeatherAlertApp(QMainWindow):
             "radar_options_dict": self.RADAR_OPTIONS,
             "radar_url": self.current_radar_url,
             "announce_alerts": self.announce_alerts_checkbox.isChecked(),
-            "show_log": self.show_log_checkbox.isChecked()
+            "show_log": self.show_log_checkbox.isChecked(),
+            "show_alerts_area": self.current_show_alerts_area_checked, # Save new state
+            "show_forecasts_area": self.current_show_forecasts_area_checked # Save new state
         }
         try:
             with open(settings_file, 'w') as f:
@@ -486,18 +513,34 @@ class WeatherAlertApp(QMainWindow):
         controls_layout = QVBoxLayout(controls_group)
         controls_layout.setSpacing(10)
 
-        speak_log_layout = QHBoxLayout()
-        self.speak_reset_button = QPushButton("Speak & Reset")
-        self.speak_reset_button.setToolTip("Speak Repeater Info & Reset Check Timer")
-        self.speak_reset_button.clicked.connect(self._on_speak_and_reset_button_press)
-        speak_log_layout.addWidget(self.speak_reset_button)
-
+        # Visibility Toggles Layout
+        visibility_toggles_layout = QHBoxLayout()
         self.show_log_checkbox = QCheckBox("Show Log")
         self.show_log_checkbox.stateChanged.connect(self._on_show_log_toggled)
         self.show_log_checkbox.stateChanged.connect(self._save_settings)
-        speak_log_layout.addWidget(self.show_log_checkbox)
-        speak_log_layout.addStretch(1)
-        controls_layout.addLayout(speak_log_layout)
+        visibility_toggles_layout.addWidget(self.show_log_checkbox)
+
+        self.show_alerts_area_checkbox = QCheckBox("Show Alerts") # New
+        self.show_alerts_area_checkbox.stateChanged.connect(self._on_show_alerts_area_toggled) # New
+        self.show_alerts_area_checkbox.stateChanged.connect(self._save_settings) # New
+        visibility_toggles_layout.addWidget(self.show_alerts_area_checkbox) # New
+
+        self.show_forecasts_area_checkbox = QCheckBox("Show Forecasts") # New
+        self.show_forecasts_area_checkbox.stateChanged.connect(self._on_show_forecasts_area_toggled) # New
+        self.show_forecasts_area_checkbox.stateChanged.connect(self._save_settings) # New
+        visibility_toggles_layout.addWidget(self.show_forecasts_area_checkbox) # New
+
+        visibility_toggles_layout.addStretch(1)
+        controls_layout.addLayout(visibility_toggles_layout)
+
+        # Speak & Reset Button
+        speak_reset_layout = QHBoxLayout()
+        self.speak_reset_button = QPushButton("Speak & Reset")
+        self.speak_reset_button.setToolTip("Speak Repeater Info & Reset Check Timer")
+        self.speak_reset_button.clicked.connect(self._on_speak_and_reset_button_press)
+        speak_reset_layout.addWidget(self.speak_reset_button)
+        speak_reset_layout.addStretch(1)
+        controls_layout.addLayout(speak_reset_layout)
 
         interval_announce_layout = QHBoxLayout()
         interval_announce_layout.addWidget(QLabel("Check Interval:"))
@@ -539,18 +582,18 @@ class WeatherAlertApp(QMainWindow):
         top_sections_layout.addWidget(controls_group)
         main_layout.addLayout(top_sections_layout)
 
-        alerts_group = QGroupBox("Current Weather Alerts")
-        alerts_layout = QVBoxLayout(alerts_group)
+        self.alerts_group = QGroupBox("Current Weather Alerts") # Made instance variable
+        alerts_layout = QVBoxLayout(self.alerts_group)
         self.alerts_display_area = QTextEdit()
         self.alerts_display_area.setObjectName("AlertsDisplayArea")
         self.alerts_display_area.setReadOnly(True)
         self.alerts_display_area.setMinimumHeight(60)
         self.alerts_display_area.setMaximumHeight(100)
         alerts_layout.addWidget(self.alerts_display_area)
-        main_layout.addWidget(alerts_group)
+        main_layout.addWidget(self.alerts_group)
 
-        combined_forecast_widget = QGroupBox("Station Forecasts")
-        combined_forecast_layout = QHBoxLayout(combined_forecast_widget)
+        self.combined_forecast_widget = QGroupBox("Station Forecasts") # Made instance variable
+        combined_forecast_layout = QHBoxLayout(self.combined_forecast_widget)
         combined_forecast_layout.setSpacing(10)
         station_hourly_forecast_group = QWidget()
         station_hourly_forecast_layout = QVBoxLayout(station_hourly_forecast_group)
@@ -572,7 +615,7 @@ class WeatherAlertApp(QMainWindow):
         self.daily_forecast_display_area.setMaximumHeight(130)
         station_daily_forecast_layout.addWidget(self.daily_forecast_display_area)
         combined_forecast_layout.addWidget(station_daily_forecast_group, 1)
-        main_layout.addWidget(combined_forecast_widget)
+        main_layout.addWidget(self.combined_forecast_widget)
 
         self.splitter = QSplitter(Qt.Orientation.Vertical)
         if QWebEngineView:
@@ -619,6 +662,16 @@ class WeatherAlertApp(QMainWindow):
         self.announce_alerts_checkbox.setChecked(self.current_announce_alerts_checked)
         self.show_log_checkbox.setChecked(self.current_show_log_checked)
         self.log_area.setVisible(self.current_show_log_checked)
+
+        # Apply new checkbox states and visibility
+        self.show_alerts_area_checkbox.setChecked(self.current_show_alerts_area_checked)
+        if hasattr(self, 'alerts_group'):
+            self.alerts_group.setVisible(self.current_show_alerts_area_checked)
+
+        self.show_forecasts_area_checkbox.setChecked(self.current_show_forecasts_area_checked)
+        if hasattr(self, 'combined_forecast_widget'):
+            self.combined_forecast_widget.setVisible(self.current_show_forecasts_area_checked)
+
 
         self._on_announce_alerts_toggled(self.announce_alerts_checkbox.checkState().value)
         self._reload_radar_view()
@@ -675,14 +728,14 @@ class WeatherAlertApp(QMainWindow):
         text_to_restore = self._last_valid_radar_text
         if self.radar_url_combobox.count() > 0:
             current_cb_text = self.radar_url_combobox.currentText()
-            if current_cb_text and current_cb_text not in [ADD_NEW_SOURCE_TEXT, MANAGE_SOURCES_TEXT, ADD_CURRENT_SOURCE_TEXT]: # Added ADD_CURRENT_SOURCE_TEXT
+            if current_cb_text and current_cb_text not in [ADD_NEW_SOURCE_TEXT, MANAGE_SOURCES_TEXT, ADD_CURRENT_SOURCE_TEXT]:
                 text_to_restore = current_cb_text
 
         self.radar_url_combobox.clear()
         for name in self.RADAR_OPTIONS.keys():
             self.radar_url_combobox.addItem(name)
         self.radar_url_combobox.addItem(ADD_NEW_SOURCE_TEXT)
-        self.radar_url_combobox.addItem(ADD_CURRENT_SOURCE_TEXT) # New Item
+        self.radar_url_combobox.addItem(ADD_CURRENT_SOURCE_TEXT)
         self.radar_url_combobox.addItem(MANAGE_SOURCES_TEXT)
 
 
@@ -691,9 +744,12 @@ class WeatherAlertApp(QMainWindow):
         elif self.RADAR_OPTIONS:
             self.radar_url_combobox.setCurrentIndex(0)
             self._last_valid_radar_text = self.radar_url_combobox.currentText()
-        else:
-            self.radar_url_combobox.setCurrentIndex(-1)
-            self._last_valid_radar_text = ""
+        else: # No actual sources, only special items might be left
+            if self.radar_url_combobox.count() > 0:
+                self.radar_url_combobox.setCurrentIndex(0) # Select the first special item
+                self._last_valid_radar_text = self.radar_url_combobox.itemText(0)
+            else:
+                self._last_valid_radar_text = ""
         self.radar_url_combobox.blockSignals(False)
 
     def _get_display_name_for_url(self, url_to_find):
@@ -711,7 +767,7 @@ class WeatherAlertApp(QMainWindow):
             return
 
         self.log_to_gui(f"Web Source URL changed in WebView to: {new_url_str}", level="DEBUG")
-        self.current_radar_url = new_url_str # This is important for "Add Current Source"
+        self.current_radar_url = new_url_str
         display_name_for_new_url = self._get_display_name_for_url(new_url_str)
         if display_name_for_new_url:
             if self.radar_url_combobox.currentText() != display_name_for_new_url:
@@ -745,18 +801,17 @@ class WeatherAlertApp(QMainWindow):
                 self.radar_url_combobox.setCurrentText(self._last_valid_radar_text)
 
         elif selected_display_name == ADD_CURRENT_SOURCE_TEXT:
-            current_url_in_view = self.current_radar_url # This should be up-to-date
+            current_url_in_view = self.current_radar_url
             if not current_url_in_view or current_url_in_view == "about:blank":
                 QMessageBox.warning(self, "No Current URL", "No valid URL is currently loaded in the web view.")
                 self.radar_url_combobox.setCurrentText(self._last_valid_radar_text)
                 return
 
-            # Check if this URL is already saved
             existing_name = self._get_display_name_for_url(current_url_in_view)
             if existing_name:
                 QMessageBox.information(self, "URL Already Saved",
                                         f"This URL ({current_url_in_view}) is already saved as '{existing_name}'.")
-                self.radar_url_combobox.setCurrentText(existing_name) # Select the existing one
+                self.radar_url_combobox.setCurrentText(existing_name)
                 return
 
             name_dialog = GetNameDialog(self, url_to_save=current_url_in_view)
@@ -769,7 +824,7 @@ class WeatherAlertApp(QMainWindow):
                         return
                     self.RADAR_OPTIONS[name] = current_url_in_view
                     self._update_radar_combobox_items()
-                    self.radar_url_combobox.setCurrentText(name) # This will trigger the 'else' block
+                    self.radar_url_combobox.setCurrentText(name)
                 else:
                     QMessageBox.warning(self, "Invalid Input", "A name is required to save the current source.")
                     self.radar_url_combobox.setCurrentText(self._last_valid_radar_text)
@@ -781,33 +836,32 @@ class WeatherAlertApp(QMainWindow):
             dialog = ManageSourcesDialog(self.RADAR_OPTIONS.copy(), self)
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 updated_sources = dialog.get_sources()
-                if updated_sources != self.RADAR_OPTIONS:
-                    self.RADAR_OPTIONS = updated_sources
-                    self._update_radar_combobox_items()
-                    if self.current_radar_url not in self.RADAR_OPTIONS.values():
-                        self.log_to_gui("Current web source was modified/deleted. Selecting first available.",
-                                        level="INFO")
-                        if self.RADAR_OPTIONS:
-                            first_name = list(self.RADAR_OPTIONS.keys())[0]
-                            self.radar_url_combobox.setCurrentText(first_name)
-                        else:
-                            self.current_radar_url = ""
-                            if hasattr(self, 'web_view') and QWebEngineView and isinstance(self.web_view,
-                                                                                           QWebEngineView):
-                                self.web_view.setUrl(QUrl("about:blank"))
-                            self._last_valid_radar_text = ""
-                            self.log_to_gui("All web sources deleted.", level="WARNING")
-                    else:
-                        current_name = self._get_display_name_for_url(self.current_radar_url)
-                        if current_name and self.radar_url_combobox.currentText() != current_name:
-                            self.radar_url_combobox.blockSignals(True)
-                            self.radar_url_combobox.setCurrentText(current_name)
-                            self.radar_url_combobox.blockSignals(False)
-                            self._last_valid_radar_text = current_name
-                    self._save_settings()
+                # Always update if OK was pressed, as order is significant
+                self.RADAR_OPTIONS = updated_sources
+                self._update_radar_combobox_items()
+
+                current_display_name_for_url = self._get_display_name_for_url(self.current_radar_url)
+
+                if current_display_name_for_url and current_display_name_for_url in self.RADAR_OPTIONS:
+                    if self.radar_url_combobox.currentText() != current_display_name_for_url:
+                        self.radar_url_combobox.setCurrentText(current_display_name_for_url)
+                elif self.RADAR_OPTIONS:
+                    self.log_to_gui("Previously selected web source no longer exists or URL changed. Selecting first available.", level="INFO")
+                    first_name = list(self.RADAR_OPTIONS.keys())[0]
+                    self.radar_url_combobox.setCurrentText(first_name)
                 else:
-                    self.log_to_gui("No changes made to web sources.", level="DEBUG")
-            self.radar_url_combobox.setCurrentText(self._last_valid_radar_text)
+                    self.log_to_gui("All web sources deleted.", level="WARNING")
+                    self.current_radar_url = ""
+                    if hasattr(self, 'web_view') and QWebEngineView and isinstance(self.web_view, QWebEngineView):
+                        self.web_view.setUrl(QUrl("about:blank"))
+                    self._last_valid_radar_text = ""
+                self._save_settings()
+            else: # Dialog was cancelled
+                self.log_to_gui("Manage sources dialog cancelled.", level="DEBUG")
+                if self._last_valid_radar_text in self.RADAR_OPTIONS:
+                     self.radar_url_combobox.setCurrentText(self._last_valid_radar_text)
+                elif self.RADAR_OPTIONS:
+                     self.radar_url_combobox.setCurrentText(list(self.RADAR_OPTIONS.keys())[0])
 
         else:  # Regular source selected
             self._last_valid_radar_text = selected_display_name
@@ -922,6 +976,23 @@ class WeatherAlertApp(QMainWindow):
         is_checked = (state == Qt.CheckState.Checked.value)
         self.log_area.setVisible(is_checked)
         self.log_to_gui(f"Log display {'en' if is_checked else 'dis'}abled.", level="DEBUG")
+
+    @Slot(int)
+    def _on_show_alerts_area_toggled(self, state):
+        is_checked = (state == Qt.CheckState.Checked.value)
+        if hasattr(self, 'alerts_group'):
+            self.alerts_group.setVisible(is_checked)
+        self.current_show_alerts_area_checked = is_checked
+        self.log_to_gui(f"Current Weather Alerts display {'en' if is_checked else 'dis'}abled.", level="DEBUG")
+
+    @Slot(int)
+    def _on_show_forecasts_area_toggled(self, state):
+        is_checked = (state == Qt.CheckState.Checked.value)
+        if hasattr(self, 'combined_forecast_widget'):
+            self.combined_forecast_widget.setVisible(is_checked)
+        self.current_show_forecasts_area_checked = is_checked
+        self.log_to_gui(f"Station Forecasts display {'en' if is_checked else 'dis'}abled.", level="DEBUG")
+
 
     @Slot(int)
     def _on_announce_alerts_toggled(self, state):
