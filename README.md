@@ -47,10 +47,21 @@ PyWeatherAlertGui is a Python desktop application built with PySide6 that monito
 -   **pyttsx3**: For text-to-speech functionality.
 You can typically install these Python libraries using pip.
 
-## Setup and Usage
+## Usage
 
-**Run the Script**:
-Configuration:•Repeater Announcement: Enter any text you want announced after weather alerts or during manual "Speak & Reset".•Airport ID: Enter the 3-letter IATA airport code (e.g., SLO, LAX, JFK). The application will automatically prefix it with "K" for NWS lookups. An "Airport ID Lookup" link is provided.•Web Source: Select a web source from the dropdown.•Add New Source...: Opens a dialog to add a custom web page or PDF URL with a display name.•Add Current View as Source...: If you've navigated to a URL in the web view, this option lets you save it with a custom name.•Manage Sources...: Opens a dialog to edit, delete, and reorder existing web sources.•Check Interval: Choose how frequently the application should check for alerts and refresh content.4.Controls:•Show Log / Show Alerts / Show Forecasts: Checkboxes to toggle the visibility of these UI panels.•Speak & Reset: Manually triggers the repeater announcement (if "Announce Alerts" is on) and resets the check timer.•Announce Alerts & Start Timer: Enables audio announcements for new alerts and the repeater message. Starts the periodic check cycle.•Auto-Refresh Content: Enables periodic refresh of the web view and station forecasts according to the check interval, even if "Announce Alerts" is off.•Backup/Restore Settings: Allows saving the current settings.txt to a custom location or restoring settings from a backup file.
+* Configuration:
+  * Repeater Announcement: Enter any text you want announced after weather alerts or during manual "Speak & Reset".
+  * Airport ID: Enter the 3-letter IATA airport code (e.g., SLO, LAX, JFK). The application will automatically prefix it with "K" for NWS lookups. An "Airport ID Lookup" link is provided.
+  * Web Source: Select a web source from the dropdown.
+  * Add New Source...: Opens a dialog to add a custom web page or PDF URL with a display name.
+  * Add Current View as Source...: If you've navigated to a URL in the web view, this option lets you save it with a custom name.
+  * Manage Sources...: Opens a dialog to edit, delete, and reorder existing web sources.
+  * Check Interval: Choose how frequently the application should check for alerts and refresh content.
+* Controls:
+  * Show Log / Show Alerts / Show Forecasts: Checkboxes to toggle the visibility of these UI panels.
+  * Speak & Reset: Manually triggers the repeater announcement (if "Announce Alerts" is on) and resets the check timer.
+  * Announce Alerts & Start Timer: Enables audio announcements for new alerts and the repeater message. Starts the periodic check cycle.
+  * Auto-Refresh Content: Enables periodic refresh of the web view and station forecasts according to the check interval, even if "Announce Alerts" is off.•Backup/Restore Settings: Allows saving the current settings.txt to a custom location or restoring settings from a backup file.
 
 ## Overall Application Structure
 The application is built using the PySide6 library, a Python binding for the Qt framework, which is used for creating graphical user interfaces.
@@ -125,6 +136,6 @@ WeatherAlertApp Methods:
 * _speak_* methods: Handle text-to-speech output.
 * if __name__ == "__main__": block:
 * Initializes the QApplication.
-* Handles platform-specific styling (attempting a native macOS look).
+* Handles platform-specific styling 
 * Conditionally loads the custom QSS file.
 * Creates and shows the main application window.

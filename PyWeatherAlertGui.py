@@ -25,7 +25,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 
-versionnumber = "2025.06.11"
+versionnumber = "2025.06.28" # Updated version
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -582,9 +582,7 @@ class WeatherAlertApp(QMainWindow):
         countdown_layout = QHBoxLayout()
         countdown_layout.addStretch(1)
         self.countdown_label = QLabel("Next check in: --:--")
-        font = self.countdown_label.font()
-        font.setPointSize(10)
-        self.countdown_label.setFont(font)
+        # Removed explicit font setting for countdown_label to rely on QSS or defaults
         countdown_layout.addWidget(self.countdown_label)
         controls_layout.addLayout(countdown_layout)
 
@@ -602,7 +600,7 @@ class WeatherAlertApp(QMainWindow):
         self.alerts_display_area.setReadOnly(True)
         self.alerts_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         alerts_layout.addWidget(self.alerts_display_area)
-        alerts_forecasts_layout.addWidget(self.alerts_group, 1) # Stretch factor 1
+        alerts_forecasts_layout.addWidget(self.alerts_group, 1)
 
         self.combined_forecast_widget = QGroupBox("Station Forecasts")
         combined_forecast_layout = QHBoxLayout(self.combined_forecast_widget)
@@ -629,7 +627,7 @@ class WeatherAlertApp(QMainWindow):
         station_daily_forecast_layout.addWidget(self.daily_forecast_display_area)
         combined_forecast_layout.addWidget(station_daily_forecast_group, 1)
 
-        alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2) # Stretch factor 2 for forecasts part
+        alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2)
 
         main_layout.addLayout(alerts_forecasts_layout)
 
