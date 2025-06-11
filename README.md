@@ -43,10 +43,10 @@ There is a graphical user interface, and a simple python script that allows you 
 ## Requirements
 
 -   **Python 3.x**
+  - (You can typically install these Python libraries using pip)/
 -   **PySide6**: For the graphical user interface.
     -   `PySide6.QtWebEngineWidgets` is required for the embedded web view. If not found, the web view will be disabled.
 -   **requests**: For making HTTP requests to weather APIs.
 -   **feedparser**: For parsing Atom feeds from the NWS alerts.
 -   **pyttsx3**: For text-to-speech functionality.
 
-You can typically install these Python libraries using pip:
