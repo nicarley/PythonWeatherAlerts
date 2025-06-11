@@ -7,6 +7,7 @@
         "Broadcastify.com: Salem Fire and Surrounding Fire, Police & EMS": "https://www.broadcastify.com/webPlayer/33915",
         "IMEA Local Resources": "https://iemaohs.illinois.gov/localema.html",
         "KSDK 7 Day Forecast": "https://cdn.tegna-media.com/ksdk/weather/7day.jpg",
+        "MyGMRS Map": "https://mygmrs.com/map",
         "N.W.S. Radar": "https://radar.weather.gov/",
         "NWS - Salem,  IL Animated": "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOm51bGwsImNlbnRlciI6Wy04OC44OTEsMzguNjEzXSwibG9jYXRpb24iOm51bGwsInpvb20iOjkuMjQxMDYzNzYxMjU0MTN9LCJhbmltYXRpbmciOnRydWUsImJhc2UiOiJzdGFuZGFyZCIsImFydGNjIjpmYWxzZSwiY291bnR5IjpmYWxzZSwiY3dhIjpmYWxzZSwicmZjIjpmYWxzZSwic3RhdGUiOmZhbHNlLCJtZW51Ijp0cnVlLCJzaG9ydEZ1c2VkT25seSI6ZmFsc2UsIm9wYWNpdHkiOnsiYWxlcnRzIjowLjgsImxvY2FsIjowLjYsImxvY2FsU3RhdGlvbnMiOjAuOCwibmF0aW9uYWwiOjAuNn19",
         "Outlook Web Access": "https://outlook.office.com/mail/",
@@ -16,7 +17,7 @@
         "Windy.com Radar+ Hourly for Salem, IL": "https://www.windy.com/38.627/-88.946?radarPlus,38.627,-88.946,8",
         "Weather Alert Monitor: GitHub.com": "https://github.com/nicarley/PythonWeatherAlerts"
     },
-    "radar_url": "https://radar.weather.gov/",
+    "radar_url": "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOm51bGwsImNlbnRlciI6Wy04OC44OTEsMzguNjEzXSwibG9jYXRpb24iOm51bGwsInpvb20iOjkuMjQxMDYzNzYxMjU0MTN9LCJhbmltYXRpbmciOnRydWUsImJhc2UiOiJzdGFuZGFyZCIsImFydGNjIjpmYWxzZSwiY291bnR5IjpmYWxzZSwiY3dhIjpmYWxzZSwicmZjIjpmYWxzZSwic3RhdGUiOmZhbHNlLCJtZW51Ijp0cnVlLCJzaG9ydEZ1c2VkT25seSI6ZmFsc2UsIm9wYWNpdHkiOnsiYWxlcnRzIjowLjgsImxvY2FsIjowLjYsImxvY2FsU3RhdGlvbnMiOjAuOCwibmF0aW9uYWwiOjAuNn19",
     "announce_alerts": false,
     "show_log": false,
     "show_alerts_area": true,
