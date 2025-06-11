@@ -1,0 +1,204 @@
+/* resources/dark_modern.qss - Dark Theme */
+
+QWidget {
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+    font-size: 10pt;
+    color: #e0e0e0; /* Light text for dark backgrounds */
+}
+
+QMainWindow {
+    background-color: #2c3e50; /* Dark blue-gray background */
+}
+
+QGroupBox {
+    background-color: #34495e; /* Slightly lighter dark blue-gray */
+    border: 1px solid #4a6fa5; /* Lighter border for contrast */
+    border-radius: 5px;
+    margin-top: 1ex;
+    padding: 5px;
+    color: #ecf0f1; /* Light title text */
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 5px;
+    background-color: #2c3e50; /* Match main window background */
+    border-radius: 3px;
+    color: #ecf0f1; /* Light title text */
+}
+
+QLabel {
+    color: #ecf0f1; /* Light text for labels */
+}
+
+QLineEdit, QTextEdit, QComboBox {
+    border: 1px solid #4a6fa5; /* Lighter border */
+    border-radius: 4px;
+    padding: 5px;
+    background-color: #222f3e; /* Darker input background */
+    color: #ecf0f1; /* Light text in inputs */
+    selection-background-color: #3498db; /* Blue selection, still works well */
+    selection-color: #ffffff;
+}
+
+QTextEdit {
+    background-color: #1c2833; /* Even darker for text areas */
+}
+
+QPushButton {
+    background-color: #3498db; /* Blue buttons can still work */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    min-width: 80px;
+}
+
+QPushButton:hover {
+    background-color: #2980b9;
+}
+
+QPushButton:pressed {
+    background-color: #1f618d;
+}
+
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #4a6fa5; /* Lighter border */
+    border-radius: 3px;
+    background-color: #222f3e; /* Dark background for unchecked */
+}
+
+QCheckBox::indicator:checked {
+    background-color: #3498db; /* Blue checkmark background */
+    /* Consider a light-colored checkmark image for dark mode if using a custom image */
+    /* image: url(resources/checkmark-light.png); */
+    image: url(:/qt-project.org/styles/commonstyle/images/standardbutton-apply-16.png); /* This might need to be a white/light checkmark */
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left-width: 1px;
+    border-left-color: #4a6fa5; /* Lighter border */
+    border-left-style: solid;
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+    background-color: #222f3e; /* Dark dropdown background */
+}
+
+QComboBox::down-arrow {
+    /* You'll likely need a light-colored arrow image for dark mode */
+    /* image: url(resources/arrow-down-light.png); */ /* Example for a custom light arrow */
+    image: url(:/qt-project.org/styles/commonstyle/images/arrow-down-16.png); /* This default might be dark */
+    subcontrol-origin: padding;
+    subcontrol-position: center;
+    border: none;
+    border-radius: 0px;
+    width: 16px;
+    height: 16px;
+}
+
+/* Ensure QComboBox text is light */
+QComboBox {
+    color: #ecf0f1;
+}
+
+/* Ensure QComboBox items in the popup list are styled for dark mode */
+QComboBox QAbstractItemView {
+    background-color: #222f3e; /* Dark background for the popup list */
+    border: 1px solid #4a6fa5;
+    selection-background-color: #3498db; /* Blue for selected item */
+    color: #ecf0f1; /* Light text for items */
+}
+
+QMenu {
+    background-color: #2c3e50; /* Dark background for the menu popup */
+    border: 1px solid #4a6fa5; /* Lighter border for contrast */
+    padding: 2px;
+    color: #ecf0f1; /* Default text color for the menu itself */
+}
+
+QMenu::item {
+    padding: 4px 20px 4px 20px;
+    color: #ecf0f1; /* Light text color for menu items in dark mode */
+    background-color: transparent;
+}
+
+QMenu::item:selected {
+    background-color: #3498db; /* Blue background for selected/hovered item */
+    color: #ffffff; /* White text for selected/hovered item */
+}
+
+QMenu::separator {
+    height: 1px;
+    background: #4a6fa5; /* Lighter separator color for dark mode */
+    margin-left: 10px;
+    margin-right: 5px;
+}
+
+QStatusBar {
+    background-color: #1c2833; /* Dark status bar */
+    color: #bdc3c7; /* Lighter gray text */
+}
+
+QSplitter::handle {
+    background-color: #4a6fa5; /* Lighter handle color */
+    height: 5px;
+    width: 5px;
+}
+
+QSplitter::handle:hover {
+    background-color: #5c7ca5;
+}
+
+#StationHourlyForecastArea, #DailyForecastArea, #AlertsDisplayArea {
+    font-size: 9pt;
+    background-color: #1c2833; /* Match QTextEdit dark background */
+    color: #ecf0f1; /* Light text */
+    border: 1px solid #4a6fa5; /* Consistent border */
+}
+
+/* Styling for Dialogs in Dark Mode */
+QDialog {
+    background-color: #2c3e50; /* Dark background for dialogs */
+    color: #ecf0f1; /* Light text for dialogs */
+}
+
+/* Ensure specific dialog widgets also use dark theme colors if not inherited properly */
+QDialog QLabel {
+    color: #ecf0f1;
+}
+
+QDialog QLineEdit, QDialog QComboBox {
+    background-color: #222f3e;
+    color: #ecf0f1;
+    border: 1px solid #4a6fa5;
+}
+
+QDialog QPushButton {
+    background-color: #3498db; /* Or a different button color for dark mode dialogs */
+    color: white;
+    border: none; /* Assuming buttons in dialogs should also be flat */
+}
+
+QDialog QPushButton:hover {
+    background-color: #2980b9;
+}
+
+QDialog QPushButton:pressed {
+    background-color: #1f618d;
+}
+
+QDialog QCheckBox::indicator {
+    border: 1px solid #4a6fa5;
+    background-color: #222f3e;
+}
+
+QDialog QCheckBox::indicator:checked {
+    background-color: #3498db;
+    /* image: url(resources/checkmark-light.png); */ /* if needed */
+}

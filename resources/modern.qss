@@ -1,9 +1,10 @@
-/* resources/modern.qss - Revised */
+/* resources/modern.qss - Light Theme */
 
 QWidget {
     /* Using a font stack for better cross-platform compatibility */
     font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
     font-size: 10pt;
+    color: black; /* Default text color for most widgets */
 }
 
 QMainWindow {
@@ -24,8 +25,7 @@ QGroupBox::title {
     padding: 0 5px;
     background-color: #f0f0f0;
     border-radius: 3px;
-    /* Ensure title text color is readable */
-    color: #333333;
+    color: #333333; /* Ensure title text color is readable */
 }
 
 QLabel {
@@ -83,51 +83,58 @@ QCheckBox::indicator:checked {
     image: url(:/qt-project.org/styles/commonstyle/images/standardbutton-apply-16.png);
 }
 
-/*
- * Styling for the QComboBox dropdown area and the arrow icon.
- * The 'drop-down' subcontrol is the clickable area on the right.
- * The 'down-arrow' subcontrol is the icon displayed within the 'drop-down' area.
- */
 QComboBox::drop-down {
     subcontrol-origin: padding;
-    subcontrol-position: top right; /* Position the dropdown area to the top right */
-    width: 20px; /* Make the dropdown area wide enough for the arrow */
-
-    /* Style the border on the left side of the dropdown area */
+    subcontrol-position: top right;
+    width: 20px;
     border-left-width: 1px;
     border-left-color: #cccccc;
     border-left-style: solid;
-
-    /* Apply border radius to the right corners of the dropdown area */
     border-top-right-radius: 3px;
     border-bottom-right-radius: 3px;
-
-    /* Ensure the background is not transparent if you want a solid look */
-    background-color: #ffffff; /* Match combobox background */
+    background-color: #ffffff;
 }
 
 QComboBox::down-arrow {
-    /*
-     * IMPORTANT: The path below uses Qt's built-in resources.
-     * This might not work reliably on all systems or PySide6 installations.
-     * If the arrow doesn't appear, you may need to:
-     * 1. Find a reliable path to an arrow image provided by your Qt/PySide6 installation, OR
-     * 2. Place your own arrow image (e.g., arrow-down.png) in the 'resources' folder
-     *    and use a relative path like: image: url(arrow-down.png);
-     */
     image: url(:/qt-project.org/styles/commonstyle/images/arrow-down-16.png);
-
-    /* Center the arrow within the dropdown area */
     subcontrol-origin: padding;
-    subcontrol-position: center; /* Center the arrow icon */
-
-    /* Remove any conflicting border/radius inherited or previously set */
+    subcontrol-position: center;
     border: none;
     border-radius: 0px;
-    width: 16px; /* Set the size of the arrow icon */
+    width: 16px;
     height: 16px;
 }
 
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    selection-background-color: #3498db;
+    color: #333333; /* Ensure text color is set for combobox items */
+}
+
+QMenu {
+    background-color: #ffffff; /* Light background for the menu popup */
+    border: 1px solid #cccccc; /* Optional: border for the menu popup */
+    padding: 2px; /* Optional: padding around menu items */
+}
+
+QMenu::item {
+    padding: 4px 20px 4px 20px; /* Top, Right, Bottom, Left padding for items */
+    color: #333333; /* Dark text color for menu items in light mode */
+    background-color: transparent; /* Ensure item background is transparent by default */
+}
+
+QMenu::item:selected { /* Style for when a menu item is hovered or selected */
+    background-color: #3498db; /* Blue background for selected/hovered item */
+    color: #ffffff; /* White text for selected/hovered item */
+}
+
+QMenu::separator {
+    height: 1px;
+    background: #cccccc;
+    margin-left: 10px;
+    margin-right: 5px;
+}
 
 QStatusBar {
     background-color: #e0e0e0;
@@ -145,8 +152,19 @@ QSplitter::handle:hover {
 }
 
 /* Specific styling for forecast areas if needed */
-/* Removed specific background color to match QLineEdit/QTextEdit default */
-#StationHourlyForecastArea, #DailyForecastArea { /* Corrected ID for daily forecast */
+#StationHourlyForecastArea, #DailyForecastArea, #AlertsDisplayArea {
     font-size: 9pt;
-    /* background-color: #f9f9f9; */
+    /* background-color: #f9f9f9; */ /* Inherits from QTextEdit */
+}
+
+/* Styling for Dialogs in Light Mode */
+QDialog {
+    background-color: #f0f0f0; /* Match QMainWindow background or a specific dialog light color */
+    color: #333333; /* Default text color for dialogs */
+}
+
+QDialog QLabel, QDialog QLineEdit, QDialog QPushButton, QDialog QComboBox, QDialog QCheckBox {
+    /* These will inherit from global styles or can be overridden here if needed */
+    /* For example, to ensure dialog buttons have the same style: */
+    /* QDialog QPushButton { background-color: #3498db; color: white; } */
 }

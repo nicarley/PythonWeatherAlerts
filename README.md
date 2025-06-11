@@ -57,9 +57,11 @@ You can typically install these Python libraries using pip.
   * Check Interval: Choose how frequently the application should check for alerts and refresh content.
 * Controls:
   * Show Log / Show Alerts / Show Forecasts: Checkboxes to toggle the visibility of these UI panels.
+  * Enable Dark mode:  changes the theme of the application from light to dark.
   * Speak & Reset: Manually triggers the repeater announcement (if "Announce Alerts" is on) and resets the check timer.
   * Announce Alerts & Start Timer: Enables audio announcements for new alerts and the repeater message. Starts the periodic check cycle.
   * Auto-Refresh Content: Enables periodic refresh of the web view and station forecasts according to the check interval, even if "Announce Alerts" is off.•Backup/Restore Settings: Allows saving the current settings.txt to a custom location or restoring settings from a backup file.
+
 
 ## Overall Application Structure
 The application is built using the PySide6 library, a Python binding for the Qt framework, which is used for creating graphical user interfaces.
