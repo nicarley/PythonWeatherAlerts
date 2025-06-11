@@ -1,7 +1,8 @@
-/* resources/modern.qss */
+/* resources/modern.qss - Revised */
 
 QWidget {
-    font-family: "Segoe UI", Arial, sans-serif; /* Or another modern font */
+    /* Using a font stack for better cross-platform compatibility */
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
     font-size: 10pt;
 }
 
@@ -14,7 +15,7 @@ QGroupBox {
     border: 1px solid #cccccc;
     border-radius: 5px;
     margin-top: 1ex; /* Space for the title */
-    padding: 10px;
+    padding: 5px;
 }
 
 QGroupBox::title {
@@ -23,6 +24,8 @@ QGroupBox::title {
     padding: 0 5px;
     background-color: #f0f0f0;
     border-radius: 3px;
+    /* Ensure title text color is readable */
+    color: #333333;
 }
 
 QLabel {
@@ -47,7 +50,7 @@ QPushButton {
     color: white;
     border: none;
     border-radius: 4px;
-    padding: 8px 12px;
+    padding: 5px 10px;
     min-width: 80px;
 }
 
@@ -64,31 +67,67 @@ QCheckBox::indicator {
     height: 16px;
     border: 1px solid #cccccc;
     border-radius: 3px;
+    background-color: #ffffff; /* Default background for unchecked */
 }
 
 QCheckBox::indicator:checked {
     background-color: #3498db;
-    image: url(:/qt-project.org/styles/commonstyle/images/standardbutton-apply-16.png); /* Example checkmark, might need adjustment or a custom one */
+    /*
+     * IMPORTANT: The path below uses Qt's built-in resources.
+     * This might not work reliably on all systems or PySide6 installations.
+     * If the checkmark doesn't appear, you may need to:
+     * 1. Find a reliable path to a checkmark image provided by your Qt/PySide6 installation, OR
+     * 2. Place your own checkmark image (e.g., checkmark.png) in the 'resources' folder
+     *    and use a relative path like: image: url(checkmark.png);
+     */
+    image: url(:/qt-project.org/styles/commonstyle/images/standardbutton-apply-16.png);
 }
 
-QCheckBox::indicator:unchecked {
-    background-color: #ffffff;
-}
-
+/*
+ * Styling for the QComboBox dropdown area and the arrow icon.
+ * The 'drop-down' subcontrol is the clickable area on the right.
+ * The 'down-arrow' subcontrol is the icon displayed within the 'drop-down' area.
+ */
 QComboBox::drop-down {
     subcontrol-origin: padding;
-    subcontrol-position: top right;
-    width: 20px;
+    subcontrol-position: top right; /* Position the dropdown area to the top right */
+    width: 20px; /* Make the dropdown area wide enough for the arrow */
+
+    /* Style the border on the left side of the dropdown area */
     border-left-width: 1px;
     border-left-color: #cccccc;
     border-left-style: solid;
+
+    /* Apply border radius to the right corners of the dropdown area */
     border-top-right-radius: 3px;
     border-bottom-right-radius: 3px;
+
+    /* Ensure the background is not transparent if you want a solid look */
+    background-color: #ffffff; /* Match combobox background */
 }
 
 QComboBox::down-arrow {
-    image: url(:/qt-project.org/styles/commonstyle/images/arrow-down-16.png); /* Default down arrow */
+    /*
+     * IMPORTANT: The path below uses Qt's built-in resources.
+     * This might not work reliably on all systems or PySide6 installations.
+     * If the arrow doesn't appear, you may need to:
+     * 1. Find a reliable path to an arrow image provided by your Qt/PySide6 installation, OR
+     * 2. Place your own arrow image (e.g., arrow-down.png) in the 'resources' folder
+     *    and use a relative path like: image: url(arrow-down.png);
+     */
+    image: url(:/qt-project.org/styles/commonstyle/images/arrow-down-16.png);
+
+    /* Center the arrow within the dropdown area */
+    subcontrol-origin: padding;
+    subcontrol-position: center; /* Center the arrow icon */
+
+    /* Remove any conflicting border/radius inherited or previously set */
+    border: none;
+    border-radius: 0px;
+    width: 16px; /* Set the size of the arrow icon */
+    height: 16px;
 }
+
 
 QStatusBar {
     background-color: #e0e0e0;
@@ -105,34 +144,9 @@ QSplitter::handle:hover {
     background-color: #bbbbbb;
 }
 
-QComboBox::down-arrow {
-    image: url(path/to/your/arrow-icon.png); /* Or use a built-in one if the style provides it */
-    /* Or, if you want a character arrow (less common for custom styles but possible): */
-    /* subcontrol-origin: padding; */
-    /* subcontrol-position: top right; */
-    /* width: 10px; */
-    /* border-left-width: 1px; */
-    /* border-left-color: darkgray; */
-    /* border-left-style: solid; */
-    /* border-top-right-radius: 3px; */
-    /* border-bottom-right-radius: 3px; */
-}
-
-QComboBox::drop-down {
-    /* Ensure this part doesn't hide the arrow area */
-    subcontrol-origin: padding;
-    subcontrol-position: top right;
-    width: 30px; /* Ensure width is enough for the arrow */
-    border-left-width: 1px;
-    border-left-color: darkgray; /* Example border */
-    border-left-style: solid;
-    border-top-right-radius: 3px; /* For rounded corners */
-    border-bottom-right-radius: 3px;
-}
-
-
 /* Specific styling for forecast areas if needed */
-#StationHourlyForecastArea, #SevenDayForecastArea {
+/* Removed specific background color to match QLineEdit/QTextEdit default */
+#StationHourlyForecastArea, #DailyForecastArea { /* Corrected ID for daily forecast */
     font-size: 9pt;
-    background-color: #f9f9f9;
+    /* background-color: #f9f9f9; */
 }

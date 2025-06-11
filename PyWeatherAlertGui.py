@@ -25,7 +25,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 
-versionnumber = "2025.06.11" # Version number set by release date incremented manually.
+versionnumber = "2025.06.11"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -605,11 +605,9 @@ class WeatherAlertApp(QMainWindow):
         alerts_forecasts_layout.addWidget(self.alerts_group, 1) # Stretch factor 1
 
         self.combined_forecast_widget = QGroupBox("Station Forecasts")
-        combined_forecast_layout = QHBoxLayout(self.combined_forecast_widget) # Main layout for this group
-        # combined_forecast_layout.setContentsMargins(2,2,2,2) # Optional: reduce margins
-        # combined_forecast_layout.setSpacing(5) # Optional: reduce spacing
+        combined_forecast_layout = QHBoxLayout(self.combined_forecast_widget)
 
-        station_hourly_forecast_group = QWidget() # No GroupBox, just a widget container
+        station_hourly_forecast_group = QWidget()
         station_hourly_forecast_layout = QVBoxLayout(station_hourly_forecast_group)
         station_hourly_forecast_layout.setContentsMargins(0,0,0,0)
         station_hourly_forecast_layout.addWidget(QLabel("<b>4-Hour Forecast:</b>"))
@@ -618,9 +616,9 @@ class WeatherAlertApp(QMainWindow):
         self.station_hourly_forecast_display_area.setReadOnly(True)
         self.station_hourly_forecast_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         station_hourly_forecast_layout.addWidget(self.station_hourly_forecast_display_area)
-        combined_forecast_layout.addWidget(station_hourly_forecast_group, 1) # Equal stretch
+        combined_forecast_layout.addWidget(station_hourly_forecast_group, 1)
 
-        station_daily_forecast_group = QWidget() # No GroupBox, just a widget container
+        station_daily_forecast_group = QWidget()
         station_daily_forecast_layout = QVBoxLayout(station_daily_forecast_group)
         station_daily_forecast_layout.setContentsMargins(0,0,0,0)
         station_daily_forecast_layout.addWidget(QLabel("<b>3-Day Forecast:</b>"))
@@ -629,7 +627,7 @@ class WeatherAlertApp(QMainWindow):
         self.daily_forecast_display_area.setReadOnly(True)
         self.daily_forecast_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         station_daily_forecast_layout.addWidget(self.daily_forecast_display_area)
-        combined_forecast_layout.addWidget(station_daily_forecast_group, 1) # Equal stretch
+        combined_forecast_layout.addWidget(station_daily_forecast_group, 1)
 
         alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2) # Stretch factor 2 for forecasts part
 
