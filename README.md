@@ -8,8 +8,6 @@ Settings are stored in an XML document under "resources/settings.txt"
 
 # PyWeatherAlertGui - Weather Alert Monitor
 
-**Version:** 2025.06.26 (as per `versionnumber` in the script)
-
 PyWeatherAlertGui is a Python desktop application built with PySide6 that monitors weather alerts from the National Weather Service (NWS) for a specified airport ID. It provides visual and (optional) audio notifications for new alerts, displays current alerts, shows station forecasts, and allows users to view web-based weather radar or other web sources.
 
 ## Features
