@@ -25,7 +25,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 
-versionnumber = "2025.06.11" # Updated version
+versionnumber = "2025.06.11" # Version number set by release date incremented manually.
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -600,32 +600,38 @@ class WeatherAlertApp(QMainWindow):
         self.alerts_display_area = QTextEdit()
         self.alerts_display_area.setObjectName("AlertsDisplayArea")
         self.alerts_display_area.setReadOnly(True)
-        self.alerts_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred) # Dynamic height
+        self.alerts_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         alerts_layout.addWidget(self.alerts_display_area)
-        alerts_forecasts_layout.addWidget(self.alerts_group, 1)
+        alerts_forecasts_layout.addWidget(self.alerts_group, 1) # Stretch factor 1
 
         self.combined_forecast_widget = QGroupBox("Station Forecasts")
-        combined_forecast_layout = QHBoxLayout(self.combined_forecast_widget)
-        station_hourly_forecast_group = QWidget()
+        combined_forecast_layout = QHBoxLayout(self.combined_forecast_widget) # Main layout for this group
+        # combined_forecast_layout.setContentsMargins(2,2,2,2) # Optional: reduce margins
+        # combined_forecast_layout.setSpacing(5) # Optional: reduce spacing
+
+        station_hourly_forecast_group = QWidget() # No GroupBox, just a widget container
         station_hourly_forecast_layout = QVBoxLayout(station_hourly_forecast_group)
+        station_hourly_forecast_layout.setContentsMargins(0,0,0,0)
         station_hourly_forecast_layout.addWidget(QLabel("<b>4-Hour Forecast:</b>"))
         self.station_hourly_forecast_display_area = QTextEdit()
         self.station_hourly_forecast_display_area.setObjectName("StationHourlyForecastArea")
         self.station_hourly_forecast_display_area.setReadOnly(True)
-        self.station_hourly_forecast_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred) # Dynamic height
+        self.station_hourly_forecast_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         station_hourly_forecast_layout.addWidget(self.station_hourly_forecast_display_area)
-        combined_forecast_layout.addWidget(station_hourly_forecast_group, 1)
+        combined_forecast_layout.addWidget(station_hourly_forecast_group, 1) # Equal stretch
 
-        station_daily_forecast_group = QWidget()
+        station_daily_forecast_group = QWidget() # No GroupBox, just a widget container
         station_daily_forecast_layout = QVBoxLayout(station_daily_forecast_group)
+        station_daily_forecast_layout.setContentsMargins(0,0,0,0)
         station_daily_forecast_layout.addWidget(QLabel("<b>3-Day Forecast:</b>"))
         self.daily_forecast_display_area = QTextEdit()
         self.daily_forecast_display_area.setObjectName("DailyForecastArea")
         self.daily_forecast_display_area.setReadOnly(True)
-        self.daily_forecast_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred) # Dynamic height
+        self.daily_forecast_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         station_daily_forecast_layout.addWidget(self.daily_forecast_display_area)
-        combined_forecast_layout.addWidget(station_daily_forecast_group, 1)
-        alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2)
+        combined_forecast_layout.addWidget(station_daily_forecast_group, 1) # Equal stretch
+
+        alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2) # Stretch factor 2 for forecasts part
 
         main_layout.addLayout(alerts_forecasts_layout)
 
@@ -1260,8 +1266,8 @@ class WeatherAlertApp(QMainWindow):
                 f"<strong style='color:{'red' if 'warning' in a.get('title', '').lower() else 'orange' if 'watch' in a.get('title', '').lower() else 'blue' if 'advisory' in a.get('title', '').lower() else 'black'};'>{a.get('title', 'N/A')}</strong>"
                 for a in alerts]
             self.alerts_display_area.setHtml("<br>".join(html_lines))
-        self.alerts_display_area.document().adjustSize() # Adjust document layout
-        self.alerts_display_area.updateGeometry()       # Inform layout system
+        self.alerts_display_area.document().adjustSize()
+        self.alerts_display_area.updateGeometry()
 
     def _speak_message_internal(self, text_to_speak, log_prefix="Spoken"):
         if not text_to_speak: return
@@ -1365,17 +1371,41 @@ class WeatherAlertApp(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    if "Fusion" in QStyleFactory.keys(): app.setStyle(QStyleFactory.create("Fusion"))
 
-    qss_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), RESOURCES_FOLDER_NAME,
-                                 STYLESHEET_FILE_NAME)
-    qss_file = QFile(qss_file_path)
-    if qss_file.open(QFile.OpenModeFlag.ReadOnly | QFile.OpenModeFlag.Text):
-        app.setStyleSheet(QTextStream(qss_file).readAll())
-        qss_file.close()
-        logging.info(f"Applied stylesheet: {STYLESHEET_FILE_NAME}")
-    else:
-        logging.warning(f"Stylesheet not found: {qss_file_path}. Error: {qss_file.errorString()}")
+    # --- Style and Stylesheet Handling for macOS look ---
+    if sys.platform == "darwin": # 'darwin' is macOS
+        # On macOS, Qt usually defaults to a native-looking style.
+        # We avoid setting a specific style like "Fusion" to let this happen.
+        logging.info("macOS detected. Using default Qt platform styling.")
+        # Optionally, you could try to force the "macintosh" style if available and desired,
+        # but often the default is best.
+        # if "macintosh" in QStyleFactory.keys():
+        #     app.setStyle(QStyleFactory.create("macintosh"))
+    elif "Fusion" in QStyleFactory.keys():
+        app.setStyle(QStyleFactory.create("Fusion"))
+        logging.info("Applied Fusion style.")
+    # --- End Style Handling ---
+
+
+    # --- Conditional Stylesheet Loading ---
+    # On macOS, we skip the custom stylesheet by default to prefer the native look.
+    # You can set the environment variable FORCE_CUSTOM_QSS_ON_MAC=1 to load it for testing/comparison.
+    load_custom_qss = True
+    if sys.platform == "darwin" and os.environ.get("FORCE_CUSTOM_QSS_ON_MAC") != "1":
+        load_custom_qss = False
+        logging.info("Skipping custom stylesheet on macOS to prefer native look. Set FORCE_CUSTOM_QSS_ON_MAC=1 to override.")
+
+    if load_custom_qss:
+        qss_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), RESOURCES_FOLDER_NAME,
+                                     STYLESHEET_FILE_NAME)
+        qss_file = QFile(qss_file_path)
+        if qss_file.open(QFile.OpenModeFlag.ReadOnly | QFile.OpenModeFlag.Text):
+            app.setStyleSheet(QTextStream(qss_file).readAll())
+            qss_file.close()
+            logging.info(f"Applied custom stylesheet: {STYLESHEET_FILE_NAME}")
+        else:
+            logging.warning(f"Custom stylesheet not found or not loaded: {qss_file_path}. Error: {qss_file.errorString()}")
+    # --- End Conditional Stylesheet Loading ---
 
     main_win = WeatherAlertApp()
     main_win.show()

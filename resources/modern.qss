@@ -105,6 +105,32 @@ QSplitter::handle:hover {
     background-color: #bbbbbb;
 }
 
+QComboBox::down-arrow {
+    image: url(path/to/your/arrow-icon.png); /* Or use a built-in one if the style provides it */
+    /* Or, if you want a character arrow (less common for custom styles but possible): */
+    /* subcontrol-origin: padding; */
+    /* subcontrol-position: top right; */
+    /* width: 10px; */
+    /* border-left-width: 1px; */
+    /* border-left-color: darkgray; */
+    /* border-left-style: solid; */
+    /* border-top-right-radius: 3px; */
+    /* border-bottom-right-radius: 3px; */
+}
+
+QComboBox::drop-down {
+    /* Ensure this part doesn't hide the arrow area */
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 30px; /* Ensure width is enough for the arrow */
+    border-left-width: 1px;
+    border-left-color: darkgray; /* Example border */
+    border-left-style: solid;
+    border-top-right-radius: 3px; /* For rounded corners */
+    border-bottom-right-radius: 3px;
+}
+
+
 /* Specific styling for forecast areas if needed */
 #StationHourlyForecastArea, #SevenDayForecastArea {
     font-size: 9pt;
