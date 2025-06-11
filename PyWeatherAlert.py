@@ -5,8 +5,11 @@ import time
 import logging
 
 # --- Configuration ---
-NWS_STATION_ID = "KSLO"  # Target NWS Station ID
+NWS_STATION_ID = "KSLO"  # Target NWS/AIRPORT Station ID
 CHECK_INTERVAL = 900  # Check every 15 minutes (in seconds)
+# Define the repeater information as a constant
+REPEATER_INFO = "Repeater, GMRSCALLSIGN, Frequencies (Change text in quotes)"
+
 
 # URL format for fetching alerts for a specific point (latitude, longitude)
 # The {lat} and {lon} placeholders will be filled dynamically
@@ -15,8 +18,6 @@ ALERTS_URL_POINT_FORMAT = "https://api.weather.gov/alerts/active.atom?point={lat
 # NWS API endpoint for station details (to get coordinates)
 NWS_STATION_API_URL_FORMAT = "https://api.weather.gov/stations/{station_id}"
 
-# Define the repeater information as a constant
-REPEATER_INFO = "Repeater, WSDR538 Salem 462.550Mhz"
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

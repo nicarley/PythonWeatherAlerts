@@ -907,12 +907,32 @@ class WeatherAlertApp(QMainWindow):
                 self.log_to_gui(f"Could not automatically open PDF: {self.current_radar_url}", level="ERROR")
                 QMessageBox.warning(self, "Open PDF Failed", f"Could not open PDF. Link: {self.current_radar_url}")
             return
+
         if QWebEngineView and hasattr(self, 'web_view') and isinstance(self.web_view, QWebEngineView):
-            if self.web_view.url().toString() != self.current_radar_url:
-                self.log_to_gui(f"Loading web content: {self.current_radar_url}", level="DEBUG");
-                self.web_view.setUrl(QUrl(self.current_radar_url))
+            current_view_url = self.web_view.url().toString()
+            target_url = self.current_radar_url
+
+            # Do not attempt to reload "about:blank" or the help page as part of auto-refresh
+            if target_url == "about:blank" or target_url == GITHUB_HELP_URL:
+                if current_view_url != target_url:
+                    self.log_to_gui(f"Loading special page: {target_url}", level="DEBUG")
+                    self.web_view.setUrl(QUrl(target_url))
+                return
+
+            if self.auto_refresh_action.isChecked():
+                if current_view_url == target_url:
+                    self.log_to_gui(f"Auto-refreshing web content: {target_url}", level="DEBUG")
+                    self.web_view.reload()
+                else:
+                    self.log_to_gui(f"Auto-refresh: Loading web content: {target_url}", level="DEBUG")
+                    self.web_view.setUrl(QUrl(target_url))
+            else:  # Auto-refresh is not checked, only load if URL is different
+                if current_view_url != target_url:
+                    self.log_to_gui(f"Loading web content: {target_url}", level="DEBUG")
+                    self.web_view.setUrl(QUrl(target_url))
         elif not QWebEngineView:
-            self.log_to_gui("WebEngineView not available.", level="WARNING")
+            self.log_to_gui("WebEngineView not available. Cannot display web content.", level="WARNING")
+
 
     def _initialize_tts_engine(self):
         try:
