@@ -25,7 +25,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 
-versionnumber = "2025.06.25" # Updated version
+versionnumber = "2025.06.11" # Updated version
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -593,29 +593,26 @@ class WeatherAlertApp(QMainWindow):
         main_layout.addLayout(top_sections_layout)
 
         # --- Alerts and Forecasts Layout ---
-        alerts_forecasts_layout = QHBoxLayout() # New horizontal layout for these two
+        alerts_forecasts_layout = QHBoxLayout()
 
-        self.alerts_group = QGroupBox("Current Alerts") # Changed title
+        self.alerts_group = QGroupBox("Current Alerts")
         alerts_layout = QVBoxLayout(self.alerts_group)
         self.alerts_display_area = QTextEdit()
         self.alerts_display_area.setObjectName("AlertsDisplayArea")
         self.alerts_display_area.setReadOnly(True)
-        self.alerts_display_area.setMinimumHeight(25) # Adjust as needed
-        # self.alerts_display_area.setMaximumHeight(150) # Adjust or remove
+        self.alerts_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred) # Dynamic height
         alerts_layout.addWidget(self.alerts_display_area)
-        alerts_forecasts_layout.addWidget(self.alerts_group, 1) # Add with stretch factor
+        alerts_forecasts_layout.addWidget(self.alerts_group, 1)
 
         self.combined_forecast_widget = QGroupBox("Station Forecasts")
-        combined_forecast_layout = QHBoxLayout(self.combined_forecast_widget) # This already exists
-        # The internal structure of combined_forecast_widget remains the same
+        combined_forecast_layout = QHBoxLayout(self.combined_forecast_widget)
         station_hourly_forecast_group = QWidget()
         station_hourly_forecast_layout = QVBoxLayout(station_hourly_forecast_group)
         station_hourly_forecast_layout.addWidget(QLabel("<b>4-Hour Forecast:</b>"))
         self.station_hourly_forecast_display_area = QTextEdit()
         self.station_hourly_forecast_display_area.setObjectName("StationHourlyForecastArea")
         self.station_hourly_forecast_display_area.setReadOnly(True)
-        self.station_hourly_forecast_display_area.setMinimumHeight(80)
-        # self.station_hourly_forecast_display_area.setMaximumHeight(130) # Adjust or remove
+        self.station_hourly_forecast_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred) # Dynamic height
         station_hourly_forecast_layout.addWidget(self.station_hourly_forecast_display_area)
         combined_forecast_layout.addWidget(station_hourly_forecast_group, 1)
 
@@ -625,13 +622,12 @@ class WeatherAlertApp(QMainWindow):
         self.daily_forecast_display_area = QTextEdit()
         self.daily_forecast_display_area.setObjectName("DailyForecastArea")
         self.daily_forecast_display_area.setReadOnly(True)
-        self.daily_forecast_display_area.setMinimumHeight(80)
-        # self.daily_forecast_display_area.setMaximumHeight(130) # Adjust or remove
+        self.daily_forecast_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred) # Dynamic height
         station_daily_forecast_layout.addWidget(self.daily_forecast_display_area)
         combined_forecast_layout.addWidget(station_daily_forecast_group, 1)
-        alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2) # Add with stretch factor
+        alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2)
 
-        main_layout.addLayout(alerts_forecasts_layout) # Add the combined layout
+        main_layout.addLayout(alerts_forecasts_layout)
 
 
         self.splitter = QSplitter(Qt.Orientation.Vertical)
@@ -656,7 +652,7 @@ class WeatherAlertApp(QMainWindow):
             if self.web_view:
                 self.splitter.setStretchFactor(self.splitter.indexOf(self.web_view), 0)
 
-        main_layout.addWidget(self.splitter, 1) # The splitter now takes remaining space
+        main_layout.addWidget(self.splitter, 1)
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.update_status("Application started. Configure and check relevant options to begin.")
@@ -1164,10 +1160,16 @@ class WeatherAlertApp(QMainWindow):
         if not airport_id:
             self.station_hourly_forecast_display_area.setText("Airport ID empty.")
             self.daily_forecast_display_area.setText("Airport ID empty.")
+            self.station_hourly_forecast_display_area.updateGeometry()
+            self.daily_forecast_display_area.updateGeometry()
             return
 
         self.station_hourly_forecast_display_area.setText(f"Fetching 4hr forecast for K{airport_id}...")
         self.daily_forecast_display_area.setText(f"Fetching 3-day forecast for K{airport_id}...")
+        self.station_hourly_forecast_display_area.document().adjustSize()
+        self.station_hourly_forecast_display_area.updateGeometry()
+        self.daily_forecast_display_area.document().adjustSize()
+        self.daily_forecast_display_area.updateGeometry()
         QApplication.processEvents()
 
         coords = self._fetch_station_coordinates(airport_id, log_errors=False)
@@ -1175,6 +1177,10 @@ class WeatherAlertApp(QMainWindow):
             msg = f"Could not get coords for K{airport_id}."
             self.station_hourly_forecast_display_area.setText(msg)
             self.daily_forecast_display_area.setText(msg)
+            self.station_hourly_forecast_display_area.document().adjustSize()
+            self.station_hourly_forecast_display_area.updateGeometry()
+            self.daily_forecast_display_area.document().adjustSize()
+            self.daily_forecast_display_area.updateGeometry()
             return
 
         lat, lon = coords
@@ -1183,6 +1189,10 @@ class WeatherAlertApp(QMainWindow):
             msg = f"Could not get forecast URLs for K{airport_id}."
             self.station_hourly_forecast_display_area.setText(msg)
             self.daily_forecast_display_area.setText(msg)
+            self.station_hourly_forecast_display_area.document().adjustSize()
+            self.station_hourly_forecast_display_area.updateGeometry()
+            self.daily_forecast_display_area.document().adjustSize()
+            self.daily_forecast_display_area.updateGeometry()
             return
 
         props = grid_props['properties']
@@ -1194,6 +1204,8 @@ class WeatherAlertApp(QMainWindow):
                 else f"Could not get 4hr forecast for K{airport_id}.")
         else:
             self.station_hourly_forecast_display_area.setText(f"4hr forecast URL not found for K{airport_id}.")
+        self.station_hourly_forecast_display_area.document().adjustSize()
+        self.station_hourly_forecast_display_area.updateGeometry()
 
         daily_url = props.get('forecast')
         if daily_url:
@@ -1203,6 +1215,9 @@ class WeatherAlertApp(QMainWindow):
                 else f"Could not get 3-day forecast for K{airport_id}.")
         else:
             self.daily_forecast_display_area.setText(f"3-day forecast URL not found for K{airport_id}.")
+        self.daily_forecast_display_area.document().adjustSize()
+        self.daily_forecast_display_area.updateGeometry()
+
 
     def _get_current_weather_url(self, log_errors=True):
         airport_id = self.airport_id_entry.text().strip()
@@ -1240,11 +1255,13 @@ class WeatherAlertApp(QMainWindow):
         loc_name = f"K{airport_id}" if airport_id else "selected location"
         if not alerts:
             self.alerts_display_area.setText(f"No active alerts for {loc_name}.")
-            return
-        html_lines = [
-            f"<strong style='color:{'red' if 'warning' in a.get('title', '').lower() else 'orange' if 'watch' in a.get('title', '').lower() else 'blue' if 'advisory' in a.get('title', '').lower() else 'black'};'>{a.get('title', 'N/A')}</strong>"
-            for a in alerts]
-        self.alerts_display_area.setHtml("<br>".join(html_lines))
+        else:
+            html_lines = [
+                f"<strong style='color:{'red' if 'warning' in a.get('title', '').lower() else 'orange' if 'watch' in a.get('title', '').lower() else 'blue' if 'advisory' in a.get('title', '').lower() else 'black'};'>{a.get('title', 'N/A')}</strong>"
+                for a in alerts]
+            self.alerts_display_area.setHtml("<br>".join(html_lines))
+        self.alerts_display_area.document().adjustSize() # Adjust document layout
+        self.alerts_display_area.updateGeometry()       # Inform layout system
 
     def _speak_message_internal(self, text_to_speak, log_prefix="Spoken"):
         if not text_to_speak: return
