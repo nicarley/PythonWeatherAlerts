@@ -25,7 +25,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 
-versionnumber = "2025.06.10"
+versionnumber = "2025.06.25" # Updated version
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -44,7 +44,7 @@ FALLBACK_ANNOUNCE_ALERTS_CHECKED = False
 FALLBACK_SHOW_LOG_CHECKED = False
 FALLBACK_SHOW_ALERTS_AREA_CHECKED = True
 FALLBACK_SHOW_FORECASTS_AREA_CHECKED = True
-FALLBACK_AUTO_REFRESH_CONTENT_CHECKED = False # New constant
+FALLBACK_AUTO_REFRESH_CONTENT_CHECKED = False
 
 
 CHECK_INTERVAL_OPTIONS = {
@@ -275,7 +275,7 @@ class WeatherAlertApp(QMainWindow):
         self.current_show_log_checked = FALLBACK_SHOW_LOG_CHECKED
         self.current_show_alerts_area_checked = FALLBACK_SHOW_ALERTS_AREA_CHECKED
         self.current_show_forecasts_area_checked = FALLBACK_SHOW_FORECASTS_AREA_CHECKED
-        self.current_auto_refresh_content_checked = FALLBACK_AUTO_REFRESH_CONTENT_CHECKED # New
+        self.current_auto_refresh_content_checked = FALLBACK_AUTO_REFRESH_CONTENT_CHECKED
 
 
         self._load_settings()
@@ -299,7 +299,7 @@ class WeatherAlertApp(QMainWindow):
         self.log_area.setVisible(self.current_show_log_checked)
         self.show_log_checkbox.setChecked(self.current_show_log_checked)
         self.announce_alerts_checkbox.setChecked(self.current_announce_alerts_checked)
-        self.auto_refresh_content_checkbox.setChecked(self.current_auto_refresh_content_checked) # New
+        self.auto_refresh_content_checkbox.setChecked(self.current_auto_refresh_content_checked)
 
         if hasattr(self, 'alerts_group'):
             self.alerts_group.setVisible(self.current_show_alerts_area_checked)
@@ -330,7 +330,7 @@ class WeatherAlertApp(QMainWindow):
         self._update_station_forecasts_display()
         self._update_alerts_display_area([])
 
-        self._update_main_timer_state() # Initial timer state based on loaded settings
+        self._update_main_timer_state()
 
 
     def _set_window_icon(self):
@@ -393,7 +393,7 @@ class WeatherAlertApp(QMainWindow):
                 self.current_show_log_checked = settings.get("show_log", FALLBACK_SHOW_LOG_CHECKED)
                 self.current_show_alerts_area_checked = settings.get("show_alerts_area", FALLBACK_SHOW_ALERTS_AREA_CHECKED)
                 self.current_show_forecasts_area_checked = settings.get("show_forecasts_area", FALLBACK_SHOW_FORECASTS_AREA_CHECKED)
-                self.current_auto_refresh_content_checked = settings.get("auto_refresh_content", FALLBACK_AUTO_REFRESH_CONTENT_CHECKED) # New
+                self.current_auto_refresh_content_checked = settings.get("auto_refresh_content", FALLBACK_AUTO_REFRESH_CONTENT_CHECKED)
 
                 logging.info(f"Settings loaded from {settings_file}")
                 self._last_valid_radar_text = self._get_display_name_for_url(self.current_radar_url) or \
@@ -404,7 +404,7 @@ class WeatherAlertApp(QMainWindow):
                 self._last_valid_radar_text = FALLBACK_DEFAULT_RADAR_DISPLAY_NAME
                 self.current_show_alerts_area_checked = FALLBACK_SHOW_ALERTS_AREA_CHECKED
                 self.current_show_forecasts_area_checked = FALLBACK_SHOW_FORECASTS_AREA_CHECKED
-                self.current_auto_refresh_content_checked = FALLBACK_AUTO_REFRESH_CONTENT_CHECKED # New
+                self.current_auto_refresh_content_checked = FALLBACK_AUTO_REFRESH_CONTENT_CHECKED
                 logging.info(f"Settings file not found. Using defaults.")
 
         except (json.JSONDecodeError, IOError, KeyError, IndexError) as e:
@@ -418,7 +418,7 @@ class WeatherAlertApp(QMainWindow):
             self.current_show_log_checked = FALLBACK_SHOW_LOG_CHECKED
             self.current_show_alerts_area_checked = FALLBACK_SHOW_ALERTS_AREA_CHECKED
             self.current_show_forecasts_area_checked = FALLBACK_SHOW_FORECASTS_AREA_CHECKED
-            self.current_auto_refresh_content_checked = FALLBACK_AUTO_REFRESH_CONTENT_CHECKED # New
+            self.current_auto_refresh_content_checked = FALLBACK_AUTO_REFRESH_CONTENT_CHECKED
             self._last_valid_radar_text = FALLBACK_DEFAULT_RADAR_DISPLAY_NAME
 
     @Slot()
@@ -439,7 +439,7 @@ class WeatherAlertApp(QMainWindow):
             "show_log": self.show_log_checkbox.isChecked(),
             "show_alerts_area": self.current_show_alerts_area_checked,
             "show_forecasts_area": self.current_show_forecasts_area_checked,
-            "auto_refresh_content": self.auto_refresh_content_checkbox.isChecked() # New
+            "auto_refresh_content": self.auto_refresh_content_checkbox.isChecked()
         }
         try:
             with open(settings_file, 'w') as f:
@@ -559,10 +559,10 @@ class WeatherAlertApp(QMainWindow):
         self.announce_alerts_checkbox.stateChanged.connect(self._save_settings)
         timer_controls_layout.addWidget(self.announce_alerts_checkbox)
 
-        self.auto_refresh_content_checkbox = QCheckBox("Auto-Refresh Content") # New
-        self.auto_refresh_content_checkbox.stateChanged.connect(self._on_auto_refresh_content_toggled) # New
-        self.auto_refresh_content_checkbox.stateChanged.connect(self._save_settings) #New
-        timer_controls_layout.addWidget(self.auto_refresh_content_checkbox) # New
+        self.auto_refresh_content_checkbox = QCheckBox("Auto-Refresh Content")
+        self.auto_refresh_content_checkbox.stateChanged.connect(self._on_auto_refresh_content_toggled)
+        self.auto_refresh_content_checkbox.stateChanged.connect(self._save_settings)
+        timer_controls_layout.addWidget(self.auto_refresh_content_checkbox)
 
         timer_controls_layout.addStretch(1)
         controls_layout.addLayout(timer_controls_layout)
@@ -592,19 +592,22 @@ class WeatherAlertApp(QMainWindow):
         top_sections_layout.addWidget(controls_group)
         main_layout.addLayout(top_sections_layout)
 
-        self.alerts_group = QGroupBox("Current Weather Alerts")
+        # --- Alerts and Forecasts Layout ---
+        alerts_forecasts_layout = QHBoxLayout() # New horizontal layout for these two
+
+        self.alerts_group = QGroupBox("Current Alerts") # Changed title
         alerts_layout = QVBoxLayout(self.alerts_group)
         self.alerts_display_area = QTextEdit()
         self.alerts_display_area.setObjectName("AlertsDisplayArea")
         self.alerts_display_area.setReadOnly(True)
-        self.alerts_display_area.setMinimumHeight(60)
-        self.alerts_display_area.setMaximumHeight(100)
+        self.alerts_display_area.setMinimumHeight(25) # Adjust as needed
+        # self.alerts_display_area.setMaximumHeight(150) # Adjust or remove
         alerts_layout.addWidget(self.alerts_display_area)
-        main_layout.addWidget(self.alerts_group)
+        alerts_forecasts_layout.addWidget(self.alerts_group, 1) # Add with stretch factor
 
         self.combined_forecast_widget = QGroupBox("Station Forecasts")
-        combined_forecast_layout = QHBoxLayout(self.combined_forecast_widget)
-        combined_forecast_layout.setSpacing(10)
+        combined_forecast_layout = QHBoxLayout(self.combined_forecast_widget) # This already exists
+        # The internal structure of combined_forecast_widget remains the same
         station_hourly_forecast_group = QWidget()
         station_hourly_forecast_layout = QVBoxLayout(station_hourly_forecast_group)
         station_hourly_forecast_layout.addWidget(QLabel("<b>4-Hour Forecast:</b>"))
@@ -612,9 +615,10 @@ class WeatherAlertApp(QMainWindow):
         self.station_hourly_forecast_display_area.setObjectName("StationHourlyForecastArea")
         self.station_hourly_forecast_display_area.setReadOnly(True)
         self.station_hourly_forecast_display_area.setMinimumHeight(80)
-        self.station_hourly_forecast_display_area.setMaximumHeight(130)
+        # self.station_hourly_forecast_display_area.setMaximumHeight(130) # Adjust or remove
         station_hourly_forecast_layout.addWidget(self.station_hourly_forecast_display_area)
         combined_forecast_layout.addWidget(station_hourly_forecast_group, 1)
+
         station_daily_forecast_group = QWidget()
         station_daily_forecast_layout = QVBoxLayout(station_daily_forecast_group)
         station_daily_forecast_layout.addWidget(QLabel("<b>3-Day Forecast:</b>"))
@@ -622,10 +626,13 @@ class WeatherAlertApp(QMainWindow):
         self.daily_forecast_display_area.setObjectName("DailyForecastArea")
         self.daily_forecast_display_area.setReadOnly(True)
         self.daily_forecast_display_area.setMinimumHeight(80)
-        self.daily_forecast_display_area.setMaximumHeight(130)
+        # self.daily_forecast_display_area.setMaximumHeight(130) # Adjust or remove
         station_daily_forecast_layout.addWidget(self.daily_forecast_display_area)
         combined_forecast_layout.addWidget(station_daily_forecast_group, 1)
-        main_layout.addWidget(self.combined_forecast_widget)
+        alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2) # Add with stretch factor
+
+        main_layout.addLayout(alerts_forecasts_layout) # Add the combined layout
+
 
         self.splitter = QSplitter(Qt.Orientation.Vertical)
         if QWebEngineView:
@@ -649,7 +656,7 @@ class WeatherAlertApp(QMainWindow):
             if self.web_view:
                 self.splitter.setStretchFactor(self.splitter.indexOf(self.web_view), 0)
 
-        main_layout.addWidget(self.splitter, 1)
+        main_layout.addWidget(self.splitter, 1) # The splitter now takes remaining space
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
         self.update_status("Application started. Configure and check relevant options to begin.")
@@ -672,7 +679,7 @@ class WeatherAlertApp(QMainWindow):
         self.announce_alerts_checkbox.setChecked(self.current_announce_alerts_checked)
         self.show_log_checkbox.setChecked(self.current_show_log_checked)
         self.log_area.setVisible(self.current_show_log_checked)
-        self.auto_refresh_content_checkbox.setChecked(self.current_auto_refresh_content_checked) # New
+        self.auto_refresh_content_checkbox.setChecked(self.current_auto_refresh_content_checked)
 
         self.show_alerts_area_checkbox.setChecked(self.current_show_alerts_area_checked)
         if hasattr(self, 'alerts_group'):
@@ -682,7 +689,7 @@ class WeatherAlertApp(QMainWindow):
         if hasattr(self, 'combined_forecast_widget'):
             self.combined_forecast_widget.setVisible(self.current_show_forecasts_area_checked)
 
-        self._update_main_timer_state() # Update timer based on all relevant checkboxes
+        self._update_main_timer_state()
         self._reload_radar_view()
         self.log_to_gui("Settings applied to UI.", level="INFO")
 
@@ -1009,12 +1016,12 @@ class WeatherAlertApp(QMainWindow):
         refresh_active = self.auto_refresh_content_checkbox.isChecked()
 
         if announce_active or refresh_active:
-            if not self.main_check_timer.isActive(): # Start only if not already active
+            if not self.main_check_timer.isActive():
                 self.log_to_gui("Timed checks starting/resuming.", level="INFO")
                 self.update_status("Timed checks active. Starting check cycle...")
                 self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
-                QTimer.singleShot(100, self.perform_check_cycle) # Perform one check soon
-            else: # Timer is already active, just ensure countdown is correct
+                QTimer.singleShot(100, self.perform_check_cycle)
+            else:
                 self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
         else:
             self.log_to_gui("All timed activities disabled.", level="INFO")
@@ -1034,7 +1041,7 @@ class WeatherAlertApp(QMainWindow):
         self._update_main_timer_state()
 
     @Slot(int)
-    def _on_auto_refresh_content_toggled(self, state): # New slot
+    def _on_auto_refresh_content_toggled(self, state):
         self.current_auto_refresh_content_checked = (state == Qt.CheckState.Checked.value)
         if self.current_auto_refresh_content_checked:
             self.log_to_gui("Auto-refresh content enabled.", level="INFO")
@@ -1051,12 +1058,9 @@ class WeatherAlertApp(QMainWindow):
             return
         self.current_check_interval_ms = new_interval_ms
         self.log_to_gui(f"Interval: {selected_key} ({self.current_check_interval_ms // 60000}m).", level="INFO")
-        # Timer restart will be handled by _update_main_timer_state if a check was already active
-        # or if a check becomes active due to this interval change (though less direct)
-        # More directly, if a timer is running, we should restart it with the new interval.
         if self.main_check_timer.isActive():
             self.log_to_gui(f"Interval changed. Restarting check cycle with new interval.", level="DEBUG")
-            self._update_main_timer_state() # This will re-evaluate and restart timers
+            self._update_main_timer_state()
         else:
             self.update_status(f"Interval: {selected_key}. Timed checks paused.")
 
@@ -1263,11 +1267,11 @@ class WeatherAlertApp(QMainWindow):
     @Slot()
     def _on_speak_and_reset_button_press(self):
         self.log_to_gui("Speak & Reset pressed.", level="INFO")
-        if self.announce_alerts_checkbox.isChecked(): # Only speak repeater if announce is on
+        if self.announce_alerts_checkbox.isChecked():
             self._speak_repeater_info()
-        self._update_main_timer_state() # This will re-evaluate and restart timers if needed
+        self._update_main_timer_state()
         if self.main_check_timer.isActive():
-             QTimer.singleShot(100, self.perform_check_cycle) # Force an immediate check cycle
+             QTimer.singleShot(100, self.perform_check_cycle)
              self.update_status(f"Manual reset. Next check ~{self.current_check_interval_ms // 60000}m.")
         else:
             self.update_status("Repeater info not spoken (Announce Alerts is off). Timed checks paused.")
@@ -1277,16 +1281,14 @@ class WeatherAlertApp(QMainWindow):
     def perform_check_cycle(self):
         if not self.announce_alerts_checkbox.isChecked() and \
            not self.auto_refresh_content_checkbox.isChecked():
-            # This case should ideally be caught by _update_main_timer_state stopping the timer
             self.main_check_timer.stop()
             self.countdown_timer.stop()
             self.countdown_label.setText("Next check in: --:-- (Paused)")
             self.log_to_gui("All timed activities disabled. Skipping check.", level="DEBUG")
             return
 
-        self.main_check_timer.stop() # Stop before processing, will be restarted by _reset_and_start_countdown
+        self.main_check_timer.stop()
 
-        # These actions happen if *any* timed activity is enabled
         self._reload_radar_view()
         self._update_station_forecasts_display()
 
@@ -1294,7 +1296,6 @@ class WeatherAlertApp(QMainWindow):
         self.log_to_gui(f"Performing periodic check for K{airport_id}...", level="INFO")
         self.update_status(f"Checking K{airport_id}... Last: {time.strftime('%H:%M:%S')}")
 
-        # Actions specific to "Announce Alerts"
         if self.announce_alerts_checkbox.isChecked():
             alert_url = self._get_current_weather_url()
             alerts = self._get_alerts(alert_url) if alert_url else []
@@ -1316,12 +1317,11 @@ class WeatherAlertApp(QMainWindow):
             elif not alerts and alert_url:
                 self.log_to_gui(f"No active alerts for K{airport_id}.", level="INFO")
 
-            self._speak_repeater_info() # Speak repeater info only if announcing alerts
+            self._speak_repeater_info()
 
         self.update_status(f"Check complete. Next in ~{self.current_check_interval_ms // 60000}m.")
         self.log_to_gui(f"Waiting {self.current_check_interval_ms // 1000}s for next cycle.", level="INFO")
 
-        # Restart the main timer and countdown for the next cycle
         self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
         if self.current_check_interval_ms > 0 and \
            (self.announce_alerts_checkbox.isChecked() or self.auto_refresh_content_checkbox.isChecked()):
