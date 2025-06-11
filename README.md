@@ -29,7 +29,7 @@ PyWeatherAlertGui is a Python desktop application built with PySide6 that monito
     -   **File Menu**: Access Preferences, Backup/Restore Settings, and Exit.
     -   **View Menu**: Manage Web Sources, toggle visibility of Log Panel, Alerts Area, Forecasts Area, and enable/disable Dark Mode.
     -   **Actions Menu**: Toggle "Announce Alerts & Start Timer," "Auto-Refresh Content," and manually trigger "Speak Repeater Info & Reset Timer."
-    -   **Help Menu**: Access the application's help page on GitHub directly in the embedded web view.
+    -   **Help Menu**: Access the application's help page on GitHub directly.
 -   **Dark Mode**: Option to switch between a light and dark theme for the application interface.
 -   **Settings Management**:
     -   All user configurations are saved to a `settings.txt` file in JSON format within a `resources` subdirectory.

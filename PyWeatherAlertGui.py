@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QComboBox, QTextEdit, QMessageBox,
     QStatusBar, QCheckBox, QSplitter, QStyleFactory, QGroupBox, QDialog,
     QDialogButtonBox, QFormLayout, QListWidget, QListWidgetItem,
-    QSpacerItem, QSizePolicy, QFileDialog, QFrame  # Added QFrame
+    QSpacerItem, QSizePolicy, QFileDialog, QFrame
 )
 from PySide6.QtCore import Qt, QTimer, Slot, QUrl, QFile, QTextStream
 from PySide6.QtGui import QTextCursor, QIcon, QColor, QDesktopServices, QPalette, QAction, QActionGroup
@@ -24,14 +24,14 @@ except ImportError:
     QWebEngineView = None
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
-versionnumber = "2025.07.03"  # Updated version
+versionnumber = "2025.06.11"  # Updated version
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
 FALLBACK_DEFAULT_INTERVAL_KEY = "15 Minutes"
 FALLBACK_DEFAULT_AIRPORT_ID = "SLO"
 FALLBACK_INITIAL_REPEATER_INFO = ""
-GITHUB_HELP_URL = "https://github.com/nicarley/PythonWeatherAlerts#pyweatheralertgui---weather-alert-monitor" # New Constant
+GITHUB_HELP_URL = "https://github.com/nicarley/PythonWeatherAlerts#pyweatheralertgui---weather-alert-monitor"
 
 DEFAULT_RADAR_OPTIONS = {
     "N.W.S. Radar": "https://radar.weather.gov/",
@@ -69,7 +69,7 @@ ADD_CURRENT_SOURCE_TEXT = "Add Current View as Source..."
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-# --- Dialog Classes (AddEditSourceDialog, GetNameDialog, ManageSourcesDialog remain the same) ---
+# --- Dialog Classes ---
 class AddEditSourceDialog(QDialog):
     def __init__(self, parent=None, current_name=None, current_url=None):
         super().__init__(parent)
@@ -187,7 +187,6 @@ class ManageSourcesDialog(QDialog):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             name, url = dialog.get_data()
             if name and url:
-                # Check for name conflict (excluding current item being edited)
                 for i in range(self.list_widget.count()):
                     loop_item = self.list_widget.item(i)
                     if loop_item == item: continue
@@ -673,17 +672,13 @@ class WeatherAlertApp(QMainWindow):
 
     @Slot()
     def _show_github_help(self):
-        """Loads the GitHub help page into the web_view."""
-        if QWebEngineView and self.web_view and isinstance(self.web_view, QWebEngineView):
-            self.log_to_gui(f"Loading GitHub help page: {GITHUB_HELP_URL}", level="INFO")
-            self.web_view.setUrl(QUrl(GITHUB_HELP_URL))
-            # Optionally, bring web_view to front or ensure it's visible if it's part of a tabbed interface etc.
-            # For a simple splitter, it should just load.
-        else:
-            self.log_to_gui("WebEngineView not available. Cannot show GitHub help page in app.", level="WARNING")
-            QMessageBox.information(self, "Web View Not Available",
-                                    "The embedded web browser is not available to display the help page.\n"
-                                    "Please ensure PySide6.QtWebEngineWidgets is installed.")
+        """Opens the GitHub help page in the user's default external web browser."""
+        self.log_to_gui(f"Opening GitHub help page in external browser: {GITHUB_HELP_URL}", level="INFO")
+        opened = QDesktopServices.openUrl(QUrl(GITHUB_HELP_URL))
+        if not opened:
+            self.log_to_gui(f"Could not automatically open GitHub help URL: {GITHUB_HELP_URL}", level="ERROR")
+            QMessageBox.warning(self, "Open URL Failed",
+                                f"Could not automatically open the help page. Please try opening the link manually in your browser:\n{GITHUB_HELP_URL}")
 
 
     @Slot()
@@ -769,7 +764,7 @@ class WeatherAlertApp(QMainWindow):
     def _on_webview_url_changed(self, new_qurl):
         if not QWebEngineView or not self.web_view or not isinstance(self.web_view, QWebEngineView): return
         new_url_str = new_qurl.toString()
-        if new_url_str == self.current_radar_url or new_url_str == "about:blank" or new_url_str == GITHUB_HELP_URL: # Ignore if it's the help URL
+        if new_url_str == self.current_radar_url or new_url_str == "about:blank" or new_url_str == GITHUB_HELP_URL:
             return
         self.log_to_gui(f"Web Source URL changed in WebView to: {new_url_str}", level="DEBUG")
         self.current_radar_url = new_url_str
@@ -780,7 +775,7 @@ class WeatherAlertApp(QMainWindow):
                     if not action.isChecked(): action.setChecked(True)
                     self._last_valid_radar_text = display_name_for_new_url
                     break
-        self._save_settings() # Save if user navigates away from a selected source
+        self._save_settings()
 
     @Slot(str)
     def _on_radar_source_selected(self, selected_text_data):
@@ -813,7 +808,7 @@ class WeatherAlertApp(QMainWindow):
         elif selected_text_data == ADD_CURRENT_SOURCE_TEXT:
             current_url_in_view = ""
             if QWebEngineView and self.web_view and isinstance(self.web_view, QWebEngineView):
-                current_url_in_view = self.web_view.url().toString() # Get current URL from web_view
+                current_url_in_view = self.web_view.url().toString()
 
             if not current_url_in_view or current_url_in_view == "about:blank" or current_url_in_view == GITHUB_HELP_URL:
                 QMessageBox.warning(self, "No Savable URL", "No valid user-navigated URL is currently loaded to save.")
@@ -842,9 +837,8 @@ class WeatherAlertApp(QMainWindow):
                     self._update_web_sources_menu()
                     for action in self.web_source_action_group.actions():
                         if action.data() == name: action.setChecked(True); break
-                    self.current_radar_url = current_url_in_view # Update to the newly saved URL
+                    self.current_radar_url = current_url_in_view
                     self._last_valid_radar_text = name
-                    # No need to reload radar view as it's already showing this URL
                     self._save_settings()
                 else:
                     QMessageBox.warning(self, "Invalid Input", "A name is required.")
@@ -985,7 +979,7 @@ class WeatherAlertApp(QMainWindow):
         else:
             status_text = "Next Check: --:-- (Paused)"
             self.countdown_timer.stop()
-            if self.remaining_time_seconds > 0 and not is_active: # Ensure countdown resets if paused mid-way
+            if self.remaining_time_seconds > 0 and not is_active:
                  self.remaining_time_seconds = 0
 
 
