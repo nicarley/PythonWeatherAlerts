@@ -2,7 +2,7 @@ A Python script, and GUI that allows a computer (or Raspberry Pi) to ID, and get
 Alerts come from the N.W.S. Alerts API, simply enter station ID.  It also shows latest N.W.S. Radar (currently defaults to Salem, IL where I'm from.)
 Settings are stored in an XML document under "resources/settings.txt"
 
-<a href="https://github.com/nicarley/PythonWeatherAlerts/blob/master/resources/pyweather.png?raw=true>
+<a href="https://github.com/nicarley/PythonWeatherAlerts/blob/master/resources/pyweather.png?raw=true">
 <img src="https://github.com/nicarley/PythonWeatherAlerts/blob/master/resources/pyweather.png?raw=true" width="800px" />
 </a>
 
