@@ -1,6 +1,6 @@
 {
     "repeater_info": "",
-    "airport_id": "SLO",
+    "location_id": "62881",
     "check_interval_key": "10 Minutes",
     "radar_options_dict": {
         "Apple Maps for Salem, IL": "https://maps.apple.com/search?map=hybrid&center=38.625824165947606%2C-88.95355326337172&span=0.047247173705066814%2C0.08257056924117023",
@@ -15,9 +15,10 @@
         "STL DSS Packet": "https://www.weather.gov/media/lsx/DssPacket.pdf",
         "Windy.com": "https://www.windy.com/",
         "Windy.com Radar+ Hourly for Salem, IL": "https://www.windy.com/38.627/-88.946?radarPlus,38.627,-88.946,8",
-        "Weather Alert Monitor: GitHub.com": "https://github.com/nicarley/PythonWeatherAlerts"
+        "Weather Alert Monitor: GitHub.com": "https://github.com/nicarley/PythonWeatherAlerts",
+        "Weather Underground: WunderMap": "https://www.wunderground.com/wundermap"
     },
-    "radar_url": "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOm51bGwsImNlbnRlciI6Wy04OC44OTEsMzguNjEzXSwibG9jYXRpb24iOm51bGwsInpvb20iOjkuMjQxMDYzNzYxMjU0MTN9LCJhbmltYXRpbmciOnRydWUsImJhc2UiOiJzdGFuZGFyZCIsImFydGNjIjpmYWxzZSwiY291bnR5IjpmYWxzZSwiY3dhIjpmYWxzZSwicmZjIjpmYWxzZSwic3RhdGUiOmZhbHNlLCJtZW51Ijp0cnVlLCJzaG9ydEZ1c2VkT25seSI6ZmFsc2UsIm9wYWNpdHkiOnsiYWxlcnRzIjowLjgsImxvY2FsIjowLjYsImxvY2FsU3RhdGlvbnMiOjAuOCwibmF0aW9uYWwiOjAuNn19",
+    "radar_url": "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOiJ3ZWF0aGVyIiwiY2VudGVyIjpbLTg0LjYxLDM4LjMzXSwibG9jYXRpb24iOlstODQuNjEsMzguMzNdLCJ6b29tIjo4LjYwNDc1OTczMDc3Mzk3LCJsYXllciI6ImJyZWZfcWNkIn0sImFuaW1hdGluZyI6dHJ1ZSwiYmFzZSI6InNhdGVsbGl0ZSIsImFydGNjIjpmYWxzZSwiY291bnR5IjpmYWxzZSwiY3dhIjpmYWxzZSwicmZjIjpmYWxzZSwic3RhdGUiOnRydWUsIm1lbnUiOnRydWUsInNob3J0RnVzZWRPbmx5IjpmYWxzZSwib3BhY2l0eSI6eyJhbGVydHMiOjAuOCwibG9jYWwiOjAuNiwibG9jYWxTdGF0aW9ucyI6MC44LCJuYXRpb25hbCI6MC42fX0%3D",
     "announce_alerts": false,
     "show_log": false,
     "show_alerts_area": true,

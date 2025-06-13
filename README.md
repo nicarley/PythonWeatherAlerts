@@ -1,7 +1,7 @@
 # PyWeatherAlert - Weather Alert Monitor
 
-PyWeatherAlertGui is a Python desktop application built with PySide6 that monitors weather alerts from the National Weather Service (NWS) for a specified airport ID. It provides visual and (optional) audio notifications for new alerts, displays current alerts, shows station forecasts, and allows users to view web-based weather radar or other web sources.
-There is a graphical user interface, and a simple python script that allows you to put your HAM or GMRS Call sign in and nearest NWS airport ID and it will trigger the alert system inside the app.
+PyWeatherAlertGui is a Python desktop application built with PySide6 that monitors weather alerts from the National Weather Service (NWS) for a specified location (US zip code or airport ID). It provides visual and (optional) audio notifications for new alerts, displays current alerts, shows station forecasts, and allows users to view web-based weather radar or other web sources.
+There is a graphical user interface, and a simple python script that allows you to put your HAM or GMRS Call sign in and nearest NWS location ID (zip/airport) and it will trigger the alert system inside the app.
 <a href="https://github.com/nicarley/PythonWeatherAlerts/blob/master/resources/pyweather.png?raw=true">
 <img src="https://github.com/nicarley/PythonWeatherAlerts/blob/master/resources/pyweather.png?raw=true" width="800px" />
 </a>
@@ -9,22 +9,22 @@ There is a graphical user interface, and a simple python script that allows you 
 ## More info on PyWeatherAlertGUI:
 ## Features
 
--   **NWS Alert Monitoring**: Periodically checks for new weather alerts (warnings, watches, advisories) for a user-defined airport ID.
+-   **NWS Alert Monitoring**: Periodically checks for new weather alerts (warnings, watches, advisories) for a user-defined location (US zip code or airport ID). Alerts are filtered by severity, certainty, and urgency.
 -   **Audio Announcements**:
     -   Optionally announces new weather alerts using text-to-speech (TTS).
     -   Optionally announces a custom repeater message after each check cycle.
 -   **Visual Information**:
     -   Displays current active alerts.
-    -   Shows 4-hour and 3-day station forecasts for the specified airport ID.
+    -   Shows 4-hour and 3-day station forecasts for the specified location.
     -   Embedded web view to display weather radar or other user-defined web sources (supports HTML and opens PDFs externally).
-    -   Top status bar displaying current Repeater, Airport ID, Check Interval, and a countdown to the next check.
+    -   Top status bar displaying current Repeater, Location ID, Check Interval, and a countdown to the next check.
 -   **Customizable Web Sources**:
     -   Pre-configured with N.W.S. Radar and Windy.com.
     -   Users can add, edit, delete, and reorder their own web sources (URLs) via a dedicated submenu.
     -   Option to quickly add the currently viewed URL in the web view as a new source.
 -   **Configurable Settings via Preferences Dialog**:
     -   Set Repeater Announcement text.
-    -   Define the Airport ID for weather data.
+    -   Define the Location ID (US Zip Code or Airport ID) for weather data.
     -   Choose the check interval for new alerts and content refresh (e.g., 1 minute, 15 minutes, 1 hour).
 -   **Menu-Driven Interface**:
     -   **File Menu**: Access Preferences, Backup/Restore Settings, and Exit.
@@ -49,4 +49,5 @@ You can typically install these Python libraries using pip:
 -   **requests**: For making HTTP requests to weather APIs.
 -   **feedparser**: For parsing Atom feeds from the NWS alerts.
 -   **pyttsx3**: For text-to-speech functionality.
-
+-   **pgeocode**: For converting US zip codes to geographic coordinates (works offline).
+-   **pandas**: A dependency of `pgeocode`.
