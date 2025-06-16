@@ -7,7 +7,7 @@ import logging  # For logging application events
 import os  # For interacting with the operating system (paths, file operations)
 import json  # For working with JSON data (settings)
 import shutil  # For high-level file operations (copying)
-from datetime import datetime  # For working with dates and times, used for versioning
+
 
 # PySide6 imports for GUI elements
 from PySide6.QtWidgets import (
@@ -32,8 +32,8 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-# Dynamically sets the version number to the current date in YYYY.MM.DD format.
-versionnumber = datetime.now().strftime("%Y.%m.%d")  # Set version to current date in YYYY.MM.DD format.
+# Dynamically sets the version number to the current date in YY.MM.DD format.
+versionnumber = "25.06.16" # Set version to current date in YY.MM.DD format.
 
 # --- Constants ---
 # Fallback values for application settings if not found in the settings file.
