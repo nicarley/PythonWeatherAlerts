@@ -7,6 +7,7 @@ import logging  # For logging application events
 import os  # For interacting with the operating system (paths, file operations)
 import json  # For working with JSON data (settings)
 import shutil  # For high-level file operations (copying)
+import pandas # For geocoding postal codes to geographic coordinates
 
 # PySide6 imports for GUI elements
 from PySide6.QtWidgets import (
