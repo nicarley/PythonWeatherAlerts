@@ -8,7 +8,6 @@ import os  # For interacting with the operating system (paths, file operations)
 import json  # For working with JSON data (settings)
 import shutil  # For high-level file operations (copying)
 
-
 # PySide6 imports for GUI elements
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
@@ -33,7 +32,7 @@ except ImportError:
 
 # --- Application Version ---
 # Sets the version number to the current date in YY.MM.DD format.
-versionnumber = "25.06.16" # Set version to current date in YY.MM.DD format.
+versionnumber = "25.06.16"  # Set version to current date in YY.MM.DD format.
 
 # --- Constants ---
 # Fallback values for application settings if not found in the settings file.
@@ -90,6 +89,60 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 
 # --- Dialog Classes ---
+
+class AboutDialog(QDialog):
+    """
+    A dialog to display information about the application.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("About Weather Alert Monitor")
+        self.setMinimumWidth(400)
+
+        layout = QVBoxLayout(self)
+
+        title_label = QLabel(f"<b>Weather Alert Monitor</b>")
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_font = title_label.font()
+        title_font.setPointSize(16)
+        title_label.setFont(title_font)
+        layout.addWidget(title_label)
+
+        version_label = QLabel(f"Version: {versionnumber} <br/>By: Nicolas Farley")
+        version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(version_label)
+
+        layout.addSpacing(10)
+
+        description_text = (
+            "This application monitors National Weather Service (NWS) alerts "
+            "for a specified location, displays current weather forecasts, "
+            "and provides a web view for weather-related sites."
+        )
+        description_label = QLabel(description_text)
+        description_label.setWordWrap(True)
+        layout.addWidget(description_label)
+
+        layout.addSpacing(10)
+
+        github_link_label = QLabel()
+        github_link_label.setTextFormat(Qt.TextFormat.RichText)
+        github_link_label.setText(
+            f'For more information, visit the <a href="{GITHUB_HELP_URL}">project page on GitHub</a>.'
+        )
+        github_link_label.setOpenExternalLinks(True)
+        github_link_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(github_link_label)
+
+        layout.addSpacing(15)
+
+        # Ok button
+        self.button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+        self.button_box.accepted.connect(self.accept)
+        layout.addWidget(self.button_box, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        self.setLayout(layout)
+
 
 class AddEditSourceDialog(QDialog):
     """
@@ -454,6 +507,10 @@ class WeatherAlertApp(QMainWindow):
         self.countdown_timer.timeout.connect(self._update_countdown_display)
         self.remaining_time_seconds = 0  # Seconds remaining until the next check
 
+        # Timer for updating the current time display (initialized later in _init_ui)
+        self.clock_timer = None
+        self.current_time_label = None
+
         self._init_ui()  # Initialize the user interface elements
         self._apply_loaded_settings_to_ui()  # Apply loaded settings to UI components
 
@@ -628,6 +685,7 @@ class WeatherAlertApp(QMainWindow):
         self.top_location_label = QLabel("Location: N/A")  # Changed from top_airport_label
         self.top_interval_label = QLabel("Interval: N/A")
         self.top_countdown_label = QLabel("Next Check: --:--")
+        self.current_time_label = QLabel("Time: --:--:--")  # New label for current time
 
         top_status_layout.addWidget(self.top_repeater_label)
         top_status_layout.addSpacing(20)
@@ -636,9 +694,17 @@ class WeatherAlertApp(QMainWindow):
         top_status_layout.addWidget(self.top_interval_label)
         top_status_layout.addStretch(1)
         top_status_layout.addWidget(self.top_countdown_label)
+        top_status_layout.addSpacing(15)  # Spacing before current time
+        top_status_layout.addWidget(self.current_time_label)  # Add current time label
 
         self.top_status_widget.setObjectName("TopStatusBar")
         main_layout.addWidget(self.top_status_widget)
+
+        # Timer for updating the current time display
+        self.clock_timer = QTimer(self)
+        self.clock_timer.timeout.connect(self._update_current_time_display)
+        self.clock_timer.start(1000)  # Update every second
+        self._update_current_time_display()  # Initial call to set time
 
         menu_bar = self.menuBar()
         file_menu = menu_bar.addMenu("&File")
@@ -670,6 +736,13 @@ class WeatherAlertApp(QMainWindow):
         self.show_forecasts_area_action = QAction("Show Station &Forecasts Area", self, checkable=True)
         self.show_forecasts_area_action.triggered.connect(self._on_show_forecasts_area_toggled)
         view_menu.addAction(self.show_forecasts_area_action)
+
+        # Add Full Screen toggle action
+        self.toggle_fullscreen_action = QAction("Toggle &Full Screen", self)
+        self.toggle_fullscreen_action.setShortcut("F11")
+        self.toggle_fullscreen_action.triggered.connect(self._toggle_fullscreen)
+        view_menu.addAction(self.toggle_fullscreen_action)
+
         view_menu.addSeparator()
         self.dark_mode_action = QAction("&Enable Dark Mode", self, checkable=True)
         self.dark_mode_action.triggered.connect(self._on_dark_mode_toggled)
@@ -691,6 +764,11 @@ class WeatherAlertApp(QMainWindow):
         github_help_action = QAction("View Help on GitHub", self)
         github_help_action.triggered.connect(self._show_github_help)
         help_menu.addAction(github_help_action)
+        help_menu.addSeparator() # Add separator before About
+        about_action = QAction("&About Weather Alert Monitor...", self)
+        about_action.triggered.connect(self._show_about_dialog)
+        help_menu.addAction(about_action)
+
 
         alerts_forecasts_layout = QHBoxLayout()
         self.alerts_group = QGroupBox("Current Alerts")
@@ -707,7 +785,7 @@ class WeatherAlertApp(QMainWindow):
         station_hourly_forecast_group = QWidget()
         station_hourly_forecast_layout = QVBoxLayout(station_hourly_forecast_group)
         station_hourly_forecast_layout.setContentsMargins(0, 0, 0, 0)
-        station_hourly_forecast_layout.addWidget(QLabel("<b>4-Hour Forecast:</b>"))
+        station_hourly_forecast_layout.addWidget(QLabel("<b>8-Hour Forecast:</b>")) # Changed
         self.station_hourly_forecast_display_area = QTextEdit()
         self.station_hourly_forecast_display_area.setObjectName("StationHourlyForecastArea")
         self.station_hourly_forecast_display_area.setReadOnly(True)
@@ -719,7 +797,7 @@ class WeatherAlertApp(QMainWindow):
         station_daily_forecast_group = QWidget()
         station_daily_forecast_layout = QVBoxLayout(station_daily_forecast_group)
         station_daily_forecast_layout.setContentsMargins(0, 0, 0, 0)
-        station_daily_forecast_layout.addWidget(QLabel("<b>3-Day Forecast:</b>"))
+        station_daily_forecast_layout.addWidget(QLabel("<b>5-Day Forecast:</b>")) # Changed
         self.daily_forecast_display_area = QTextEdit()
         self.daily_forecast_display_area.setObjectName("DailyForecastArea")
         self.daily_forecast_display_area.setReadOnly(True)
@@ -756,6 +834,29 @@ class WeatherAlertApp(QMainWindow):
         self.setStatusBar(self.status_bar)
         self.update_status("Application started.")
         self._reload_radar_view()
+
+    @Slot()
+    def _update_current_time_display(self):
+        """Updates the current time label in the top status bar."""
+        current_time_str = time.strftime("%I:%M:%S %p")  # e.g., 03:45:20 PM
+        if hasattr(self, 'current_time_label') and self.current_time_label:
+            self.current_time_label.setText(f"Time: {current_time_str}")
+
+    @Slot()
+    def _toggle_fullscreen(self):
+        """Toggles the main window's full-screen state."""
+        if self.isFullScreen():
+            self.showNormal()
+            self.log_to_gui("Exited full screen mode.", level="INFO")
+        else:
+            self.showFullScreen()
+            self.log_to_gui("Entered full screen mode (Press F11 to exit).", level="INFO")
+
+    @Slot()
+    def _show_about_dialog(self):
+        """Shows the About dialog."""
+        dialog = AboutDialog(self)
+        dialog.exec()
 
     def _update_top_status_bar_display(self):
         """Updates the labels in the top status bar with current preference values."""
@@ -1548,11 +1649,11 @@ class WeatherAlertApp(QMainWindow):
         Formats the hourly forecast data for display.
         """
         if not forecast_json or 'properties' not in forecast_json or 'periods' not in forecast_json['properties']:
-            return "4-Hour forecast data unavailable or malformed."
+            return "8-Hour forecast data unavailable or malformed." # Changed
         periods = forecast_json['properties']['periods']
         display_text_parts = []
         for i, p in enumerate(periods):
-            if i >= 4: break
+            if i >= 8: break # Changed
             try:
                 start_time_str = p.get('startTime', '')
                 time_hm = start_time_str.split('T')[1].split(':')[0:2]
@@ -1565,17 +1666,17 @@ class WeatherAlertApp(QMainWindow):
                 self.log_to_gui(f"Error formatting hourly period: {p}, Error: {e}", level="WARNING")
                 display_text_parts.append("Error: Malformed period data")
 
-        return "\n".join(display_text_parts) if display_text_parts else "No 4-hour forecast periods found."
+        return "\n".join(display_text_parts) if display_text_parts else "No 8-hour forecast periods found." # Changed
 
     def _format_daily_forecast_display(self, forecast_json):
         """
         Formats the daily forecast data for display.
         """
         if not forecast_json or 'properties' not in forecast_json or 'periods' not in forecast_json['properties']:
-            return "3-Day forecast data unavailable or malformed."
+            return "5-Day forecast data unavailable or malformed." # Changed
         periods = forecast_json['properties']['periods']
         display_text_parts = []
-        for p in periods[:6]:
+        for p in periods[:10]: # Changed (10 periods for 5 days, day/night)
             try:
                 name = p.get('name', 'N/A')
                 temp_label = "High" if "High" in name or p.get("isDaytime", False) else "Low"
@@ -1586,7 +1687,7 @@ class WeatherAlertApp(QMainWindow):
                 self.log_to_gui(f"Error formatting daily period: {p}, Error: {e}", level="WARNING")
                 display_text_parts.append("Error: Malformed period data")
 
-        return "\n".join(display_text_parts) if display_text_parts else "No 3-day forecast periods found."
+        return "\n".join(display_text_parts) if display_text_parts else "No 5-day forecast periods found." # Changed
 
     def _update_station_forecasts_display(self):
         """
@@ -1599,8 +1700,8 @@ class WeatherAlertApp(QMainWindow):
             self._adjust_forecast_text_area_sizes()
             return
 
-        self.station_hourly_forecast_display_area.setText(f"Fetching 4-hour forecast for {location_id}...")  # Changed
-        self.daily_forecast_display_area.setText(f"Fetching 3-day forecast for {location_id}...")  # Changed
+        self.station_hourly_forecast_display_area.setText(f"Fetching 8-hour forecast for {location_id}...")  # Changed
+        self.daily_forecast_display_area.setText(f"Fetching 5-day forecast for {location_id}...")  # Changed
         self._adjust_forecast_text_area_sizes()
         QApplication.processEvents()
 
@@ -1629,10 +1730,10 @@ class WeatherAlertApp(QMainWindow):
             hourly_json = self._fetch_forecast_data_from_url(hourly_url, log_errors=False)
             self.station_hourly_forecast_display_area.setText(
                 self._format_station_hourly_forecast_display(
-                    hourly_json) if hourly_json else f"Could not retrieve 4-hour forecast for {location_id}.")  # Changed
+                    hourly_json) if hourly_json else f"Could not retrieve 8-hour forecast for {location_id}.")  # Changed
         else:
             self.station_hourly_forecast_display_area.setText(
-                f"4-hour forecast URL not found for {location_id}.")  # Changed
+                f"8-hour forecast URL not found for {location_id}.")  # Changed
         self._adjust_forecast_text_area_sizes()
 
         daily_url = props.get('forecast')
@@ -1640,9 +1741,9 @@ class WeatherAlertApp(QMainWindow):
             daily_json = self._fetch_forecast_data_from_url(daily_url, log_errors=False)
             self.daily_forecast_display_area.setText(
                 self._format_daily_forecast_display(
-                    daily_json) if daily_json else f"Could not retrieve 3-day forecast for {location_id}.")  # Changed
+                    daily_json) if daily_json else f"Could not retrieve 5-day forecast for {location_id}.")  # Changed
         else:
-            self.daily_forecast_display_area.setText(f"3-day forecast URL not found for {location_id}.")  # Changed
+            self.daily_forecast_display_area.setText(f"5-day forecast URL not found for {location_id}.")  # Changed
         self._adjust_forecast_text_area_sizes()
 
     def _adjust_forecast_text_area_sizes(self):
@@ -1842,6 +1943,8 @@ class WeatherAlertApp(QMainWindow):
             self.log_to_gui("Shutting down application...", level="INFO")
             self.main_check_timer.stop()
             self.countdown_timer.stop()
+            if hasattr(self, 'clock_timer') and self.clock_timer:
+                self.clock_timer.stop()  # Stop the clock timer
             if hasattr(self.tts_engine, 'stop') and not self.is_tts_dummy:
                 try:
                     if self.tts_engine.isBusy():
