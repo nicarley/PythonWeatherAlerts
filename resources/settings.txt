@@ -10,7 +10,7 @@
         "KSDK 7 Day Forecast": "https://cdn.tegna-media.com/ksdk/weather/7day.jpg",
         "MyGMRS Map": "https://mygmrs.com/map",
         "N.W.S. Radar": "https://radar.weather.gov/",
-        "NWS - Salem,  IL Animated": "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOm51bGwsImNlbnRlciI6Wy04OC44OTEsMzguNjEzXSwibG9jYXRpb24iOm51bGwsInpvb20iOjkuMjQxMDYzNzYxMjU0MTN9LCJhbmltYXRpbmciOnRydWUsImJhc2UiOiJzdGFuZGFyZCIsImFydGNjIjpmYWxzZSwiY291bnR5IjpmYWxzZSwiY3dhIjpmYWxzZSwicmZjIjpmYWxzZSwic3RhdGUiOmZhbHNlLCJtZW51Ijp0cnVlLCJzaG9ydEZ1c2VkT25seSI6ZmFsc2UsIm9wYWNpdHkiOnsiYWxlcnRzIjowLjgsImxvY2FsIjowLjYsImxvY2FsU3RhdGlvbnMiOjAuOCwibmF0aW9uYWwiOjAuNn19",
+        "NWS - Salem,  IL Animated": "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOiJ3ZWF0aGVyIiwiY2VudGVyIjpbLTg4Ljk3NiwzOC42MzldLCJsb2NhdGlvbiI6Wy04OC45NzYsMzguNjM5XSwiem9vbSI6OC41NTU1NTU1MjE2NDcxMzYsImxheWVyIjoiYnJlZl9xY2QifSwiYW5pbWF0aW5nIjp0cnVlLCJiYXNlIjoic3RhbmRhcmQiLCJhcnRjYyI6ZmFsc2UsImNvdW50eSI6ZmFsc2UsImN3YSI6ZmFsc2UsInJmYyI6ZmFsc2UsInN0YXRlIjpmYWxzZSwibWVudSI6dHJ1ZSwic2hvcnRGdXNlZE9ubHkiOmZhbHNlLCJvcGFjaXR5Ijp7ImFsZXJ0cyI6MC44LCJsb2NhbCI6MC42LCJsb2NhbFN0YXRpb25zIjowLjgsIm5hdGlvbmFsIjowLjZ9fQ%3D%3D",
         "Outlook Web Access": "https://outlook.office.com/mail/",
         "Slack": "https://slack.com/signin#/signin",
         "STL DSS Packet": "https://www.weather.gov/media/lsx/DssPacket.pdf",
@@ -18,7 +18,7 @@
         "Windy.com Radar+ Hourly for Salem, IL": "https://www.windy.com/38.627/-88.946?radarPlus,38.627,-88.946,8",
         "Ventusky.com: Salem, IL": "https://www.ventusky.com/?p=38.95;-88.92;7&l=radar"
     },
-    "radar_url": "https://maps.apple.com/search?map=hybrid&center=38.625824165947606%2C-88.95355326337172&span=0.047247173705066814%2C0.08257056924117023",
+    "radar_url": "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOiJ3ZWF0aGVyIiwiY2VudGVyIjpbLTg4Ljk3NiwzOC42MzldLCJsb2NhdGlvbiI6Wy04OC45NzYsMzguNjM5XSwiem9vbSI6OC41NTU1NTU1MjE2NDcxMzYsImxheWVyIjoiYnJlZl9xY2QifSwiYW5pbWF0aW5nIjp0cnVlLCJiYXNlIjoic3RhbmRhcmQiLCJhcnRjYyI6ZmFsc2UsImNvdW50eSI6ZmFsc2UsImN3YSI6ZmFsc2UsInJmYyI6ZmFsc2UsInN0YXRlIjpmYWxzZSwibWVudSI6dHJ1ZSwic2hvcnRGdXNlZE9ubHkiOmZhbHNlLCJvcGFjaXR5Ijp7ImFsZXJ0cyI6MC44LCJsb2NhbCI6MC42LCJsb2NhbFN0YXRpb25zIjowLjgsIm5hdGlvbmFsIjowLjZ9fQ%3D%3D",
     "announce_alerts": true,
     "show_log": false,
     "show_alerts_area": true,
