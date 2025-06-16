@@ -32,7 +32,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-# Dynamically sets the version number to the current date in YY.MM.DD format.
+# Sets the version number to the current date in YY.MM.DD format.
 versionnumber = "25.06.16" # Set version to current date in YY.MM.DD format.
 
 # --- Constants ---
