@@ -40,7 +40,7 @@ FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000  # Default check interval: 15 mi
 FALLBACK_DEFAULT_INTERVAL_KEY = "15 Minutes"  # Default display key for the check interval
 FALLBACK_DEFAULT_LOCATION_ID = "SLO"  # Default location ID (e.g., KSLE -> SLE, or a zip code)
 FALLBACK_INITIAL_REPEATER_INFO = ""  # Default repeater announcement string
-GITHUB_HELP_URL = "https://github.com/nicarley/PythonWeatherAlerts#pyweatheralertgui---weather-alert-monitor"  # URL for help documentation
+GITHUB_HELP_URL = "https://github.com/nicarley/PythonWeatherAlerts/wiki"  # URL for help documentation
 
 # Default options for web sources (e.g., radar sites)
 DEFAULT_RADAR_OPTIONS = {
