@@ -33,7 +33,7 @@ except ImportError:
 
 # --- Application Version ---
 # Sets the version number to the current date in YY.MM.DD format.
-versionnumber = "25.06.16"  # Set version to current date in YY.MM.DD format.
+versionnumber = "25.06.18"  # Set version to current date in YY.MM.DD format.
 
 # --- Constants ---
 # Fallback values for application settings if not found in the settings file.
@@ -71,7 +71,7 @@ CHECK_INTERVAL_OPTIONS = {
 NWS_STATION_API_URL_TEMPLATE = "https://api.weather.gov/stations/{station_id}"  # For station details (like coordinates)
 NWS_POINTS_API_URL_TEMPLATE = "https://api.weather.gov/points/{latitude},{longitude}"  # For gridpoint data (forecast URLs)
 WEATHER_URL_PREFIX = "https://api.weather.gov/alerts/active.atom?point="  # Base URL for NWS alerts ATOM feed
-# WEATHER_URL_SUFFIX = "&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2CSevere%2CModerate%2CMinor&urgency=Future%2CExpected"  # Filters for alert feed
+WEATHER_URL_SUFFIX = "&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2CSevere%2CModerate%2CMinor&urgency=Future%2CExpected"  # Filters for alert feed
 
 # File and folder names
 SETTINGS_FILE_NAME = "settings.txt"  # Name of the settings file
@@ -1769,7 +1769,7 @@ class WeatherAlertApp(QMainWindow):
 
         coords = self._get_coordinates_for_location(location_id, log_errors=log_errors)  # Changed
         if coords:
-            return f"{WEATHER_URL_PREFIX}{coords[0]}%2C{coords[1]}"
+            return f"{WEATHER_URL_PREFIX}{coords[0]}%2C{coords[1]}{WEATHER_URL_SUFFIX}"
         if log_errors:
             self.log_to_gui(f"Failed to get coordinates for {location_id} to build alert URL.",
                             level="ERROR")  # Changed
