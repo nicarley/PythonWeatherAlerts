@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QComboBox, QTextEdit, QMessageBox,
     QStatusBar, QCheckBox, QSplitter, QStyleFactory, QGroupBox, QDialog,
     QDialogButtonBox, QFormLayout, QListWidget, QListWidgetItem,
-    QSpacerItem, QSizePolicy, QFileDialog, QFrame
+    QSpacerItem, QSizePolicy, QFileDialog, QFrame, QMenu
 )
 from PySide6.QtCore import Qt, QTimer, Slot, QUrl, QFile, \
     QTextStream  # Core Qt functionalities (signals, slots, timers, URLs)
@@ -511,6 +511,7 @@ class WeatherAlertApp(QMainWindow):
         # Timer for updating the current time display (initialized later in _init_ui)
         self.clock_timer = None
         self.current_time_label = None
+        self.web_source_quick_select_button = None # Initialize attribute
 
         self._init_ui()  # Initialize the user interface elements
         self._apply_loaded_settings_to_ui()  # Apply loaded settings to UI components
@@ -693,6 +694,17 @@ class WeatherAlertApp(QMainWindow):
         top_status_layout.addWidget(self.top_location_label)  # Changed
         top_status_layout.addSpacing(20)
         top_status_layout.addWidget(self.top_interval_label)
+        top_status_layout.addSpacing(10) # Space before the new button
+
+        # New Quick Select Button for Web Sources
+        self.web_source_quick_select_button = QPushButton("Web Source")
+        self.web_source_quick_select_button.setToolTip("Quick select web source")
+        # Optional: Make it look less prominent if desired
+        # self.web_source_quick_select_button.setFlat(True)
+        # self.web_source_quick_select_button.setStyleSheet("QPushButton { border: none; padding: 2px; text-align: left; }")
+        self.web_source_quick_select_button.clicked.connect(self._show_web_source_quick_select_menu)
+        top_status_layout.addWidget(self.web_source_quick_select_button)
+
         top_status_layout.addStretch(1)
         top_status_layout.addWidget(self.top_countdown_label)
         top_status_layout.addSpacing(15)  # Spacing before current time
@@ -889,6 +901,7 @@ class WeatherAlertApp(QMainWindow):
 
         self._update_web_sources_menu()
         self._update_top_status_bar_display()
+        self._update_quick_select_button_text() # Add this line
         self._update_main_timer_state()
         self._reload_radar_view()
         self.log_to_gui("Settings applied to UI.", level="INFO")
@@ -1125,6 +1138,7 @@ class WeatherAlertApp(QMainWindow):
                     self._last_valid_radar_text = display_name_for_new_url
                     break
         self._save_settings()
+        self._update_quick_select_button_text() # Add this line
 
     @Slot(str)
     def _on_radar_source_selected(self, selected_text_data):
@@ -1133,8 +1147,11 @@ class WeatherAlertApp(QMainWindow):
         Args:
             selected_text_data (str): The text/data of the selected QAction.
         """
-        if not selected_text_data: return
+        if not selected_text_data:
+            self._update_quick_select_button_text() # Update button even if no action taken
+            return
 
+        # --- ADD_NEW_SOURCE_TEXT logic ---
         if selected_text_data == ADD_NEW_SOURCE_TEXT:
             dialog = AddEditSourceDialog(self)
             if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -1143,20 +1160,23 @@ class WeatherAlertApp(QMainWindow):
                     if name in [ADD_NEW_SOURCE_TEXT, MANAGE_SOURCES_TEXT,
                                 ADD_CURRENT_SOURCE_TEXT] or name in self.RADAR_OPTIONS:
                         QMessageBox.warning(self, "Invalid Name", f"The name '{name}' is reserved or already exists.")
-                        self._recheck_last_valid_source_in_menu()
-                        return
-                    self.RADAR_OPTIONS[name] = url
-                    self._update_web_sources_menu()
-                    for action in self.web_source_action_group.actions():
-                        if action.data() == name: action.setChecked(True); break
-                    self.current_radar_url = url
-                    self._last_valid_radar_text = name
-                    self._reload_radar_view()
-                    self._save_settings()
+                    else:
+                        self.RADAR_OPTIONS[name] = url
+                        self._update_web_sources_menu() # Rebuilds main menu, sets checks
+                        # Ensure the new action is checked
+                        for action in self.web_source_action_group.actions():
+                            if action.data() == name:
+                                action.setChecked(True)
+                                break
+                        self.current_radar_url = url
+                        self._last_valid_radar_text = name
+                        self._reload_radar_view()
+                        self._save_settings()
                 else:
                     QMessageBox.warning(self, "Invalid Input", "Both name and a valid URL are required.")
             self._recheck_last_valid_source_in_menu()
 
+        # --- ADD_CURRENT_SOURCE_TEXT logic ---
         elif selected_text_data == ADD_CURRENT_SOURCE_TEXT:
             current_url_in_view = ""
             if QWebEngineView and self.web_view and isinstance(self.web_view, QWebEngineView):
@@ -1164,42 +1184,43 @@ class WeatherAlertApp(QMainWindow):
 
             if not current_url_in_view or current_url_in_view == "about:blank" or current_url_in_view == GITHUB_HELP_URL:
                 QMessageBox.warning(self, "No Savable URL", "No valid user-navigated URL is currently loaded to save.")
-                self._recheck_last_valid_source_in_menu()
-                return
-
-            existing_name = self._get_display_name_for_url(current_url_in_view)
-            if existing_name:
-                QMessageBox.information(self, "URL Already Saved",
-                                        f"This URL ({current_url_in_view}) is already saved as '{existing_name}'.")
-                self._recheck_last_valid_source_in_menu(existing_name)
-                return
-
-            name_dialog = GetNameDialog(self, url_to_save=current_url_in_view)
-            if name_dialog.exec() == QDialog.DialogCode.Accepted:
-                name = name_dialog.get_name()
-                if name:
-                    if name in [ADD_NEW_SOURCE_TEXT, MANAGE_SOURCES_TEXT,
-                                ADD_CURRENT_SOURCE_TEXT] or name in self.RADAR_OPTIONS:
-                        QMessageBox.warning(self, "Invalid Name", f"The name '{name}' is reserved or already exists.")
-                        self._recheck_last_valid_source_in_menu()
-                        return
-                    self.RADAR_OPTIONS[name] = current_url_in_view
-                    self._update_web_sources_menu()
-                    for action in self.web_source_action_group.actions():
-                        if action.data() == name: action.setChecked(True); break
-                    self.current_radar_url = current_url_in_view
-                    self._last_valid_radar_text = name
-                    self._save_settings()
+            else:
+                existing_name = self._get_display_name_for_url(current_url_in_view)
+                if existing_name:
+                    QMessageBox.information(self, "URL Already Saved",
+                                            f"This URL ({current_url_in_view}) is already saved as '{existing_name}'.")
+                    self._recheck_last_valid_source_in_menu(existing_name)
                 else:
-                    QMessageBox.warning(self, "Invalid Input", "A name is required.")
+                    name_dialog = GetNameDialog(self, url_to_save=current_url_in_view)
+                    if name_dialog.exec() == QDialog.DialogCode.Accepted:
+                        name = name_dialog.get_name()
+                        if name:
+                            if name in [ADD_NEW_SOURCE_TEXT, MANAGE_SOURCES_TEXT,
+                                        ADD_CURRENT_SOURCE_TEXT] or name in self.RADAR_OPTIONS:
+                                QMessageBox.warning(self, "Invalid Name", f"The name '{name}' is reserved or already exists.")
+                            else:
+                                self.RADAR_OPTIONS[name] = current_url_in_view
+                                self._update_web_sources_menu() # Rebuilds main menu
+                                for action in self.web_source_action_group.actions():
+                                    if action.data() == name:
+                                        action.setChecked(True)
+                                        break
+                                self.current_radar_url = current_url_in_view
+                                self._last_valid_radar_text = name
+                                self._save_settings()
+                        else:
+                            QMessageBox.warning(self, "Invalid Input", "A name is required.")
             self._recheck_last_valid_source_in_menu()
 
+
+        # --- MANAGE_SOURCES_TEXT logic ---
         elif selected_text_data == MANAGE_SOURCES_TEXT:
             dialog = ManageSourcesDialog(self.RADAR_OPTIONS.copy(), self)
             if dialog.exec() == QDialog.DialogCode.Accepted:
                 self.RADAR_OPTIONS = dialog.get_sources()
-                self._update_web_sources_menu()
+                self._update_web_sources_menu() # This rebuilds main menu and sets checks
 
+                # If current_radar_url is no longer valid, pick the first available one
                 current_display_name = self._get_display_name_for_url(self.current_radar_url)
                 if not current_display_name and self.RADAR_OPTIONS:
                     first_available_name = list(self.RADAR_OPTIONS.keys())[0]
@@ -1207,8 +1228,12 @@ class WeatherAlertApp(QMainWindow):
                     self._last_valid_radar_text = first_available_name
                     self.log_to_gui(f"Web source changed to first available: {first_available_name}", level="INFO")
                     self._reload_radar_view()
-                    self._recheck_last_valid_source_in_menu(first_available_name)
-                elif not self.RADAR_OPTIONS:
+                    # Ensure main menu reflects this change
+                    for action in self.web_source_action_group.actions():
+                        if action.data() == first_available_name:
+                            action.setChecked(True)
+                            break
+                elif not self.RADAR_OPTIONS: # No sources left
                     self.current_radar_url = ""
                     self._last_valid_radar_text = ""
                     if hasattr(self, 'web_view') and QWebEngineView and isinstance(self.web_view, QWebEngineView):
@@ -1216,6 +1241,7 @@ class WeatherAlertApp(QMainWindow):
                 self._save_settings()
             self._recheck_last_valid_source_in_menu()
 
+        # --- Direct source selection ---
         else:
             selected_display_name = selected_text_data
             new_url = self.RADAR_OPTIONS.get(selected_display_name)
@@ -1225,10 +1251,22 @@ class WeatherAlertApp(QMainWindow):
                     self._last_valid_radar_text = selected_display_name
                     self.log_to_gui(f"Web Source: {selected_display_name} ({self.current_radar_url})", level="INFO")
                     self._reload_radar_view()
+                    # Explicitly update the main menu's check state
+                    if hasattr(self, 'web_source_action_group'):
+                        for action in self.web_source_action_group.actions():
+                            if action.data() == selected_display_name:
+                                if not action.isChecked():
+                                    action.setChecked(True) # This will also uncheck others in the group
+                                break
+                else: # URL is the same, but ensure _last_valid_radar_text is correct
+                    self._last_valid_radar_text = selected_display_name
                 self._save_settings()
             else:
                 self.log_to_gui(f"Selected web source '{selected_display_name}' not found in options.", level="WARNING")
                 self._recheck_last_valid_source_in_menu()
+
+        # Update the quick select button's text after any operation
+        self._update_quick_select_button_text()
 
     def _recheck_last_valid_source_in_menu(self, specific_name_to_check=None):
         """Ensures the menu's checked state matches _last_valid_radar_text or a specific name."""
@@ -1238,11 +1276,14 @@ class WeatherAlertApp(QMainWindow):
                 if action.data() == name_to_ensure_checked:
                     if not action.isChecked(): action.setChecked(True)
                     return
-        elif self.RADAR_OPTIONS:
+        elif self.RADAR_OPTIONS: # If the specific/last valid name isn't there, check the first available
             first_name = list(self.RADAR_OPTIONS.keys())[0]
             for action in self.web_source_action_group.actions():
                 if action.data() == first_name:
                     if not action.isChecked(): action.setChecked(True)
+                    # Update last valid text if we had to fall back
+                    self._last_valid_radar_text = first_name
+                    self.current_radar_url = self.RADAR_OPTIONS.get(first_name, "")
                     return
 
     def _reload_radar_view(self):
@@ -1422,7 +1463,7 @@ class WeatherAlertApp(QMainWindow):
                 self.update_status("Timed checks active. Starting check cycle...")
                 self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
                 QTimer.singleShot(100, self.perform_check_cycle)
-            else:
+            else: # Timer is already active, just ensure countdown is correct
                 self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
         else:
             self.log_to_gui("All timed activities disabled. Timed checks paused.", level="INFO")
@@ -1446,7 +1487,7 @@ class WeatherAlertApp(QMainWindow):
         self.current_auto_refresh_content_checked = checked
         self.log_to_gui(f"Auto-refresh web content {'enabled' if checked else 'disabled'}.", level="INFO")
         self._update_main_timer_state()
-        if checked and self.main_check_timer.isActive():
+        if checked and self.main_check_timer.isActive(): # If turning on and timer is running, refresh now
             self._reload_radar_view()
         self._save_settings()
 
@@ -1461,8 +1502,8 @@ class WeatherAlertApp(QMainWindow):
             tuple: (latitude, longitude) if successful, otherwise None.
         """
         try:
-            import pgeocode
-            import pandas as pd
+            import pgeocode # Moved import here to avoid error if not installed and not used
+            import pandas as pd # Moved import here
         except ImportError:
             self.log_to_gui("pgeocode or pandas library not found. Zip code lookup cannot proceed.", level="ERROR")
             self.update_status("Error: pgeocode/pandas missing for zip code.")
@@ -1518,7 +1559,7 @@ class WeatherAlertApp(QMainWindow):
                 if coords and len(coords) == 2:
                     if log_errors: self.log_to_gui(
                         f"Coordinates for {full_nws_station_id}: Lat={coords[1]}, Lon={coords[0]}", level="INFO")
-                    return coords[1], coords[0]
+                    return coords[1], coords[0] # NWS returns lon, lat; we want lat, lon
             if log_errors: self.log_to_gui(f"Could not parse coordinates for {full_nws_station_id} from API response.",
                                            level="ERROR")
             return None
@@ -1533,12 +1574,12 @@ class WeatherAlertApp(QMainWindow):
                 self.log_to_gui(f"Network error fetching coordinates for {full_nws_station_id}: {e}", level="ERROR")
                 self.update_status(f"Error: Network issue fetching station data for {full_nws_station_id}.")
             return None
-        except ValueError:
+        except ValueError: # Includes JSONDecodeError
             if log_errors:
                 self.log_to_gui(f"Invalid JSON response for {full_nws_station_id} coordinates.", level="ERROR")
                 self.update_status(f"Error: Invalid NWS station data for {full_nws_station_id}.")
             return None
-        except Exception as e:
+        except Exception as e: # Catch-all for other unexpected errors
             if log_errors: self.log_to_gui(f"Unexpected error fetching {full_nws_station_id} coordinates: {e}",
                                            level="ERROR")
             return None
@@ -1567,6 +1608,8 @@ class WeatherAlertApp(QMainWindow):
             if coords:
                 return coords
             # If geocoding failed, it might be an unusual (all-digit) station ID. Fall through.
+            if log_errors: self.log_to_gui(f"Zip code geocoding failed for '{processed_input}'. Will try as NWS ID.", level="DEBUG")
+
 
         # Try as Airport/NWS Station ID
         nws_id_to_try = processed_input
@@ -1580,6 +1623,10 @@ class WeatherAlertApp(QMainWindow):
             # Looks like a 4-char NWS ID (e.g., KSLE, PANC), use as is
             if log_errors: self.log_to_gui(f"Input '{processed_input}' looks like 4-char NWS ID, using as is.",
                                            level="DEBUG")
+        # For other cases (like all-digit non-zip, or mixed non-standard), try as is
+        elif log_errors:
+             self.log_to_gui(f"Input '{processed_input}' does not match typical zip or airport ID patterns. Trying as NWS ID directly.", level="DEBUG")
+
 
         coords = self._fetch_station_coordinates(nws_id_to_try, log_errors=log_errors)
         if coords:
@@ -1619,7 +1666,7 @@ class WeatherAlertApp(QMainWindow):
         except requests.exceptions.RequestException as e:
             if log_errors: self.log_to_gui(f"Error fetching gridpoint properties: {e}", level="ERROR")
             return None
-        except ValueError:
+        except ValueError: # Includes JSONDecodeError
             if log_errors: self.log_to_gui(f"Invalid JSON response from gridpoint properties API.", level="ERROR")
             return None
 
@@ -1640,7 +1687,7 @@ class WeatherAlertApp(QMainWindow):
         except requests.exceptions.RequestException as e:
             if log_errors: self.log_to_gui(f"Error fetching forecast data from {forecast_url}: {e}", level="ERROR")
             return None
-        except ValueError:
+        except ValueError: # Includes JSONDecodeError
             if log_errors: self.log_to_gui(f"Invalid JSON response for forecast data from {forecast_url}.",
                                            level="ERROR")
             return None
@@ -1654,16 +1701,18 @@ class WeatherAlertApp(QMainWindow):
         periods = forecast_json['properties']['periods']
         display_text_parts = []
         for i, p in enumerate(periods):
-            if i >= 8: break # Changed
+            if i >= 8: break # Changed: Limit to 8 periods for 8-hour forecast
             try:
                 start_time_str = p.get('startTime', '')
-                time_hm = start_time_str.split('T')[1].split(':')[0:2]
-                formatted_time = f"{time_hm[0]}:{time_hm[1]}"
+                # Basic time formatting (assumes ISO format)
+                time_obj = time.strptime(start_time_str.split('T')[1].split('-')[0], "%H:%M:%S")
+                formatted_time = time.strftime("%I:%M %p", time_obj).lstrip('0') # e.g., 3:00 PM
+
                 temp = p.get('temperature', 'N/A')
                 unit = p.get('temperatureUnit', '')
                 short_fc = p.get('shortForecast', 'N/A')
                 display_text_parts.append(f"{formatted_time}: {temp}°{unit}, {short_fc}")
-            except (IndexError, AttributeError, TypeError) as e:
+            except (IndexError, AttributeError, TypeError, ValueError) as e: # Added ValueError for time parsing
                 self.log_to_gui(f"Error formatting hourly period: {p}, Error: {e}", level="WARNING")
                 display_text_parts.append("Error: Malformed period data")
 
@@ -1677,13 +1726,19 @@ class WeatherAlertApp(QMainWindow):
             return "5-Day forecast data unavailable or malformed." # Changed
         periods = forecast_json['properties']['periods']
         display_text_parts = []
-        for p in periods[:10]: # Changed (10 periods for 5 days, day/night)
+        # Take up to 10 periods for 5 days (day/night)
+        for p in periods[:10]: # Changed
             try:
                 name = p.get('name', 'N/A')
-                temp_label = "High" if "High" in name or p.get("isDaytime", False) else "Low"
+                # Determine if it's High or Low based on name or isDaytime
+                temp_label = "High" if "High" in name or "Today" in name or "This Afternoon" in name or p.get("isDaytime", False) else "Low"
+                if "Tonight" in name or "Overnight" in name : temp_label = "Low"
+
                 temp = f"{p.get('temperature', 'N/A')}°{p.get('temperatureUnit', '')}"
                 short_fc = p.get('shortForecast', 'N/A')
-                display_text_parts.append(f"{name.replace(' Night', ' Nt')}: {temp_label} {temp}, {short_fc}")
+                # Simplify name display
+                simplified_name = name.replace("This Afternoon", "Aftn").replace("Tonight", "Tngt").replace("Overnight", "Ovngt")
+                display_text_parts.append(f"{simplified_name}: {temp_label} {temp}, {short_fc}")
             except (AttributeError, TypeError) as e:
                 self.log_to_gui(f"Error formatting daily period: {p}, Error: {e}", level="WARNING")
                 display_text_parts.append("Error: Malformed period data")
@@ -1706,7 +1761,7 @@ class WeatherAlertApp(QMainWindow):
         self._adjust_forecast_text_area_sizes()
         QApplication.processEvents()
 
-        coords = self._get_coordinates_for_location(location_id, log_errors=False)  # Changed
+        coords = self._get_coordinates_for_location(location_id, log_errors=True)  # Changed log_errors to True for better debug
         if not coords:
             msg = f"Could not get coordinates for {location_id} to fetch forecast."  # Changed
             self.station_hourly_forecast_display_area.setText(msg)
@@ -1716,7 +1771,7 @@ class WeatherAlertApp(QMainWindow):
             return
 
         lat, lon = coords
-        grid_props = self._fetch_gridpoint_properties(lat, lon, log_errors=False)
+        grid_props = self._fetch_gridpoint_properties(lat, lon, log_errors=True) # Changed log_errors to True
         if not grid_props or 'properties' not in grid_props:
             msg = f"Could not get NWS gridpoint (forecast URLs) for {location_id}."  # Changed
             self.station_hourly_forecast_display_area.setText(msg)
@@ -1728,7 +1783,7 @@ class WeatherAlertApp(QMainWindow):
         props = grid_props['properties']
         hourly_url = props.get('forecastHourly')
         if hourly_url:
-            hourly_json = self._fetch_forecast_data_from_url(hourly_url, log_errors=False)
+            hourly_json = self._fetch_forecast_data_from_url(hourly_url, log_errors=True) # Changed log_errors to True
             self.station_hourly_forecast_display_area.setText(
                 self._format_station_hourly_forecast_display(
                     hourly_json) if hourly_json else f"Could not retrieve 8-hour forecast for {location_id}.")  # Changed
@@ -1739,7 +1794,7 @@ class WeatherAlertApp(QMainWindow):
 
         daily_url = props.get('forecast')
         if daily_url:
-            daily_json = self._fetch_forecast_data_from_url(daily_url, log_errors=False)
+            daily_json = self._fetch_forecast_data_from_url(daily_url, log_errors=True) # Changed log_errors to True
             self.daily_forecast_display_area.setText(
                 self._format_daily_forecast_display(
                     daily_json) if daily_json else f"Could not retrieve 5-day forecast for {location_id}.")  # Changed
@@ -1770,7 +1825,7 @@ class WeatherAlertApp(QMainWindow):
         coords = self._get_coordinates_for_location(location_id, log_errors=log_errors)  # Changed
         if coords:
             return f"{WEATHER_URL_PREFIX}{coords[0]}%2C{coords[1]}{WEATHER_URL_SUFFIX}"
-        if log_errors:
+        if log_errors: # This will only be reached if coords is None
             self.log_to_gui(f"Failed to get coordinates for {location_id} to build alert URL.",
                             level="ERROR")  # Changed
         return None
@@ -1795,7 +1850,7 @@ class WeatherAlertApp(QMainWindow):
             self.log_to_gui(f"HTTP error fetching alerts from {url}: {e}", level="ERROR")
         except requests.exceptions.RequestException as e:
             self.log_to_gui(f"Error fetching alerts from {url}: {e}", level="ERROR")
-        except Exception as e:
+        except Exception as e: # Catch other parsing errors
             self.log_to_gui(f"Unexpected error parsing alerts from {url}: {e}", level="ERROR")
         return []
 
@@ -1804,25 +1859,49 @@ class WeatherAlertApp(QMainWindow):
         Updates the alerts display area in the UI with the given list of alerts.
         """
         self.alerts_display_area.clear()
-        location_id = self.current_location_id  # Changed
-        loc_name = location_id if location_id else "the selected location"  # Changed
+        location_id = self.current_location_id
+        loc_name = location_id if location_id else "the selected location"
 
         if not alerts:
             self.alerts_display_area.setText(f"No active alerts for {loc_name}.")
         else:
-            html_lines = []
-            for a in alerts:
+            html_content_parts = []
+            for i, a in enumerate(alerts):
                 title = a.get('title', 'N/A Title')
-                color = 'black'
-                if 'warning' in title.lower():
-                    color = 'red'
-                elif 'watch' in title.lower():
-                    color = 'orange'
-                elif 'advisory' in title.lower():
-                    color = 'blue'
-                html_lines.append(f"<strong style='color:{color};'>{title}</strong>")
-            self.alerts_display_area.setHtml("<br>".join(html_lines))
+                # The 'summary' field usually contains the detailed alert text
+                summary_text = a.get('summary', 'No summary available.')
+                # Replace newlines in the summary with HTML line breaks for proper display
+                summary_html = summary_text.replace('\n', '<br>')
 
+                color = 'black'  # Default color
+                title_lower = title.lower()
+                if 'warning' in title_lower:
+                    color = 'red'
+                elif 'watch' in title_lower:
+                    color = 'orange'
+                elif 'advisory' in title_lower:
+                    color = 'blue'
+                # You could add more specific colors for other alert types if desired
+
+                # Construct HTML for each alert
+                # Using a div for each alert to allow for better spacing and styling if needed
+                alert_html = "<div style='margin-bottom: 10px;'>"  # Add some space below each alert
+                alert_html += f"<strong style='color:{color}; font-size: 1.1em;'>{title}</strong><br>"
+                # Add the detailed summary below the title
+                alert_html += f"<p style='margin-top: 5px;'>{summary_html}</p>"
+                alert_html += "</div>"
+
+                # Add a horizontal rule between alerts, but not after the last one
+                if i < len(alerts) - 1:
+                    alert_html += "<hr style='border: none; border-top: 1px solid #ccc; margin-bottom: 10px; margin-top: 5px;'>"
+
+                html_content_parts.append(alert_html)
+
+            # Join all alert HTML parts and set it to the QTextEdit
+            self.alerts_display_area.setHtml("".join(html_content_parts))
+
+        # These lines help ensure the QTextEdit adjusts its size if its content changes,
+        # though for a scrollable area, they might not be strictly necessary for height.
         self.alerts_display_area.document().adjustSize()
         self.alerts_display_area.updateGeometry()
 
@@ -1831,7 +1910,7 @@ class WeatherAlertApp(QMainWindow):
         Internal helper to speak a message using the TTS engine.
         """
         if not text_to_speak: return
-        if self.is_tts_dummy:
+        if self.is_tts_dummy: # If it's the dummy, it will log itself
             self.tts_engine.say(text_to_speak)
             return
 
@@ -1864,22 +1943,27 @@ class WeatherAlertApp(QMainWindow):
         Handles the 'Speak Repeater Info & Reset Timer' action.
         """
         self.log_to_gui("Speak Repeater Info & Reset Timer button pressed.", level="INFO")
-        if self.announce_alerts_action.isChecked():
+        if self.announce_alerts_action.isChecked(): # Only speak if announcements are on
             self._speak_repeater_info()
 
-        self._update_main_timer_state()
-        if self.main_check_timer.isActive():
-            QTimer.singleShot(100, self.perform_check_cycle)
+        # Always update timer state and potentially trigger a new check cycle
+        self._update_main_timer_state() # This will restart countdown if active
+        if self.main_check_timer.isActive(): # If timer is now active (or was already)
+            # QTimer.singleShot(100, self.perform_check_cycle) # Trigger an immediate check
+            # Instead of immediate, let the normal timer interval proceed from reset
             self.update_status(f"Manual reset. Next check in ~{self.current_check_interval_ms // 60000} min.")
         else:
             self.update_status("Repeater info not spoken (Announce Alerts is off). Timed checks remain paused.")
 
+
     @Slot()
     def perform_check_cycle(self):
         """
-        The main periodic task.
+        The main periodic task. Fetches alerts, forecasts, and optionally announces new alerts.
+        Also handles auto-refresh of web content if enabled.
         """
         if not self.announce_alerts_action.isChecked() and not self.auto_refresh_action.isChecked():
+            # If neither activity that relies on the timer is active, stop everything.
             self.main_check_timer.stop()
             self.countdown_timer.stop()
             if hasattr(self, 'top_countdown_label'):
@@ -1887,21 +1971,25 @@ class WeatherAlertApp(QMainWindow):
             self.log_to_gui("All timed activities disabled. Skipping check cycle.", level="DEBUG")
             return
 
-        self.main_check_timer.stop()
+        self.main_check_timer.stop() # Stop timer before starting work to prevent re-entry if work takes long
 
+        # --- Auto-Refresh Web Content ---
         if self.auto_refresh_action.isChecked():
             self._reload_radar_view()
 
+        # --- Update Forecasts ---
+        # Forecasts are updated regardless of announce_alerts_action, as they are visual
         self._update_station_forecasts_display()
 
-        location_id = self.current_location_id  # Changed
-        self.log_to_gui(f"Performing periodic check for {location_id}...", level="INFO")  # Changed
-        self.update_status(f"Checking {location_id}... (Last check started: {time.strftime('%H:%M:%S')})")  # Changed
+        location_id = self.current_location_id
+        self.log_to_gui(f"Performing periodic check for {location_id}...", level="INFO")
+        self.update_status(f"Checking {location_id}... (Last check started: {time.strftime('%H:%M:%S')})")
 
+        # --- Fetch and Process Alerts (only if announcements are enabled) ---
         if self.announce_alerts_action.isChecked():
             alert_url = self._get_current_weather_url()
             alerts = self._get_alerts(alert_url) if alert_url else []
-            self._update_alerts_display_area(alerts)
+            self._update_alerts_display_area(alerts) # Update display even if not announcing
 
             new_alerts_found = False
             for alert in alerts:
@@ -1914,24 +2002,29 @@ class WeatherAlertApp(QMainWindow):
                     self._speak_weather_alert(alert.title, alert.summary)
                     self.seen_alert_ids.add(alert.id)
 
-            if not new_alerts_found and alert_url and alerts:
+            if not new_alerts_found and alert_url and alerts: # Only log if alerts were expected and fetched
                 self.log_to_gui(
                     f"No new alerts. Total active: {len(alerts)}. Total seen this session: {len(self.seen_alert_ids)}.",
                     level="INFO")
-            elif not alerts and alert_url:
-                self.log_to_gui(f"No active alerts found for {location_id}.", level="INFO")  # Changed
-            self._speak_repeater_info()
+            elif not alerts and alert_url: # Log if URL was valid but no alerts
+                self.log_to_gui(f"No active alerts found for {location_id}.", level="INFO")
+            # If alert_url was None, errors would have been logged by _get_current_weather_url
 
+            self._speak_repeater_info() # Speak repeater info after alert processing
+
+        # --- Finalize Cycle ---
         self.update_status(
-            f"Check complete for {location_id}. Next check in ~{self.current_check_interval_ms // 60000} min.")  # Changed
+            f"Check complete for {location_id}. Next check in ~{self.current_check_interval_ms // 60000} min.")
         self.log_to_gui(
             f"Check cycle complete. Waiting {self.current_check_interval_ms // 1000} seconds for next cycle.",
             level="INFO")
 
+        # Restart the main timer and countdown only if there's an active timed task
         self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
         if self.current_check_interval_ms > 0 and \
                 (self.announce_alerts_action.isChecked() or self.auto_refresh_action.isChecked()):
             self.main_check_timer.start(self.current_check_interval_ms)
+
 
     def closeEvent(self, event):
         """
@@ -1957,9 +2050,86 @@ class WeatherAlertApp(QMainWindow):
         else:
             event.ignore()
 
+    @Slot()
+    def _show_web_source_quick_select_menu(self):
+        """
+        Shows a context menu for quickly selecting a web source.
+        This menu mirrors the main "Web Sources" menu.
+        """
+        if not hasattr(self, 'web_source_quick_select_button'):
+            return
+
+        menu = QMenu(self)
+        # Create a local action group for this menu instance for radio button behavior
+        local_action_group = QActionGroup(menu)
+        local_action_group.setExclusive(True)
+
+        if not self.RADAR_OPTIONS:
+            no_sources_action = QAction("No web sources configured", menu)
+            no_sources_action.setEnabled(False)
+            menu.addAction(no_sources_action)
+        else:
+            for name in self.RADAR_OPTIONS.keys():
+                action = QAction(name, menu, checkable=True)  # Parent is menu
+                action.setData(name)
+                action.setChecked(self.RADAR_OPTIONS.get(name) == self.current_radar_url)
+                # When triggered, call the main handler
+                action.triggered.connect(
+                    # Use a lambda to correctly capture the src_name for each action
+                    lambda checked, src_name=name: self._on_radar_source_selected(src_name)
+                )
+                menu.addAction(action)
+                local_action_group.addAction(action)  # Add to local group
+
+            menu.addSeparator()
+            # Optionally, add "Manage Sources..." to this quick menu
+            manage_action = QAction(MANAGE_SOURCES_TEXT, menu)
+            manage_action.triggered.connect(lambda: self._on_radar_source_selected(MANAGE_SOURCES_TEXT))
+            menu.addAction(manage_action)
+
+            # Optionally, add "Add New Source..."
+            # add_new_action = QAction(ADD_NEW_SOURCE_TEXT, menu)
+            # add_new_action.triggered.connect(lambda: self._on_radar_source_selected(ADD_NEW_SOURCE_TEXT))
+            # menu.addAction(add_new_action)
+
+        # Show the menu below the button
+        button_global_pos = self.web_source_quick_select_button.mapToGlobal(
+            self.web_source_quick_select_button.rect().bottomLeft()
+        )
+        menu.exec(button_global_pos)
+
+    def _update_quick_select_button_text(self):
+        """Updates the text of the web_source_quick_select_button."""
+        if hasattr(self, 'web_source_quick_select_button') and self.web_source_quick_select_button:
+            current_source_name = self._get_display_name_for_url(self.current_radar_url)
+            if not current_source_name and self.RADAR_OPTIONS: # Fallback if current_radar_url isn't in RADAR_OPTIONS
+                current_source_name = self._last_valid_radar_text
+            if not current_source_name and self.RADAR_OPTIONS: # Further fallback
+                 current_source_name = list(self.RADAR_OPTIONS.keys())[0]
+
+            display_text = current_source_name or "Web Source"
+
+            # Truncate if too long
+            max_len = 20  # Adjust this value as needed for your UI
+            if len(display_text) > max_len:
+                display_text = display_text[:max_len - 3] + "..."
+
+            self.web_source_quick_select_button.setText(display_text)
+            self.web_source_quick_select_button.setToolTip(current_source_name or "Select a web source")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+
+    # Define a custom logging level "IMPORTANT" between INFO and WARNING
+    IMPORTANT_LEVEL_NUM = logging.WARNING - 5  # Example: 25 if INFO is 20 and WARNING is 30
+    logging.addLevelName(IMPORTANT_LEVEL_NUM, "IMPORTANT")
+
+    def important(self, message, *args, **kws):
+        if self.isEnabledFor(IMPORTANT_LEVEL_NUM):
+            self._log(IMPORTANT_LEVEL_NUM, message, args, **kws)
+    logging.Logger.important = important
+
 
     if sys.platform == "darwin":
         logging.info("macOS detected. Using default Qt platform styling as base for light mode.")
@@ -1968,6 +2138,6 @@ if __name__ == "__main__":
         logging.info("Applied Fusion style as base.")
 
     main_win = WeatherAlertApp()
-    main_win._apply_color_scheme()
+    main_win._apply_color_scheme() # Apply initial color scheme after UI is built
     main_win.show()
     sys.exit(app.exec())
