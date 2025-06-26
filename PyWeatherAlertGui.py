@@ -428,8 +428,13 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Preferences")
         self.current_settings = current_settings if current_settings else {}
-        layout = QVBoxLayout(self)
-        form_layout = QFormLayout()
+
+        main_layout = QVBoxLayout(self)
+
+        # --- General Settings ---
+        general_group = QGroupBox("General")
+        form_layout = QFormLayout(general_group)
+
         self.repeater_entry = QLineEdit(self.current_settings.get("repeater_info", FALLBACK_INITIAL_REPEATER_INFO))
         form_layout.addRow("Repeater Announcement:", self.repeater_entry)
 
@@ -443,21 +448,68 @@ class SettingsDialog(QDialog):
         location_id_layout.addWidget(airport_lookup_label)
         location_id_layout.addStretch()
         form_layout.addRow("Location (US Zip/Airport ID):", location_id_layout)
+
         self.interval_combobox = QComboBox()
         self.interval_combobox.addItems(CHECK_INTERVAL_OPTIONS.keys())
         self.interval_combobox.setCurrentText(self.current_settings.get("interval_key", FALLBACK_DEFAULT_INTERVAL_KEY))
         form_layout.addRow("Check Interval:", self.interval_combobox)
-        layout.addLayout(form_layout)
+
+        main_layout.addWidget(general_group)
+
+        # --- Behavior & Display Settings ---
+        behavior_group = QGroupBox("Behavior & Display")
+        behavior_layout = QVBoxLayout(behavior_group)
+
+        self.announce_alerts_check = QCheckBox("Announce Alerts and Start Timer")
+        self.announce_alerts_check.setChecked(self.current_settings.get("announce_alerts", FALLBACK_ANNOUNCE_ALERTS_CHECKED))
+        behavior_layout.addWidget(self.announce_alerts_check)
+
+        self.auto_refresh_check = QCheckBox("Auto-Refresh Web Content")
+        self.auto_refresh_check.setChecked(self.current_settings.get("auto_refresh_content", FALLBACK_AUTO_REFRESH_CONTENT_CHECKED))
+        behavior_layout.addWidget(self.auto_refresh_check)
+
+        self.dark_mode_check = QCheckBox("Enable Dark Mode")
+        self.dark_mode_check.setChecked(self.current_settings.get("dark_mode_enabled", FALLBACK_DARK_MODE_ENABLED))
+        behavior_layout.addWidget(self.dark_mode_check)
+
+        behavior_layout.addWidget(QFrame(frameShape=QFrame.Shape.HLine, frameShadow=QFrame.Shadow.Sunken))
+
+        self.show_log_check = QCheckBox("Show Log Panel")
+        self.show_log_check.setToolTip("Show or hide the log panel at the bottom of the window.")
+        self.show_log_check.setChecked(self.current_settings.get("show_log", FALLBACK_SHOW_LOG_CHECKED))
+        behavior_layout.addWidget(self.show_log_check)
+
+        self.show_alerts_check = QCheckBox("Show Current Alerts Area")
+        self.show_alerts_check.setToolTip("Show or hide the Current Alerts panel.")
+        self.show_alerts_check.setChecked(self.current_settings.get("show_alerts_area", FALLBACK_SHOW_ALERTS_AREA_CHECKED))
+        behavior_layout.addWidget(self.show_alerts_check)
+
+        self.show_forecasts_check = QCheckBox("Show Weather Forecast Area")
+        self.show_forecasts_check.setToolTip("Show or hide the Weather Forecast panel.")
+        self.show_forecasts_check.setChecked(self.current_settings.get("show_forecasts_area", FALLBACK_SHOW_FORECASTS_AREA_CHECKED))
+        behavior_layout.addWidget(self.show_forecasts_check)
+
+        main_layout.addWidget(behavior_group)
+
+        # --- Dialog Buttons ---
         self.button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
-        layout.addWidget(self.button_box)
+        main_layout.addWidget(self.button_box)
 
     def get_settings_data(self) -> Dict[str, Any]:
         return {
+            # General
             "repeater_info": self.repeater_entry.text(),
             "location_id": self.location_id_entry.text().strip().upper(),
-            "interval_key": self.interval_combobox.currentText()
+            "interval_key": self.interval_combobox.currentText(),
+            # Behavior & Display
+            "announce_alerts": self.announce_alerts_check.isChecked(),
+            "auto_refresh_content": self.auto_refresh_check.isChecked(),
+            "dark_mode_enabled": self.dark_mode_check.isChecked(),
+            "show_log": self.show_log_check.isChecked(),
+            "show_alerts_area": self.show_alerts_check.isChecked(),
+            "show_forecasts_area": self.show_forecasts_check.isChecked(),
         }
 
 
@@ -809,27 +861,26 @@ class WeatherAlertApp(QMainWindow):
         self.web_sources_menu.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
         view_menu.addSeparator()
         self.show_log_action = QAction("Show &Log Panel", self, checkable=True)
-        self.show_log_action.triggered.connect(lambda checked: self.splitter.widget(1).setVisible(checked))
+        self.show_log_action.toggled.connect(self._on_show_log_toggled)
         view_menu.addAction(self.show_log_action)
         self.show_alerts_area_action = QAction("Show Current &Alerts Area", self, checkable=True)
-        self.show_alerts_area_action.triggered.connect(lambda checked: self.alerts_group.setVisible(checked))
+        self.show_alerts_area_action.toggled.connect(self._on_show_alerts_toggled)
         view_menu.addAction(self.show_alerts_area_action)
         self.show_forecasts_area_action = QAction("Show Station &Forecasts Area", self, checkable=True)
-        self.show_forecasts_area_action.triggered.connect(
-            lambda checked: self.combined_forecast_widget.setVisible(checked))
+        self.show_forecasts_area_action.toggled.connect(self._on_show_forecasts_toggled)
         view_menu.addAction(self.show_forecasts_area_action)
         view_menu.addSeparator()
         self.dark_mode_action = QAction("&Enable Dark Mode", self, checkable=True)
-        self.dark_mode_action.triggered.connect(self._on_dark_mode_toggled)
+        self.dark_mode_action.triggered.connect(lambda checked: (self._on_dark_mode_toggled(checked), self._save_settings()))
         view_menu.addAction(self.dark_mode_action)
 
         # Actions Menu
         actions_menu = menu_bar.addMenu("&Actions")
         self.announce_alerts_action = QAction("&Announce Alerts and Start Timer", self, checkable=True)
-        self.announce_alerts_action.triggered.connect(self._on_announce_alerts_toggled)
+        self.announce_alerts_action.triggered.connect(lambda checked: (self._on_announce_alerts_toggled(checked), self._save_settings()))
         actions_menu.addAction(self.announce_alerts_action)
         self.auto_refresh_action = QAction("Auto-&Refresh Content", self, checkable=True)
-        self.auto_refresh_action.triggered.connect(self._on_auto_refresh_content_toggled)
+        self.auto_refresh_action.triggered.connect(lambda checked: (self._on_auto_refresh_content_toggled(checked), self._save_settings()))
         actions_menu.addAction(self.auto_refresh_action)
         actions_menu.addSeparator()
         self.speak_reset_action = QAction("&Speak Repeater Info and Reset Timer", self)
@@ -994,14 +1045,26 @@ class WeatherAlertApp(QMainWindow):
                 child.widget().deleteLater()
 
     def _open_preferences_dialog(self):
+        """Opens the comprehensive settings dialog."""
+        # Gather all current settings to pass to the dialog
         current_prefs = {
             "repeater_info": self.current_repeater_info,
             "location_id": self.current_location_id,
-            "interval_key": self.current_interval_key
+            "interval_key": self.current_interval_key,
+            "announce_alerts": self.announce_alerts_action.isChecked(),
+            "auto_refresh_content": self.auto_refresh_action.isChecked(),
+            "dark_mode_enabled": self.dark_mode_action.isChecked(),
+            "show_log": self.show_log_action.isChecked(),
+            "show_alerts_area": self.show_alerts_area_action.isChecked(),
+            "show_forecasts_area": self.show_forecasts_area_action.isChecked(),
         }
+
         dialog = SettingsDialog(self, current_settings=current_prefs)
+
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_data = dialog.get_settings_data()
+
+            # --- Apply General Settings ---
             location_changed = self.current_location_id != new_data["location_id"]
             interval_changed = self.current_interval_key != new_data["interval_key"]
 
@@ -1009,11 +1072,10 @@ class WeatherAlertApp(QMainWindow):
             self.current_location_id = new_data["location_id"]
             self.current_interval_key = new_data["interval_key"]
 
-            # Update top bar widgets directly from preferences dialog
+            # Update top bar widgets to reflect changes
             self.top_location_edit.setText(self.current_location_id)
             self.top_interval_combo.setCurrentText(self.current_interval_key)
-
-            self._update_top_status_bar_display()  # This will now read from the editable widgets
+            self._update_top_status_bar_display()
 
             if location_changed:
                 self.log_to_gui(f"Location ID changed to: {self.current_location_id}", level="INFO")
@@ -1024,8 +1086,32 @@ class WeatherAlertApp(QMainWindow):
                 self.current_check_interval_ms = CHECK_INTERVAL_OPTIONS.get(
                     self.current_interval_key, FALLBACK_INITIAL_CHECK_INTERVAL_MS)
                 self.log_to_gui(f"Interval changed to: {self.current_interval_key}", level="INFO")
-                self._update_main_timer_state()
 
+            # --- Apply Behavior & Display Settings ---
+            if self.announce_alerts_action.isChecked() != new_data["announce_alerts"]:
+                self.announce_alerts_action.setChecked(new_data["announce_alerts"])
+                self._on_announce_alerts_toggled(new_data["announce_alerts"])
+
+            if self.auto_refresh_action.isChecked() != new_data["auto_refresh_content"]:
+                self.auto_refresh_action.setChecked(new_data["auto_refresh_content"])
+                self._on_auto_refresh_content_toggled(new_data["auto_refresh_content"])
+
+            if self.dark_mode_action.isChecked() != new_data["dark_mode_enabled"]:
+                self.dark_mode_action.setChecked(new_data["dark_mode_enabled"])
+                self._on_dark_mode_toggled(new_data["dark_mode_enabled"])
+
+            if self.show_log_action.isChecked() != new_data["show_log"]:
+                self.show_log_action.setChecked(new_data["show_log"])
+
+            if self.show_alerts_area_action.isChecked() != new_data["show_alerts_area"]:
+                self.show_alerts_area_action.setChecked(new_data["show_alerts_area"])
+
+            if self.show_forecasts_area_action.isChecked() != new_data["show_forecasts_area"]:
+                self.show_forecasts_area_action.setChecked(new_data["show_forecasts_area"])
+
+            self._update_main_timer_state()
+
+            # --- Save all changes ---
             self._save_settings()
             self.log_to_gui("Preferences updated.", level="INFO")
 
@@ -1160,13 +1246,10 @@ class WeatherAlertApp(QMainWindow):
     def _apply_loaded_settings_to_ui(self):
         self.announce_alerts_action.setChecked(self.current_announce_alerts_checked)
         self.show_log_action.setChecked(self.current_show_log_checked)
-        self.splitter.widget(1).setVisible(self.current_show_log_checked)
         self.auto_refresh_action.setChecked(self.current_auto_refresh_content_checked)
         self.dark_mode_action.setChecked(self.current_dark_mode_enabled)
         self.show_alerts_area_action.setChecked(self.current_show_alerts_area_checked)
-        self.alerts_group.setVisible(self.current_show_alerts_area_checked)
         self.show_forecasts_area_action.setChecked(self.current_show_forecasts_area_checked)
-        self.combined_forecast_widget.setVisible(self.current_show_forecasts_area_checked)
 
         # Set initial values for the new editable top bar widgets
         self.top_location_edit.setText(self.current_location_id)
@@ -1216,11 +1299,25 @@ class WeatherAlertApp(QMainWindow):
     def _on_announce_alerts_toggled(self, checked):
         self.current_announce_alerts_checked = checked
         self._update_main_timer_state()
-        self._save_settings()
 
     def _on_auto_refresh_content_toggled(self, checked):
         self.current_auto_refresh_content_checked = checked
         self._update_main_timer_state()
+
+    def _on_dark_mode_toggled(self, checked):
+        self.current_dark_mode_enabled = checked
+        self._apply_color_scheme()
+
+    def _on_show_log_toggled(self, checked):
+        self.splitter.widget(1).setVisible(checked)
+        self._save_settings()
+
+    def _on_show_alerts_toggled(self, checked):
+        self.alerts_group.setVisible(checked)
+        self._save_settings()
+
+    def _on_show_forecasts_toggled(self, checked):
+        self.combined_forecast_widget.setVisible(checked)
         self._save_settings()
 
     def _on_speak_and_reset_button_press(self):
@@ -1453,7 +1550,6 @@ class WeatherAlertApp(QMainWindow):
     def _on_dark_mode_toggled(self, checked):
         self.current_dark_mode_enabled = checked
         self._apply_color_scheme()
-        self._save_settings()
 
     def _apply_color_scheme(self):
         """Applies the appropriate stylesheet (light or dark)."""
