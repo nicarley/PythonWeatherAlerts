@@ -92,6 +92,12 @@ def important(self, message, *args, **kws):
 logging.Logger.important = important
 
 
+# --- Custom Exceptions ---
+class ApiError(Exception):
+    """Custom exception for API-related errors."""
+    pass
+
+
 # --- Helper Classes ---
 
 class Worker(QRunnable):
@@ -970,19 +976,33 @@ class WeatherAlertApp(QMainWindow):
         """Worker function to be run in a background thread."""
         coords = self.api_client.get_coordinates_for_location(location_id)
         if not coords:
+            # This already raises ValueError, which is caught by Worker.signals.error
             raise ValueError(f"Could not find coordinates for location '{location_id}'.")
 
         lat, lon = coords
+
+        # Fetch alerts (empty list is acceptable if no alerts)
         alerts = self.api_client.get_alerts(lat, lon)
+
+        # Fetch forecast URLs - critical for forecasts
         forecast_urls = self.api_client.get_forecast_urls(lat, lon)
+        if not forecast_urls:
+            raise ApiError(f"Could not retrieve forecast URLs for {lat},{lon}. API might be down or rate-limited.")
+
         hourly_forecast = None
         daily_forecast = None
 
-        if forecast_urls:
-            if forecast_urls.get("hourly"):
-                hourly_forecast = self.api_client.get_forecast_data(forecast_urls["hourly"])
-            if forecast_urls.get("daily"):
-                daily_forecast = self.api_client.get_forecast_data(forecast_urls["daily"])
+        # Fetch hourly forecast data
+        if forecast_urls.get("hourly"):
+            hourly_forecast = self.api_client.get_forecast_data(forecast_urls["hourly"])
+            if not hourly_forecast:
+                raise ApiError(f"Failed to fetch hourly forecast data from {forecast_urls['hourly']}.")
+
+        # Fetch daily forecast data
+        if forecast_urls.get("daily"):
+            daily_forecast = self.api_client.get_forecast_data(forecast_urls["daily"])
+            if not daily_forecast:
+                raise ApiError(f"Failed to fetch daily forecast data from {forecast_urls['daily']}.")
 
         return {
             "coords": coords,
