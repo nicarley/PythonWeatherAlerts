@@ -1264,6 +1264,7 @@ class WeatherAlertApp(QMainWindow):
         self.web_sources_menu.clear()
         self.web_source_action_group = QActionGroup(self)
         self.web_source_action_group.setExclusive(True)
+        style = self.style()
 
         for name, url in self.RADAR_OPTIONS.items():
             action = QAction(name, self, checkable=True)
@@ -1275,6 +1276,19 @@ class WeatherAlertApp(QMainWindow):
             self.web_source_action_group.addAction(action)
 
         self.web_sources_menu.addSeparator()
+
+        open_in_browser_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DesktopIcon),
+                                         "Open Current in Browser", self)
+        open_in_browser_action.triggered.connect(self._open_current_in_browser)
+        self.web_sources_menu.addAction(open_in_browser_action)
+
+        save_current_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton),
+                                      ADD_CURRENT_SOURCE_TEXT, self)
+        save_current_action.triggered.connect(self._save_current_web_source)
+        self.web_sources_menu.addAction(save_current_action)
+
+        self.web_sources_menu.addSeparator()
+
         add_action = self.web_sources_menu.addAction(ADD_NEW_SOURCE_TEXT)
         add_action.triggered.connect(self._add_new_web_source)
         manage_action = self.web_sources_menu.addAction(MANAGE_SOURCES_TEXT)
@@ -1323,6 +1337,56 @@ class WeatherAlertApp(QMainWindow):
             self.log_to_gui(f"QWebEngineView not available. Opening {self._last_valid_radar_text} externally.",
                             level="WARNING")
             QDesktopServices.openUrl(QUrl(url_str))
+
+    @Slot()
+    def _open_current_in_browser(self):
+        """Opens the current web view URL in the user's default browser."""
+        if not QWebEngineView or not self.web_view:
+            self.log_to_gui("Web view is not available.", level="WARNING")
+            return
+
+        current_url = self.web_view.url()
+        if current_url.isValid() and not current_url.isEmpty():
+            QDesktopServices.openUrl(current_url)
+            self.log_to_gui(f"Opening {current_url.toString()} in external browser.", level="INFO")
+        else:
+            self.log_to_gui("No valid URL to open in browser.", level="WARNING")
+
+    @Slot()
+    def _save_current_web_source(self):
+        """Saves the current URL in the web view as a new source."""
+        if not QWebEngineView or not self.web_view:
+            self.log_to_gui("Web view is not available.", level="WARNING")
+            return
+
+        current_url = self.web_view.url().toString()
+
+        # Don't save empty or internal URLs
+        if not current_url or current_url == "about:blank" or not current_url.startswith("http"):
+            QMessageBox.warning(self, "Cannot Save Source", "The current page does not have a savable URL.")
+            return
+
+        # Open the dialog with the URL pre-filled
+        dialog = AddEditSourceDialog(self, current_url=current_url)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            data = dialog.get_data()
+            if data:
+                name, url = data
+                if name in self.RADAR_OPTIONS:
+                    QMessageBox.warning(self, "Duplicate Name", f"A source with the name '{name}' already exists.")
+                    return
+
+                # Add the new source
+                self.RADAR_OPTIONS[name] = url
+                self.log_to_gui(f"Saved new web source: '{name}' -> {url}", level="INFO")
+
+                # Update the UI to reflect the new source as the current one
+                self.current_radar_url = url
+                self._last_valid_radar_text = name
+
+                # Refresh menus and save
+                self._update_web_sources_menu()
+                self._save_settings()
 
     def _add_new_web_source(self):
         dialog = AddEditSourceDialog(self)
