@@ -308,12 +308,15 @@ class ManageSourcesDialog(QDialog):
     def __init__(self, sources: Dict[str, str], parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle("Manage Web Sources")
-        self.sources = sources.copy()
+        # Store sources internally as a list of (name, url) tuples to preserve order
+        self.sources_list: List[Tuple[str, str]] = list(sources.items())
         self.setMinimumWidth(400)
 
         layout = QVBoxLayout(self)
         self.list_widget = QListWidget()
-        self.list_widget.addItems(self.sources.keys())
+        # Populate list widget from the list of tuples
+        for name, _ in self.sources_list:
+            self.list_widget.addItem(name)
         layout.addWidget(self.list_widget)
 
         button_layout = QHBoxLayout()
@@ -324,9 +327,18 @@ class ManageSourcesDialog(QDialog):
         remove_button = QPushButton("Remove")
         remove_button.clicked.connect(self.remove_source)
 
+        # New Move Up/Down buttons
+        move_up_button = QPushButton("Move Up")
+        move_up_button.clicked.connect(self.move_up_source)
+        move_down_button = QPushButton("Move Down")
+        move_down_button.clicked.connect(self.move_down_source)
+
         button_layout.addWidget(add_button)
         button_layout.addWidget(edit_button)
         button_layout.addWidget(remove_button)
+        button_layout.addStretch() # Add stretch to push move buttons to the right
+        button_layout.addWidget(move_up_button)
+        button_layout.addWidget(move_down_button)
         layout.addLayout(button_layout)
 
         dialog_buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -340,43 +352,75 @@ class ManageSourcesDialog(QDialog):
             data = dialog.get_data()
             if not data: return
             name, url = data
-            if name in self.sources:
+            # Check for duplicate name in the current list
+            if any(n == name for n, _ in self.sources_list):
                 QMessageBox.warning(self, "Duplicate Name", f"A source with the name '{name}' already exists.")
                 return
-            self.sources[name] = url
-            self.list_widget.addItem(name)
+            self.sources_list.append((name, url)) # Add to internal list
+            self.list_widget.addItem(name) # Add to QListWidget
+            self.list_widget.setCurrentRow(len(self.sources_list) - 1) # Select the newly added item
 
     def edit_source(self):
         selected_item = self.list_widget.currentItem()
         if not selected_item:
             return
-        old_name = selected_item.text()
-        old_url = self.sources[old_name]
+        current_row = self.list_widget.currentRow()
+        old_name, old_url = self.sources_list[current_row] # Get from internal list
 
         dialog = AddEditSourceDialog(self, current_name=old_name, current_url=old_url)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             data = dialog.get_data()
             if not data: return
             new_name, new_url = data
-            if new_name != old_name and new_name in self.sources:
+
+            # Check for duplicate name if name changed, excluding the current item
+            if new_name != old_name and any(n == new_name for i, (n, _) in enumerate(self.sources_list) if i != current_row):
                 QMessageBox.warning(self, "Duplicate Name", f"A source with the name '{new_name}' already exists.")
                 return
-            del self.sources[old_name]
-            self.sources[new_name] = new_url
-            selected_item.setText(new_name)
+
+            self.sources_list[current_row] = (new_name, new_url) # Update internal list
+            selected_item.setText(new_name) # Update QListWidgetItem text
 
     def remove_source(self):
         selected_item = self.list_widget.currentItem()
         if not selected_item:
             return
-        name = selected_item.text()
-        reply = QMessageBox.question(self, "Confirm Removal", f"Are you sure you want to remove '{name}'?")
+        current_row = self.list_widget.currentRow()
+        name_to_remove = self.sources_list[current_row][0] # Get name from internal list
+
+        reply = QMessageBox.question(self, "Confirm Removal", f"Are you sure you want to remove '{name_to_remove}'?")
         if reply == QMessageBox.StandardButton.Yes:
-            del self.sources[name]
-            self.list_widget.takeItem(self.list_widget.row(selected_item))
+            self.sources_list.pop(current_row) # Remove from internal list
+            self.list_widget.takeItem(current_row) # Remove from QListWidget
+
+    def move_up_source(self):
+        current_row = self.list_widget.currentRow()
+        if current_row > 0: # Can move up if not the first item
+            # Update internal list
+            item_to_move = self.sources_list.pop(current_row)
+            self.sources_list.insert(current_row - 1, item_to_move)
+
+            # Update QListWidget
+            q_item = self.list_widget.takeItem(current_row)
+            self.list_widget.insertItem(current_row - 1, q_item)
+            self.list_widget.setCurrentRow(current_row - 1) # Keep selection on the moved item
+
+    def move_down_source(self):
+        current_row = self.list_widget.currentRow()
+        if current_row < len(self.sources_list) - 1: # Can move down if not the last item
+            # Update internal list
+            item_to_move = self.sources_list.pop(current_row)
+            self.sources_list.insert(current_row + 1, item_to_move)
+
+            # Update QListWidget
+            q_item = self.list_widget.takeItem(current_row)
+            self.list_widget.insertItem(current_row + 1, q_item)
+            self.list_widget.setCurrentRow(current_row + 1) # Keep selection on the moved item
 
     def get_sources(self) -> Dict[str, str]:
-        return self.sources
+        # Convert the internal list of tuples back to a dictionary for external use
+        # Python dictionaries (since 3.7) preserve insertion order, so this will maintain the order.
+        return dict(self.sources_list)
 
 
 class SettingsDialog(QDialog):
@@ -581,7 +625,7 @@ class WeatherAlertApp(QMainWindow):
         alerts_forecasts_layout.addWidget(self.alerts_group, 1)  # Stretch 1 for alerts
 
         # Combined Forecasts Group (main container for all forecasts)
-        self.combined_forecast_widget = QGroupBox("Station Forecasts")
+        self.combined_forecast_widget = QGroupBox("Weather Forecast")
         # Changed to QHBoxLayout to place hourly and daily side-by-side
         combined_forecast_main_layout = QHBoxLayout(self.combined_forecast_widget)
         combined_forecast_main_layout.setContentsMargins(5, 5, 5, 5)  # Add some margins to the main forecast box
@@ -677,7 +721,7 @@ class WeatherAlertApp(QMainWindow):
         style = self.style()
         self.top_repeater_label = QLabel("Repeater: N/A")
         self.top_countdown_label = QLabel("Next Check: --:--")
-        self.current_time_label = QLabel("Time: --:--:--")
+        self.current_time_label = QLabel("Current Time: --:--:--") # Modified here
 
         # Volume Icon
         volume_icon_label = QLabel()
@@ -1071,7 +1115,7 @@ class WeatherAlertApp(QMainWindow):
         try:
             engine = pyttsx3.init()
             # A more robust way to check for a valid engine is to try to access a property.
-            # If this fails, or if there are no voices, the engine is not functional.
+            # If this fails, or there are no voices, the engine is not functional.
             voices = engine.getProperty('voices')
             if not voices:
                 raise RuntimeError("No TTS voices found on the system.")
@@ -1103,7 +1147,7 @@ class WeatherAlertApp(QMainWindow):
     # --- UI Update and State Management Methods ---
     def _update_current_time_display(self):
         if hasattr(self, 'current_time_label'):
-            self.current_time_label.setText(time.strftime("%I:%M:%S %p"))
+            self.current_time_label.setText(f"Current Time: {time.strftime('%I:%M:%S %p')}") # Modified here
 
     def _update_top_status_bar_display(self):
         # This method now updates the editable widgets
