@@ -781,14 +781,14 @@ class WeatherAlertApp(QMainWindow):
 
         # Actions Menu
         actions_menu = menu_bar.addMenu("&Actions")
-        self.announce_alerts_action = QAction("&Announce Alerts & Start Timer", self, checkable=True)
+        self.announce_alerts_action = QAction("&Announce Alerts and Start Timer", self, checkable=True)
         self.announce_alerts_action.triggered.connect(self._on_announce_alerts_toggled)
         actions_menu.addAction(self.announce_alerts_action)
         self.auto_refresh_action = QAction("Auto-&Refresh Content", self, checkable=True)
         self.auto_refresh_action.triggered.connect(self._on_auto_refresh_content_toggled)
         actions_menu.addAction(self.auto_refresh_action)
         actions_menu.addSeparator()
-        self.speak_reset_action = QAction("&Speak Repeater Info & Reset Timer", self)
+        self.speak_reset_action = QAction("&Speak Repeater Info and Reset Timer", self)
         self.speak_reset_action.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
         self.speak_reset_action.triggered.connect(self._on_speak_and_reset_button_press)
         actions_menu.addAction(self.speak_reset_action)
