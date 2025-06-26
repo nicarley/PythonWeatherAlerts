@@ -202,3 +202,8 @@ QDialog QCheckBox::indicator:checked {
     background-color: #3498db;
     /* image: url(resources/checkmark-light.png); */ /* if needed */
 }
+
+QGroupBox#CurrentAlerts, QGroupBox#StationForecasts {
+    min-height: 150px; /* Adjust as needed */
+    max-height: 200px;
+}

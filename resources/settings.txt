@@ -1,7 +1,7 @@
 {
     "repeater_info": "",
     "location_id": "62881",
-    "check_interval_key": "10 Minutes",
+    "check_interval_key": "1 Hour",
     "radar_options_dict": {
         "Apple Maps for Salem, IL": "https://maps.apple.com/search?map=hybrid&center=38.625824165947606%2C-88.95355326337172&span=0.047247173705066814%2C0.08257056924117023",
         "Broadcastify.com: Salem Fire and Surrounding Fire, Police & EMS": "https://www.broadcastify.com/webPlayer/33915",
@@ -9,6 +9,7 @@
         "IMEA Local Resources": "https://iemaohs.illinois.gov/localema.html",
         "KSDK 7 Day Forecast": "https://cdn.tegna-media.com/ksdk/weather/7day.jpg",
         "MyGMRS Map": "https://mygmrs.com/map",
+        "N.W.S. G.I.S. Viewer": "https://viewer.weather.noaa.gov/general#layers=42904+40090+41806+41793+41791+41792+41794+41783+42464+41782+41781+41609&x=-89.1098&y=39.51116&z=12.4&panel=legend",
         "N.W.S. Radar": "https://radar.weather.gov/",
         "NWS - Salem,  IL Animated": "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOiJ3ZWF0aGVyIiwiY2VudGVyIjpbLTg4Ljk3NiwzOC42MzldLCJsb2NhdGlvbiI6Wy04OC45NzYsMzguNjM5XSwiem9vbSI6OC41NTU1NTU1MjE2NDcxMzYsImxheWVyIjoiYnJlZl9xY2QifSwiYW5pbWF0aW5nIjp0cnVlLCJiYXNlIjoic3RhbmRhcmQiLCJhcnRjYyI6ZmFsc2UsImNvdW50eSI6ZmFsc2UsImN3YSI6ZmFsc2UsInJmYyI6ZmFsc2UsInN0YXRlIjpmYWxzZSwibWVudSI6dHJ1ZSwic2hvcnRGdXNlZE9ubHkiOmZhbHNlLCJvcGFjaXR5Ijp7ImFsZXJ0cyI6MC44LCJsb2NhbCI6MC42LCJsb2NhbFN0YXRpb25zIjowLjgsIm5hdGlvbmFsIjowLjZ9fQ%3D%3D",
         "Outlook Web Access": "https://outlook.office.com/mail/",
