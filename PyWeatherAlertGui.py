@@ -55,6 +55,7 @@ FALLBACK_SHOW_FORECASTS_AREA_CHECKED = True
 FALLBACK_AUTO_REFRESH_CONTENT_CHECKED = False
 FALLBACK_DARK_MODE_ENABLED = False
 FALLBACK_LOG_SORT_ORDER = "chronological"
+FALLBACK_MUTE_AUDIO_CHECKED = False
 
 CHECK_INTERVAL_OPTIONS = {
     "1 Minute": 1 * 60 * 1000, "5 Minutes": 5 * 60 * 1000,
@@ -469,6 +470,10 @@ class SettingsDialog(QDialog):
         self.auto_refresh_check.setChecked(self.current_settings.get("auto_refresh_content", FALLBACK_AUTO_REFRESH_CONTENT_CHECKED))
         behavior_form_layout.addRow(self.auto_refresh_check)
 
+        self.mute_audio_check = QCheckBox("Mute All Audio")
+        self.mute_audio_check.setChecked(self.current_settings.get("mute_audio", FALLBACK_MUTE_AUDIO_CHECKED))
+        behavior_form_layout.addRow(self.mute_audio_check)
+
         self.dark_mode_check = QCheckBox("Enable Dark Mode")
         self.dark_mode_check.setChecked(self.current_settings.get("dark_mode_enabled", FALLBACK_DARK_MODE_ENABLED))
         behavior_form_layout.addRow(self.dark_mode_check)
@@ -514,6 +519,7 @@ class SettingsDialog(QDialog):
             # Behavior & Display
             "announce_alerts": self.announce_alerts_check.isChecked(),
             "auto_refresh_content": self.auto_refresh_check.isChecked(),
+            "mute_audio": self.mute_audio_check.isChecked(),
             "dark_mode_enabled": self.dark_mode_check.isChecked(),
             "show_log": self.show_log_check.isChecked(),
             "show_alerts_area": self.show_alerts_check.isChecked(),
@@ -552,6 +558,7 @@ class WeatherAlertApp(QMainWindow):
         self.current_auto_refresh_content_checked = FALLBACK_AUTO_REFRESH_CONTENT_CHECKED
         self.current_dark_mode_enabled = FALLBACK_DARK_MODE_ENABLED
         self.current_log_sort_order = FALLBACK_LOG_SORT_ORDER
+        self.current_mute_audio_checked = FALLBACK_MUTE_AUDIO_CHECKED
 
         self._load_settings()
         self._set_window_icon()
@@ -620,6 +627,7 @@ class WeatherAlertApp(QMainWindow):
                                                                  FALLBACK_AUTO_REFRESH_CONTENT_CHECKED)
         self.current_dark_mode_enabled = settings.get("dark_mode_enabled", FALLBACK_DARK_MODE_ENABLED)
         self.current_log_sort_order = settings.get("log_sort_order", FALLBACK_LOG_SORT_ORDER)
+        self.current_mute_audio_checked = settings.get("mute_audio", FALLBACK_MUTE_AUDIO_CHECKED)
 
         self._last_valid_radar_text = self._get_display_name_for_url(self.current_radar_url) or \
                                       (list(self.RADAR_OPTIONS.keys())[0] if self.RADAR_OPTIONS else "")
@@ -640,6 +648,7 @@ class WeatherAlertApp(QMainWindow):
         self.current_auto_refresh_content_checked = FALLBACK_AUTO_REFRESH_CONTENT_CHECKED
         self.current_dark_mode_enabled = FALLBACK_DARK_MODE_ENABLED
         self.current_log_sort_order = FALLBACK_LOG_SORT_ORDER
+        self.current_mute_audio_checked = FALLBACK_MUTE_AUDIO_CHECKED
 
     @Slot()
     def _save_settings(self):
@@ -650,11 +659,12 @@ class WeatherAlertApp(QMainWindow):
             "radar_options_dict": self.RADAR_OPTIONS,
             "radar_url": self.current_radar_url,
             "announce_alerts": self.announce_alerts_action.isChecked(),
+            "auto_refresh_content": self.auto_refresh_action.isChecked(),
+            "mute_audio": self.mute_action.isChecked(),
+            "dark_mode_enabled": self.dark_mode_action.isChecked(),
             "show_log": self.show_log_action.isChecked(),
             "show_alerts_area": self.show_alerts_area_action.isChecked(),
             "show_forecasts_area": self.show_forecasts_area_action.isChecked(),
-            "auto_refresh_content": self.auto_refresh_action.isChecked(),
-            "dark_mode_enabled": self.dark_mode_action.isChecked(),
             "log_sort_order": self.current_log_sort_order,
         }
         if self.settings_manager.save(settings):
@@ -788,6 +798,13 @@ class WeatherAlertApp(QMainWindow):
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
+
+        # --- Network Status Indicator ---
+        self.network_status_indicator = QLabel("● Network OK")
+        self.network_status_indicator.setStyleSheet("color: green; font-weight: bold;")
+        self.status_bar.addPermanentWidget(self.network_status_indicator)
+        # ---
+
         self.update_status("Application started.")
 
     def _create_top_status_bar(self) -> QHBoxLayout:
@@ -843,6 +860,15 @@ class WeatherAlertApp(QMainWindow):
         self.web_source_quick_select_button.clicked.connect(self._show_web_source_quick_select_menu)
         top_status_layout.addWidget(self.web_source_quick_select_button)
 
+        # --- Add Mute Button ---
+        self.mute_button = QPushButton("Mute")
+        self.mute_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolumeMuted))
+        self.mute_button.setToolTip("Mute All Audio")
+        self.mute_button.setCheckable(True)
+        self.mute_button.toggled.connect(self._on_mute_toggled)
+        top_status_layout.addWidget(self.mute_button)
+        # ---
+
         top_status_layout.addStretch(1)
         top_status_layout.addWidget(self.top_countdown_label)
         top_status_layout.addSpacing(15)
@@ -896,17 +922,20 @@ class WeatherAlertApp(QMainWindow):
         view_menu.addAction(self.show_forecasts_area_action)
         view_menu.addSeparator()
         self.dark_mode_action = QAction("&Enable Dark Mode", self, checkable=True)
-        self.dark_mode_action.triggered.connect(lambda checked: (self._on_dark_mode_toggled(checked), self._save_settings()))
+        self.dark_mode_action.toggled.connect(self._on_dark_mode_toggled)
         view_menu.addAction(self.dark_mode_action)
 
         # Actions Menu
         actions_menu = menu_bar.addMenu("&Actions")
         self.announce_alerts_action = QAction("&Announce Alerts and Start Timer", self, checkable=True)
-        self.announce_alerts_action.triggered.connect(lambda checked: (self._on_announce_alerts_toggled(checked), self._save_settings()))
+        self.announce_alerts_action.toggled.connect(self._on_announce_alerts_toggled)
         actions_menu.addAction(self.announce_alerts_action)
         self.auto_refresh_action = QAction("Auto-&Refresh Content", self, checkable=True)
-        self.auto_refresh_action.triggered.connect(lambda checked: (self._on_auto_refresh_content_toggled(checked), self._save_settings()))
+        self.auto_refresh_action.toggled.connect(self._on_auto_refresh_content_toggled)
         actions_menu.addAction(self.auto_refresh_action)
+        self.mute_action = QAction("Mute All Audio", self, checkable=True)
+        self.mute_action.toggled.connect(self._on_mute_toggled)
+        actions_menu.addAction(self.mute_action)
         actions_menu.addSeparator()
         self.speak_reset_action = QAction("&Speak Repeater Info and Reset Timer", self)
         self.speak_reset_action.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
@@ -965,17 +994,27 @@ class WeatherAlertApp(QMainWindow):
     @Slot(object)
     def _on_location_data_loaded(self, result: Dict[str, Any]):
         """Handles the successful loading of all location data."""
+        self.network_status_indicator.setText("● Network OK")
+        self.network_status_indicator.setStyleSheet("color: green; font-weight: bold;")
         self.current_coords = result["coords"]
+        alerts = result["alerts"] # Get alerts from the result
+
         self.log_to_gui(f"Successfully fetched data for {self.current_location_id} at {self.current_coords}",
                         level="INFO")
-        self._update_alerts_display_area(result["alerts"])
+        self._update_alerts_display_area(alerts) # Update UI
         self._update_hourly_forecast_display(result["hourly_forecast"])
         self._update_daily_forecast_display(result["daily_forecast"])
         self.update_status(f"Data for {self.current_location_id} updated.")
 
+        # Process the same alerts for speech if enabled
+        if self.announce_alerts_action.isChecked():
+            self._process_and_speak_alerts(alerts)
+
     @Slot(Exception)
     def _on_data_load_error(self, e: Exception):
         """Handles errors during background data fetching."""
+        self.network_status_indicator.setText("● Network FAIL")
+        self.network_status_indicator.setStyleSheet("color: red; font-weight: bold;")
         self.log_to_gui(str(e), level="ERROR")
         self.update_status(f"Error: {e}")
         self.current_coords = None
@@ -1078,6 +1117,7 @@ class WeatherAlertApp(QMainWindow):
             "interval_key": self.current_interval_key,
             "announce_alerts": self.announce_alerts_action.isChecked(),
             "auto_refresh_content": self.auto_refresh_action.isChecked(),
+            "mute_audio": self.mute_action.isChecked(),
             "dark_mode_enabled": self.dark_mode_action.isChecked(),
             "show_log": self.show_log_action.isChecked(),
             "show_alerts_area": self.show_alerts_area_action.isChecked(),
@@ -1116,15 +1156,15 @@ class WeatherAlertApp(QMainWindow):
             # --- Apply Behavior & Display Settings ---
             if self.announce_alerts_action.isChecked() != new_data["announce_alerts"]:
                 self.announce_alerts_action.setChecked(new_data["announce_alerts"])
-                self._on_announce_alerts_toggled(new_data["announce_alerts"])
 
             if self.auto_refresh_action.isChecked() != new_data["auto_refresh_content"]:
                 self.auto_refresh_action.setChecked(new_data["auto_refresh_content"])
-                self._on_auto_refresh_content_toggled(new_data["auto_refresh_content"])
+
+            if self.mute_action.isChecked() != new_data["mute_audio"]:
+                self.mute_action.setChecked(new_data["mute_audio"])
 
             if self.dark_mode_action.isChecked() != new_data["dark_mode_enabled"]:
                 self.dark_mode_action.setChecked(new_data["dark_mode_enabled"])
-                self._on_dark_mode_toggled(new_data["dark_mode_enabled"])
 
             if self.show_log_action.isChecked() != new_data["show_log"]:
                 self.show_log_action.setChecked(new_data["show_log"])
@@ -1162,13 +1202,8 @@ class WeatherAlertApp(QMainWindow):
             # The actual PDF opening is handled on source selection.
             self.web_view.reload()
 
-        # Fetch data in the background
+        # Fetch ALL data in the background. The completion slot will handle speaking.
         self._update_location_data()
-
-        if self.announce_alerts_action.isChecked() and self.current_coords:
-            worker = Worker(self.api_client.get_alerts, self.current_coords[0], self.current_coords[1])
-            worker.signals.result.connect(self._process_and_speak_alerts)
-            self.thread_pool.start(worker)
 
         self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
         if self.current_check_interval_ms > 0:
@@ -1176,12 +1211,22 @@ class WeatherAlertApp(QMainWindow):
 
     @Slot(object)
     def _process_and_speak_alerts(self, alerts: List[Any]):
-        """Processes alerts and speaks new ones."""
+        """Processes alerts, flashes the window, and speaks new ones."""
         new_alerts_found = False
+        high_priority_keywords = ["tornado", "severe thunderstorm", "flash flood warning"]
+
         for alert in alerts:
             if alert.id not in self.seen_alert_ids:
                 new_alerts_found = True
+                alert_title_lower = alert.title.lower()
                 self.log_to_gui(f"New Alert: {alert.title}", level="IMPORTANT")
+
+                # Check if this is a high-priority alert
+                if any(keyword in alert_title_lower for keyword in high_priority_keywords):
+                    self.log_to_gui("High-priority alert detected. Triggering extra notifications.", level="INFO")
+                    QApplication.alert(self)  # Flash the application window/taskbar icon
+
+                # Speak the alert (as before)
                 self._speak_weather_alert(alert.title, alert.summary)
                 self.seen_alert_ids.add(alert.id)
 
@@ -1251,6 +1296,9 @@ class WeatherAlertApp(QMainWindow):
             self._speak_message_internal(self.current_repeater_info)
 
     def _speak_message_internal(self, text: str):
+        if self.mute_action.isChecked():
+            self.log_to_gui(f"Audio muted. Would have spoken: {text}", level="DEBUG")
+            return
         if self.is_tts_dummy:
             self.tts_engine.say(text)
             return
@@ -1273,9 +1321,10 @@ class WeatherAlertApp(QMainWindow):
 
     def _apply_loaded_settings_to_ui(self):
         self.announce_alerts_action.setChecked(self.current_announce_alerts_checked)
-        self.show_log_action.setChecked(self.current_show_log_checked)
         self.auto_refresh_action.setChecked(self.current_auto_refresh_content_checked)
+        self.mute_action.setChecked(self.current_mute_audio_checked)
         self.dark_mode_action.setChecked(self.current_dark_mode_enabled)
+        self.show_log_action.setChecked(self.current_show_log_checked)
         self.show_alerts_area_action.setChecked(self.current_show_alerts_area_checked)
         self.show_forecasts_area_action.setChecked(self.current_show_forecasts_area_checked)
 
@@ -1333,14 +1382,38 @@ class WeatherAlertApp(QMainWindow):
     def _on_announce_alerts_toggled(self, checked):
         self.current_announce_alerts_checked = checked
         self._update_main_timer_state()
+        self._save_settings()
 
     def _on_auto_refresh_content_toggled(self, checked):
         self.current_auto_refresh_content_checked = checked
         self._update_main_timer_state()
+        self._save_settings()
+
+    def _on_mute_toggled(self, checked):
+        self.current_mute_audio_checked = checked
+
+        # Ensure both the action and the button reflect the state
+        # (This might cause a recursive call if not careful, but PySide6 handles this
+        # by not emitting 'toggled' if the state is already the target state)
+        self.mute_action.setChecked(checked)
+        self.mute_button.setChecked(checked)
+
+        style = self.style()  # Get the current style to access standard icons
+        if checked:
+            # Muted state: show muted icon
+            self.mute_action.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaVolumeMuted))
+            self.mute_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaVolumeMuted))
+        else:
+            # Unmuted state: show unmuted icon
+            self.mute_action.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaVolume))
+            self.mute_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaVolume))
+
+        self._save_settings()
 
     def _on_dark_mode_toggled(self, checked):
         self.current_dark_mode_enabled = checked
         self._apply_color_scheme()
+        self._save_settings()
 
     def _on_show_log_toggled(self, checked):
         self.splitter.widget(1).setVisible(checked)
@@ -1612,6 +1685,7 @@ class WeatherAlertApp(QMainWindow):
     def _on_dark_mode_toggled(self, checked):
         self.current_dark_mode_enabled = checked
         self._apply_color_scheme()
+        self._save_settings()
 
     def _apply_color_scheme(self):
         """Applies the appropriate stylesheet (light or dark)."""

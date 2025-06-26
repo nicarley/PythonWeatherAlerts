@@ -23,10 +23,11 @@
     },
     "radar_url": "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOiJ3ZWF0aGVyIiwiY2VudGVyIjpbLTg4Ljk3NiwzOC42MzldLCJsb2NhdGlvbiI6Wy04OC45NzYsMzguNjM5XSwiem9vbSI6OC41NTU1NTU1MjE2NDcxMzYsImxheWVyIjoiYnJlZl9xY2QifSwiYW5pbWF0aW5nIjp0cnVlLCJiYXNlIjoic3RhbmRhcmQiLCJhcnRjYyI6ZmFsc2UsImNvdW50eSI6ZmFsc2UsImN3YSI6ZmFsc2UsInJmYyI6ZmFsc2UsInN0YXRlIjpmYWxzZSwibWVudSI6dHJ1ZSwic2hvcnRGdXNlZE9ubHkiOmZhbHNlLCJvcGFjaXR5Ijp7ImFsZXJ0cyI6MC44LCJsb2NhbCI6MC42LCJsb2NhbFN0YXRpb25zIjowLjgsIm5hdGlvbmFsIjowLjZ9fQ%3D%3D",
     "announce_alerts": true,
+    "auto_refresh_content": true,
+    "mute_audio": true,
+    "dark_mode_enabled": false,
     "show_log": false,
     "show_alerts_area": true,
     "show_forecasts_area": true,
-    "auto_refresh_content": true,
-    "dark_mode_enabled": false,
     "log_sort_order": "chronological"
 }
