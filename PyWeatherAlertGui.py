@@ -54,6 +54,7 @@ FALLBACK_SHOW_ALERTS_AREA_CHECKED = True
 FALLBACK_SHOW_FORECASTS_AREA_CHECKED = True
 FALLBACK_AUTO_REFRESH_CONTENT_CHECKED = False
 FALLBACK_DARK_MODE_ENABLED = False
+FALLBACK_LOG_SORT_ORDER = "chronological"
 
 CHECK_INTERVAL_OPTIONS = {
     "1 Minute": 1 * 60 * 1000, "5 Minutes": 5 * 60 * 1000,
@@ -458,36 +459,43 @@ class SettingsDialog(QDialog):
 
         # --- Behavior & Display Settings ---
         behavior_group = QGroupBox("Behavior & Display")
-        behavior_layout = QVBoxLayout(behavior_group)
+        behavior_form_layout = QFormLayout(behavior_group) # Use QFormLayout for alignment
 
         self.announce_alerts_check = QCheckBox("Announce Alerts and Start Timer")
         self.announce_alerts_check.setChecked(self.current_settings.get("announce_alerts", FALLBACK_ANNOUNCE_ALERTS_CHECKED))
-        behavior_layout.addWidget(self.announce_alerts_check)
+        behavior_form_layout.addRow(self.announce_alerts_check)
 
         self.auto_refresh_check = QCheckBox("Auto-Refresh Web Content")
         self.auto_refresh_check.setChecked(self.current_settings.get("auto_refresh_content", FALLBACK_AUTO_REFRESH_CONTENT_CHECKED))
-        behavior_layout.addWidget(self.auto_refresh_check)
+        behavior_form_layout.addRow(self.auto_refresh_check)
 
         self.dark_mode_check = QCheckBox("Enable Dark Mode")
         self.dark_mode_check.setChecked(self.current_settings.get("dark_mode_enabled", FALLBACK_DARK_MODE_ENABLED))
-        behavior_layout.addWidget(self.dark_mode_check)
+        behavior_form_layout.addRow(self.dark_mode_check)
 
-        behavior_layout.addWidget(QFrame(frameShape=QFrame.Shape.HLine, frameShadow=QFrame.Shadow.Sunken))
+        behavior_form_layout.addRow(QFrame(frameShape=QFrame.Shape.HLine, frameShadow=QFrame.Shadow.Sunken))
 
-        self.show_log_check = QCheckBox("Show Log Panel")
+        self.show_log_check = QCheckBox("Show Log Panel on Startup")
         self.show_log_check.setToolTip("Show or hide the log panel at the bottom of the window.")
         self.show_log_check.setChecked(self.current_settings.get("show_log", FALLBACK_SHOW_LOG_CHECKED))
-        behavior_layout.addWidget(self.show_log_check)
+        behavior_form_layout.addRow(self.show_log_check)
 
-        self.show_alerts_check = QCheckBox("Show Current Alerts Area")
+        self.show_alerts_check = QCheckBox("Show Current Alerts Area on Startup")
         self.show_alerts_check.setToolTip("Show or hide the Current Alerts panel.")
         self.show_alerts_check.setChecked(self.current_settings.get("show_alerts_area", FALLBACK_SHOW_ALERTS_AREA_CHECKED))
-        behavior_layout.addWidget(self.show_alerts_check)
+        behavior_form_layout.addRow(self.show_alerts_check)
 
-        self.show_forecasts_check = QCheckBox("Show Weather Forecast Area")
+        self.show_forecasts_check = QCheckBox("Show Weather Forecast Area on Startup")
         self.show_forecasts_check.setToolTip("Show or hide the Weather Forecast panel.")
         self.show_forecasts_check.setChecked(self.current_settings.get("show_forecasts_area", FALLBACK_SHOW_FORECASTS_AREA_CHECKED))
-        behavior_layout.addWidget(self.show_forecasts_check)
+        behavior_form_layout.addRow(self.show_forecasts_check)
+
+        behavior_form_layout.addRow(QFrame(frameShape=QFrame.Shape.HLine, frameShadow=QFrame.Shadow.Sunken))
+
+        self.log_sort_combo = QComboBox()
+        self.log_sort_combo.addItems(["Chronological", "Ascending", "Descending"])
+        self.log_sort_combo.setCurrentText(self.current_settings.get("log_sort_order", FALLBACK_LOG_SORT_ORDER).capitalize())
+        behavior_form_layout.addRow("Initial Log Sort Order:", self.log_sort_combo)
 
         main_layout.addWidget(behavior_group)
 
@@ -510,6 +518,7 @@ class SettingsDialog(QDialog):
             "show_log": self.show_log_check.isChecked(),
             "show_alerts_area": self.show_alerts_check.isChecked(),
             "show_forecasts_area": self.show_forecasts_check.isChecked(),
+            "log_sort_order": self.log_sort_combo.currentText().lower(),
         }
 
 
@@ -542,6 +551,7 @@ class WeatherAlertApp(QMainWindow):
         self.current_show_forecasts_area_checked = FALLBACK_SHOW_FORECASTS_AREA_CHECKED
         self.current_auto_refresh_content_checked = FALLBACK_AUTO_REFRESH_CONTENT_CHECKED
         self.current_dark_mode_enabled = FALLBACK_DARK_MODE_ENABLED
+        self.current_log_sort_order = FALLBACK_LOG_SORT_ORDER
 
         self._load_settings()
         self._set_window_icon()
@@ -609,6 +619,7 @@ class WeatherAlertApp(QMainWindow):
         self.current_auto_refresh_content_checked = settings.get("auto_refresh_content",
                                                                  FALLBACK_AUTO_REFRESH_CONTENT_CHECKED)
         self.current_dark_mode_enabled = settings.get("dark_mode_enabled", FALLBACK_DARK_MODE_ENABLED)
+        self.current_log_sort_order = settings.get("log_sort_order", FALLBACK_LOG_SORT_ORDER)
 
         self._last_valid_radar_text = self._get_display_name_for_url(self.current_radar_url) or \
                                       (list(self.RADAR_OPTIONS.keys())[0] if self.RADAR_OPTIONS else "")
@@ -628,6 +639,7 @@ class WeatherAlertApp(QMainWindow):
         self.current_show_forecasts_area_checked = FALLBACK_SHOW_FORECASTS_AREA_CHECKED
         self.current_auto_refresh_content_checked = FALLBACK_AUTO_REFRESH_CONTENT_CHECKED
         self.current_dark_mode_enabled = FALLBACK_DARK_MODE_ENABLED
+        self.current_log_sort_order = FALLBACK_LOG_SORT_ORDER
 
     @Slot()
     def _save_settings(self):
@@ -642,7 +654,8 @@ class WeatherAlertApp(QMainWindow):
             "show_alerts_area": self.show_alerts_area_action.isChecked(),
             "show_forecasts_area": self.show_forecasts_area_action.isChecked(),
             "auto_refresh_content": self.auto_refresh_action.isChecked(),
-            "dark_mode_enabled": self.dark_mode_action.isChecked()
+            "dark_mode_enabled": self.dark_mode_action.isChecked(),
+            "log_sort_order": self.current_log_sort_order,
         }
         if self.settings_manager.save(settings):
             self.update_status("Settings saved.")
@@ -719,10 +732,6 @@ class WeatherAlertApp(QMainWindow):
         alerts_forecasts_layout.addWidget(self.combined_forecast_widget,
                                           2)  # Stretch 2 for the main combined forecasts group
 
-        # Removed fixed heights to allow layout to manage vertical space
-        # self.alerts_group.setFixedHeight(250)
-        # self.combined_forecast_widget.setFixedHeight(250)
-
         # Add the alerts/forecasts layout to the main layout
         main_layout.addLayout(alerts_forecasts_layout, 1)  # Stretch 1 for this whole top section
 
@@ -742,10 +751,26 @@ class WeatherAlertApp(QMainWindow):
         log_toolbar = QHBoxLayout()
         log_toolbar.addWidget(QLabel("<b>Application Log</b>"))
         log_toolbar.addStretch()
+
+        # Add sorting buttons
+        style = self.style()
+        sort_asc_button = QPushButton("Sort Asc")
+        sort_asc_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ArrowUp))
+        sort_asc_button.setToolTip("Sort log ascending (A-Z)")
+        sort_asc_button.clicked.connect(self._sort_log_ascending)
+        log_toolbar.addWidget(sort_asc_button)
+
+        sort_desc_button = QPushButton("Sort Desc")
+        sort_desc_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ArrowDown))
+        sort_desc_button.setToolTip("Sort log descending (Z-A)")
+        sort_desc_button.clicked.connect(self._sort_log_descending)
+        log_toolbar.addWidget(sort_desc_button)
+
         clear_log_button = QPushButton("Clear Log")
-        clear_log_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DialogResetButton))
+        clear_log_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DialogResetButton))
         clear_log_button.clicked.connect(lambda: self.log_area.clear())
         log_toolbar.addWidget(clear_log_button)
+
         log_layout.addLayout(log_toolbar)
         self.log_area = QTextEdit()
         self.log_area.setReadOnly(True)
@@ -773,7 +798,7 @@ class WeatherAlertApp(QMainWindow):
         style = self.style()
         self.top_repeater_label = QLabel("Repeater: N/A")
         self.top_countdown_label = QLabel("Next Check: --:--")
-        self.current_time_label = QLabel("Current Time: --:--:--") # Modified here
+        self.current_time_label = QLabel("Current Time: --:--:--")
 
         # Volume Icon
         volume_icon_label = QLabel()
@@ -1057,6 +1082,7 @@ class WeatherAlertApp(QMainWindow):
             "show_log": self.show_log_action.isChecked(),
             "show_alerts_area": self.show_alerts_area_action.isChecked(),
             "show_forecasts_area": self.show_forecasts_area_action.isChecked(),
+            "log_sort_order": self.current_log_sort_order,
         }
 
         dialog = SettingsDialog(self, current_settings=current_prefs)
@@ -1108,6 +1134,10 @@ class WeatherAlertApp(QMainWindow):
 
             if self.show_forecasts_area_action.isChecked() != new_data["show_forecasts_area"]:
                 self.show_forecasts_area_action.setChecked(new_data["show_forecasts_area"])
+
+            if self.current_log_sort_order != new_data["log_sort_order"]:
+                self.current_log_sort_order = new_data["log_sort_order"]
+                self._apply_log_sort()
 
             self._update_main_timer_state()
 
@@ -1164,6 +1194,7 @@ class WeatherAlertApp(QMainWindow):
         """Logs a message to the standard logger and either the GUI or a buffer if the GUI is not ready."""
         formatted_message = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [{level.upper()}] {message}"
         if hasattr(self, 'log_area'):
+            # In a sorted view, new messages are just appended. The user can re-sort manually.
             self.log_area.append(formatted_message)
         else:
             self._log_buffer.append(formatted_message)
@@ -1233,15 +1264,12 @@ class WeatherAlertApp(QMainWindow):
     # --- UI Update and State Management Methods ---
     def _update_current_time_display(self):
         if hasattr(self, 'current_time_label'):
-            self.current_time_label.setText(f"Current Time: {time.strftime('%I:%M:%S %p')}") # Modified here
+            self.current_time_label.setText(f"Current Time: {time.strftime('%I:%M:%S %p')}")
 
     def _update_top_status_bar_display(self):
         # This method now updates the editable widgets
         if hasattr(self, 'top_repeater_label'):
             self.top_repeater_label.setText(f"Repeater: {self.current_repeater_info or 'N/A'}")
-            # The location and interval are now read from the editable widgets themselves
-            # self.top_location_edit.setText(self.current_location_id) # This is done in _apply_loaded_settings_to_ui or _open_preferences_dialog
-            # self.top_interval_combo.setCurrentText(self.current_interval_key) # This is done in _apply_loaded_settings_to_ui or _open_preferences_dialog
 
     def _apply_loaded_settings_to_ui(self):
         self.announce_alerts_action.setChecked(self.current_announce_alerts_checked)
@@ -1251,6 +1279,11 @@ class WeatherAlertApp(QMainWindow):
         self.show_alerts_area_action.setChecked(self.current_show_alerts_area_checked)
         self.show_forecasts_area_action.setChecked(self.current_show_forecasts_area_checked)
 
+        # --- Manually set panel visibility on startup ---
+        self.splitter.widget(1).setVisible(self.current_show_log_checked)
+        self.alerts_group.setVisible(self.current_show_alerts_area_checked)
+        self.combined_forecast_widget.setVisible(self.current_show_forecasts_area_checked)
+
         # Set initial values for the new editable top bar widgets
         self.top_location_edit.setText(self.current_location_id)
         self.top_interval_combo.setCurrentText(self.current_interval_key)
@@ -1258,6 +1291,7 @@ class WeatherAlertApp(QMainWindow):
         self._update_top_status_bar_display()
         self._update_web_sources_menu()
         self._apply_color_scheme()
+        self._apply_log_sort() # Apply initial sort order
 
         # Initial load of the radar URL, now handles PDFs via direct Chromium rendering
         if QWebEngineView and self.web_view:
@@ -1517,6 +1551,34 @@ class WeatherAlertApp(QMainWindow):
             if url == url_to_find:
                 return name
         return None
+
+    # --- Log Sorting ---
+    def _sort_log(self, reverse: bool):
+        """Sorts the log area's content."""
+        if not hasattr(self, 'log_area'):
+            return
+        lines = self.log_area.toPlainText().splitlines()
+        if not lines:
+            return
+        sorted_lines = sorted(lines, reverse=reverse)
+        self.log_area.setPlainText("\n".join(sorted_lines))
+        self.log_to_gui(f"Log sorted {'descending' if reverse else 'ascending'}.", level="DEBUG")
+
+    @Slot()
+    def _sort_log_ascending(self):
+        self._sort_log(reverse=False)
+
+    @Slot()
+    def _sort_log_descending(self):
+        self._sort_log(reverse=True)
+
+    def _apply_log_sort(self):
+        """Applies the stored log sort preference."""
+        if self.current_log_sort_order == "ascending":
+            self._sort_log(reverse=False)
+        elif self.current_log_sort_order == "descending":
+            self._sort_log(reverse=True)
+        # If "chronological", do nothing.
 
     # --- Settings Backup/Restore and Theming ---
     def _backup_settings(self):
