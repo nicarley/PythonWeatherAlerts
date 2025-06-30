@@ -32,7 +32,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-versionnumber = "25.06.25"
+versionnumber = "25.06.30"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -1702,19 +1702,19 @@ class WeatherAlertApp(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Restore Error", f"Could not restore settings: {e}")
 
-    def _on_dark_mode_toggled(self, checked):
-        self.current_dark_mode_enabled = checked
-        self._apply_color_scheme()
-        self._save_settings()
-
     def _apply_color_scheme(self):
         """Applies the appropriate stylesheet (light or dark)."""
         stylesheet_name = DARK_STYLESHEET_FILE_NAME if self.current_dark_mode_enabled else LIGHT_STYLESHEET_FILE_NAME
         stylesheet_path = os.path.join(self._get_resources_path(), stylesheet_name)
 
-        # Create placeholder stylesheets if they don't exist
-        if not os.path.exists(stylesheet_path):
-            self._create_placeholder_stylesheet(stylesheet_path, self.current_dark_mode_enabled)
+        # Create placeholder stylesheets if they don't exist.
+        # This logic is improved to create both if needed, not just the active one.
+        light_path = os.path.join(self._get_resources_path(), LIGHT_STYLESHEET_FILE_NAME)
+        dark_path = os.path.join(self._get_resources_path(), DARK_STYLESHEET_FILE_NAME)
+        if not os.path.exists(light_path):
+            self._create_placeholder_stylesheet(light_path, is_dark=False)
+        if not os.path.exists(dark_path):
+            self._create_placeholder_stylesheet(dark_path, is_dark=True)
 
         try:
             with open(stylesheet_path, "r") as f:
@@ -1725,31 +1725,361 @@ class WeatherAlertApp(QMainWindow):
             self.setStyleSheet("")  # Reset to default
 
     def _create_placeholder_stylesheet(self, path: str, is_dark: bool):
-        """Creates a basic QSS file for modern light/dark themes."""
+        """Creates a detailed QSS file for a professional modern light/dark theme."""
         if is_dark:
             content = """
-            QWidget { background-color: #2b2b2b; color: #f0f0f0; }
-            QGroupBox { border: 1px solid #444; margin-top: 1em; }
-            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }
-            QTextEdit, QListWidget { background-color: #3c3c3c; border: 1px solid #555; }
-            QPushButton { background-color: #555; border: 1px solid #666; padding: 5px; }
-            QPushButton:hover { background-color: #666; }
-            QPushButton:pressed { background-color: #777; }
+/* 
+ * Dark Modern Theme for PyWeatherAlert
+ */
+QWidget {
+    background-color: #2d2d2d;
+    color: #f0f0f0;
+    font-family: "Segoe UI", "Helvetica Neue", "Arial", sans-serif;
+    font-size: 10pt;
+    border: none;
+}
+
+QGroupBox {
+    background-color: #353535;
+    border: 1px solid #4a4a4a;
+    border-radius: 6px;
+    margin-top: 1em;
+    padding-top: 5px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top center;
+    padding: 0 10px;
+    background-color: #353535;
+    border-radius: 4px;
+    color: #00aaff;
+    font-weight: bold;
+}
+
+QLabel {
+    background-color: transparent;
+}
+
+QTextEdit, QListWidget {
+    background-color: #252525;
+    border: 1px solid #4a4a4a;
+    border-radius: 4px;
+    padding: 4px;
+    color: #e0e0e0;
+}
+
+QListWidget::item {
+    padding: 5px;
+}
+
+QListWidget::item:alternate {
+    background-color: #2a2a2a;
+}
+
+QListWidget::item:selected {
+    background-color: #007acc;
+    color: #ffffff;
+}
+
+QLineEdit, QComboBox {
+    background-color: #3c3c3c;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 5px;
+    min-height: 20px;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left-width: 1px;
+    border-left-color: #555;
+    border-left-style: solid;
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+QComboBox::down-arrow {
+    image: url(resources/down_arrow_dark.png); /* Fallback if icon not found */
+}
+
+QComboBox QAbstractItemView {
+    background-color: #3c3c3c;
+    border: 1px solid #555;
+    selection-background-color: #007acc;
+}
+
+QPushButton {
+    background-color: #555;
+    color: #f0f0f0;
+    border: 1px solid #666;
+    border-radius: 4px;
+    padding: 6px 12px;
+    min-width: 80px;
+}
+
+QPushButton:hover {
+    background-color: #6a6a6a;
+    border-color: #777;
+}
+
+QPushButton:pressed {
+    background-color: #4a4a4a;
+}
+
+QPushButton:checked {
+    background-color: #007acc;
+    border-color: #005c99;
+}
+
+QMenuBar {
+    background-color: #3c3c3c;
+    color: #f0f0f0;
+}
+
+QMenuBar::item {
+    background: transparent;
+    padding: 4px 8px;
+}
+
+QMenuBar::item:selected {
+    background-color: #555;
+}
+
+QMenu {
+    background-color: #3c3c3c;
+    border: 1px solid #555;
+}
+
+QMenu::item:selected {
+    background-color: #007acc;
+}
+
+QStatusBar {
+    background-color: #3c3c3c;
+    color: #f0f0f0;
+}
+
+QScrollBar:vertical {
+    border: none;
+    background: #2d2d2d;
+    width: 12px;
+    margin: 15px 0 15px 0;
+}
+
+QScrollBar::handle:vertical {
+    background: #555;
+    min-height: 20px;
+    border-radius: 6px;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 15px;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+QSplitter::handle {
+    background: #3c3c3c;
+}
+
+QSplitter::handle:hover {
+    background: #007acc;
+}
+
+QSplitter::handle:horizontal {
+    width: 2px;
+}
+
+QSplitter::handle:vertical {
+    height: 2px;
+}
             """
         else:
             content = """
-            QWidget { background-color: #f0f0f0; color: #000; }
-            QGroupBox { border: 1px solid #ccc; margin-top: 1em; }
-            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }
-            QTextEdit, QListWidget { background-color: #fff; border: 1px solid #ccc; }
-            QPushButton { background-color: #e0e0e0; border: 1px solid #ccc; padding: 5px; }
-            QPushButton:hover { background-color: #e8e8e8; }
-            QPushButton:pressed { background-color: #d0d0d0; }
+/* 
+ * Light Modern Theme for PyWeatherAlert
+ */
+QWidget {
+    background-color: #f0f0f0;
+    color: #1e1e1e;
+    font-family: "Segoe UI", "Helvetica Neue", "Arial", sans-serif;
+    font-size: 10pt;
+    border: none;
+}
+
+QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #dcdcdc;
+    border-radius: 6px;
+    margin-top: 1em;
+    padding-top: 5px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top center;
+    padding: 0 10px;
+    background-color: #ffffff;
+    border-radius: 4px;
+    color: #005a9e;
+    font-weight: bold;
+}
+
+QLabel {
+    background-color: transparent;
+}
+
+QTextEdit, QListWidget {
+    background-color: #ffffff;
+    border: 1px solid #dcdcdc;
+    border-radius: 4px;
+    padding: 4px;
+    color: #1e1e1e;
+}
+
+QListWidget::item {
+    padding: 5px;
+}
+
+QListWidget::item:alternate {
+    background-color: #f7f7f7;
+}
+
+QListWidget::item:selected {
+    background-color: #0078d7;
+    color: #ffffff;
+}
+
+QLineEdit, QComboBox {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 5px;
+    min-height: 20px;
+}
+
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left-width: 1px;
+    border-left-color: #cccccc;
+    border-left-style: solid;
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+QComboBox::down-arrow {
+    image: url(resources/down_arrow_light.png); /* Fallback if icon not found */
+}
+
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    selection-background-color: #0078d7;
+}
+
+QPushButton {
+    background-color: #e1e1e1;
+    color: #1e1e1e;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 6px 12px;
+    min-width: 80px;
+}
+
+QPushButton:hover {
+    background-color: #e9e9e9;
+    border-color: #b9b9b9;
+}
+
+QPushButton:pressed {
+    background-color: #d0d0d0;
+}
+
+QPushButton:checked {
+    background-color: #0078d7;
+    color: #ffffff;
+    border-color: #005a9e;
+}
+
+QMenuBar {
+    background-color: #e8e8e8;
+    color: #1e1e1e;
+}
+
+QMenuBar::item {
+    background: transparent;
+    padding: 4px 8px;
+}
+
+QMenuBar::item:selected {
+    background-color: #dcdcdc;
+}
+
+QMenu {
+    background-color: #f8f8f8;
+    border: 1px solid #dcdcdc;
+}
+
+QMenu::item:selected {
+    background-color: #0078d7;
+    color: #ffffff;
+}
+
+QStatusBar {
+    background-color: #e8e8e8;
+    color: #1e1e1e;
+}
+
+QScrollBar:vertical {
+    border: none;
+    background: #f0f0f0;
+    width: 12px;
+    margin: 15px 0 15px 0;
+}
+
+QScrollBar::handle:vertical {
+    background: #c0c0c0;
+    min-height: 20px;
+    border-radius: 6px;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 15px;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    background: none;
+}
+
+QSplitter::handle {
+    background: #dcdcdc;
+}
+
+QSplitter::handle:hover {
+    background: #0078d7;
+}
+
+QSplitter::handle:horizontal {
+    width: 2px;
+}
+
+QSplitter::handle:vertical {
+    height: 2px;
+}
             """
         try:
             with open(path, "w") as f:
                 f.write(content)
-            self.log_to_gui(f"Created placeholder stylesheet at {path}", level="INFO")
+            self.log_to_gui(f"Created professional stylesheet at {path}", level="INFO")
         except IOError as e:
             self.log_to_gui(f"Could not create placeholder stylesheet: {e}", level="ERROR")
 

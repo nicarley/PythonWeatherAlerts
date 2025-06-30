@@ -22,7 +22,7 @@
         "Ventusky.com: Salem, IL": "https://www.ventusky.com/?p=38.95;-88.92;7&l=radar",
         "Zoom Earth": "https://zoom.earth/maps/satellite/#view=39.17,-99.61,5z"
     },
-    "radar_url": "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOiJ3ZWF0aGVyIiwiY2VudGVyIjpbLTg4Ljk3NiwzOC42MzldLCJsb2NhdGlvbiI6Wy04OC45NzYsMzguNjM5XSwiem9vbSI6OC41NTU1NTU1MjE2NDcxMzYsImxheWVyIjoiYnJlZl9xY2QifSwiYW5pbWF0aW5nIjp0cnVlLCJiYXNlIjoic3RhbmRhcmQiLCJhcnRjYyI6ZmFsc2UsImNvdW50eSI6ZmFsc2UsImN3YSI6ZmFsc2UsInJmYyI6ZmFsc2UsInN0YXRlIjpmYWxzZSwibWVudSI6dHJ1ZSwic2hvcnRGdXNlZE9ubHkiOmZhbHNlLCJvcGFjaXR5Ijp7ImFsZXJ0cyI6MC44LCJsb2NhbCI6MC42LCJsb2NhbFN0YXRpb25zIjowLjgsIm5hdGlvbmFsIjowLjZ9fQ%3D%3D",
+    "radar_url": "https://maps.apple.com/search?map=hybrid&center=38.625824165947606%2C-88.95355326337172&span=0.047247173705066814%2C0.08257056924117023",
     "announce_alerts": true,
     "auto_refresh_content": true,
     "mute_audio": false,

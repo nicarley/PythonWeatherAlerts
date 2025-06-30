@@ -14,15 +14,15 @@ QMainWindow {
 QGroupBox {
     background-color: #ffffff;
     border: 1px solid #cccccc;
-    border-radius: 5px;
+    border-radius: 3px;
     margin-top: 1ex; /* Space for the title */
     padding: 5px;
 }
 
 QGroupBox::title {
     subcontrol-origin: margin;
-    subcontrol-position: top left;
-    padding: 0 5px;
+    subcontrol-position: top center;
+    padding: 0 3px;
     background-color: #f0f0f0;
     border-radius: 3px;
     color: #333333; /* Ensure title text color is readable */
@@ -132,8 +132,8 @@ QMenu::item:selected { /* Style for when a menu item is hovered or selected */
 QMenu::separator {
     height: 1px;
     background: #cccccc;
-    margin-left: 10px;
-    margin-right: 5px;
+    margin-left: 5px;
+    margin-right: 3px;
 }
 
 QStatusBar {
@@ -143,8 +143,8 @@ QStatusBar {
 
 QSplitter::handle {
     background-color: #cccccc;
-    height: 5px; /* For vertical splitter */
-    width: 5px;  /* For horizontal splitter */
+    height: 3px; /* For vertical splitter */
+    width: 3px;  /* For horizontal splitter */
 }
 
 QSplitter::handle:hover {
@@ -167,4 +167,63 @@ QDialog QLabel, QDialog QLineEdit, QDialog QPushButton, QDialog QComboBox, QDial
     /* These will inherit from global styles or can be overridden here if needed */
     /* For example, to ensure dialog buttons have the same style: */
     /* QDialog QPushButton { background-color: #3498db; color: white; } */
+}
+/* resources/modern.qss - Light Theme */
+
+/* ... (existing styles) ... */
+
+/* Styling for the new custom forecast widget */
+#DailyForecastWidget {
+    background-color: #fafafa;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    margin: 4px 0; /* Add some vertical space between forecast days */
+}
+
+#DailyForecastWidget:hover {
+    background-color: #f0f5fa;
+    border-color: #c0d0e0;
+}
+
+#DailyForecastWidget QLabel#highTemp {
+    font-weight: bold;
+    color: #c0392b; /* A soft red for high temps */
+}
+
+#DailyForecastWidget QLabel#lowTemp {
+    color: #2980b9; /* A soft blue for low temps */
+}
+
+
+/* Styling for the new custom alert widgets using dynamic properties */
+/* You would set this property in your Python code: alert_widget.setProperty("severity", "warning") */
+
+AlertWidget {
+    border-radius: 5px;
+    padding: 10px;
+    margin: 5px 0;
+    border: 1px solid transparent;
+}
+
+AlertWidget[severity="warning"] {
+    background-color: #fff3cd; /* A bootstrap-like warning yellow */
+    border-left: 5px solid #ffc107;
+    color: #856404;
+}
+
+AlertWidget[severity="watch"] {
+    background-color: #d1ecf1; /* A bootstrap-like info blue */
+    border-left: 5px solid #17a2b8;
+    color: #0c5460;
+}
+
+AlertWidget[severity="advisory"] {
+    background-color: #e2e3e5; /* A bootstrap-like secondary gray */
+    border-left: 5px solid #6c757d;
+    color: #383d41;
+}
+
+AlertWidget QLabel {
+    color: inherit; /* Make labels inside the alert inherit its text color */
+    background-color: transparent;
 }
