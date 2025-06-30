@@ -26,7 +26,7 @@
     "announce_alerts": true,
     "auto_refresh_content": true,
     "mute_audio": false,
-    "dark_mode_enabled": true,
+    "dark_mode_enabled": false,
     "show_log": false,
     "show_alerts_area": true,
     "show_forecasts_area": true,
