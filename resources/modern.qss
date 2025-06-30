@@ -1,88 +1,129 @@
-/* resources/modern.qss - Light Theme */
+/*
+ * Polished Light Modern Theme
+ *
+ * A refined and complete light theme with a consistent and professional look.
+ * It includes support for more widgets, proper focus/disabled states,
+ * and improved visual feedback.
+ *
+ * Color Palette:
+ * - Primary Background:   #f0f0f0 (Light Gray)
+ * - Secondary Background: #ffffff (White for GroupBoxes, Inputs)
+ * - View Background:      #ffffff (TextEdit, ListWidget)
+ * - Primary Text:         #212121 (Dark Gray)
+ * - Muted Text:           #555555
+ * - Border Color:         #cccccc
+ * - Stronger Border:      #bbbbbb
+ * - Primary Accent:       #3498db (Primary Blue)
+ * - Secondary Accent:     #2980b9 (Darker Blue for Hover/Titles)
+ * - Disabled Background:  #e9e9e9
+ * - Disabled Text:        #a0a0a0
+ * - High Temp:            #c0392b (Soft Red)
+ * - Low Temp:             #2980b9 (Soft Blue)
+ */
 
+/* --- Global Styles --- */
 QWidget {
-    /* Using a font stack for better cross-platform compatibility */
-    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+    background-color: #f0f0f0;
+    color: #212121;
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
     font-size: 10pt;
-    color: black; /* Default text color for most widgets */
+    border: none;
 }
 
-QMainWindow {
-    background-color: #f0f0f0; /* A light gray background */
+QToolTip {
+    background-color: #ffffff;
+    color: #212121;
+    border: 1px solid #cccccc;
+    padding: 5px;
+    border-radius: 4px;
 }
 
+/* --- Labels & Text --- */
+QLabel {
+    background-color: transparent;
+    color: #333333;
+}
+
+QLabel:disabled {
+    color: #a0a0a0;
+}
+
+/* --- GroupBox --- */
 QGroupBox {
     background-color: #ffffff;
     border: 1px solid #cccccc;
-    border-radius: 3px;
-    margin-top: 1ex; /* Space for the title */
-    padding: 5px;
+    border-radius: 6px;
+    margin-top: 1em; /* Make space for title */
+    font-weight: bold;
 }
 
 QGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top center;
-    padding: 0 3px;
+    padding: 0 10px;
     background-color: #f0f0f0;
-    border-radius: 3px;
-    color: #333333; /* Ensure title text color is readable */
+    border-radius: 4px;
+    color: #2980b9;
 }
 
-QLabel {
-    color: #333333;
-}
-
-QLineEdit, QTextEdit, QComboBox {
+/* --- Text/List Views --- */
+QTextEdit, QListWidget {
+    background-color: #ffffff;
     border: 1px solid #cccccc;
     border-radius: 4px;
-    padding: 5px;
-    background-color: #ffffff;
-    selection-background-color: #3498db; /* A nice blue for selection */
+    padding: 4px;
+    selection-background-color: #3498db;
     selection-color: #ffffff;
 }
 
-QTextEdit {
-    background-color: #fdfdfd; /* Slightly different for text areas if desired */
+QTextEdit:focus, QListWidget:focus {
+    border: 1px solid #3498db;
 }
 
-QPushButton {
-    background-color: #3498db; /* A modern blue */
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 5px 10px;
-    min-width: 80px;
-}
-
-QPushButton:hover {
-    background-color: #2980b9; /* Darker blue on hover */
-}
-
-QPushButton:pressed {
-    background-color: #1f618d; /* Even darker when pressed */
-}
-
-QCheckBox::indicator {
-    width: 16px;
-    height: 16px;
-    border: 1px solid #cccccc;
+QListWidget::item {
+    padding: 5px;
     border-radius: 3px;
-    background-color: #ffffff; /* Default background for unchecked */
 }
 
-QCheckBox::indicator:checked {
+QListWidget::item:alternate {
+    background-color: #f7f7f7;
+}
+
+QListWidget::item:hover {
+    background-color: #e9e9e9;
+}
+
+QListWidget::item:selected {
     background-color: #3498db;
-    /*
-     * IMPORTANT: The path below uses Qt's built-in resources.
-     * This might not work reliably on all systems or PySide6 installations.
-     * If the checkmark doesn't appear, you may need to:
-     * 1. Find a reliable path to a checkmark image provided by your Qt/PySide6 installation, OR
-     * 2. Place your own checkmark image (e.g., checkmark.png) in the 'resources' folder
-     *    and use a relative path like: image: url(checkmark.png);
-     */
-    image: url(:/qt-project.org/styles/commonstyle/images/standardbutton-apply-16.png);
+    color: #ffffff;
 }
 
+/* --- Input Fields --- */
+QLineEdit, QComboBox {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 5px;
+    min-height: 20px;
+    selection-background-color: #3498db;
+    selection-color: #ffffff;
+}
+
+QLineEdit:hover, QComboBox:hover {
+    border-color: #bbbbbb;
+}
+
+QLineEdit:focus, QComboBox:focus {
+    border-color: #3498db;
+}
+
+QLineEdit:disabled, QComboBox:disabled {
+    background-color: #e9e9e9;
+    color: #a0a0a0;
+    border-color: #dcdcdc;
+}
+
+/* --- ComboBox Specifics --- */
 QComboBox::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
@@ -92,48 +133,157 @@ QComboBox::drop-down {
     border-left-style: solid;
     border-top-right-radius: 3px;
     border-bottom-right-radius: 3px;
-    background-color: #ffffff;
+}
+
+QComboBox::drop-down:hover {
+    background-color: #e9e9e9;
 }
 
 QComboBox::down-arrow {
-    image: url(:/qt-project.org/styles/commonstyle/images/arrow-down-16.png);
-    subcontrol-origin: padding;
-    subcontrol-position: center;
-    border: none;
-    border-radius: 0px;
-    width: 16px;
-    height: 16px;
+    /* Consider using a local SVG for sharpness */
+    image: url(resources/down_arrow_light.png);
+    width: 12px;
+    height: 12px;
 }
 
 QComboBox QAbstractItemView {
     background-color: #ffffff;
     border: 1px solid #cccccc;
     selection-background-color: #3498db;
-    color: #333333; /* Ensure text color is set for combobox items */
+    color: #212121;
+    padding: 2px;
+}
+
+/* --- Buttons --- */
+QPushButton {
+    background-color: #3498db;
+    color: white;
+    border: 1px solid #3498db;
+    border-radius: 4px;
+    padding: 6px 12px;
+    min-width: 80px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #2980b9;
+    border-color: #2980b9;
+}
+
+QPushButton:pressed {
+    background-color: #1f618d;
+}
+
+QPushButton:focus {
+    border-color: #2980b9;
+    outline: 2px solid #a8d8f8; /* A light blue glow for focus */
+}
+
+QPushButton:disabled {
+    background-color: #e9e9e9;
+    color: #a0a0a0;
+    border-color: #dcdcdc;
+}
+
+/* --- CheckBox & RadioButton --- */
+QCheckBox, QRadioButton {
+    background-color: transparent;
+    spacing: 5px;
+}
+
+QCheckBox:disabled, QRadioButton:disabled {
+    color: #a0a0a0;
+}
+
+QCheckBox::indicator, QRadioButton::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #bbbbbb;
+    border-radius: 3px;
+    background-color: #ffffff;
+}
+
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {
+    border-color: #a0a0a0;
+}
+
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {
+    background-color: #e9e9e9;
+    border-color: #dcdcdc;
+}
+
+QRadioButton::indicator {
+    border-radius: 9px; /* Make it round */
+}
+
+QCheckBox::indicator:checked {
+    background-color: #3498db;
+    border-color: #3498db;
+    /* A simple checkmark can be made with a local SVG for best results */
+    /* image: url(resources/check_mark_light.svg); */
+}
+
+QRadioButton::indicator:checked {
+    background-color: #ffffff;
+    border: 2px solid #3498db;
+}
+
+QRadioButton::indicator:checked::after {
+    content: '';
+    display: block;
+    position: relative;
+    top: 2px;
+    left: 2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background-color: #3498db;
+}
+
+/* --- Menu, Status, and Tool Bars --- */
+QMenuBar {
+    background-color: #e9e9e9;
+    color: #212121;
+}
+
+QMenuBar::item {
+    background: transparent;
+    padding: 4px 8px;
+}
+
+QMenuBar::item:selected { /* Hover */
+    background-color: #dcdcdc;
+}
+
+QMenuBar::item:pressed {
+    background-color: #3498db;
+    color: #ffffff;
 }
 
 QMenu {
-    background-color: #ffffff; /* Light background for the menu popup */
-    border: 1px solid #cccccc; /* Optional: border for the menu popup */
-    padding: 2px; /* Optional: padding around menu items */
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    padding: 5px;
 }
 
 QMenu::item {
-    padding: 4px 20px 4px 20px; /* Top, Right, Bottom, Left padding for items */
-    color: #333333; /* Dark text color for menu items in light mode */
-    background-color: transparent; /* Ensure item background is transparent by default */
+    padding: 5px 25px 5px 20px;
+    border-radius: 4px;
 }
 
-QMenu::item:selected { /* Style for when a menu item is hovered or selected */
-    background-color: #3498db; /* Blue background for selected/hovered item */
-    color: #ffffff; /* White text for selected/hovered item */
+QMenu::item:disabled {
+    color: #a0a0a0;
+}
+
+QMenu::item:selected {
+    background-color: #3498db;
+    color: #ffffff;
 }
 
 QMenu::separator {
     height: 1px;
-    background: #cccccc;
-    margin-left: 5px;
-    margin-right: 3px;
+    background: #e0e0e0;
+    margin: 5px 0;
 }
 
 QStatusBar {
@@ -141,43 +291,98 @@ QStatusBar {
     color: #555555;
 }
 
-QSplitter::handle {
-    background-color: #cccccc;
-    height: 3px; /* For vertical splitter */
-    width: 3px;  /* For horizontal splitter */
+/* --- ScrollBars --- */
+QScrollBar:vertical {
+    border: none;
+    background: #e9e9e9;
+    width: 12px;
+    margin: 15px 0 15px 0;
+    border-radius: 6px;
 }
 
-QSplitter::handle:hover {
-    background-color: #bbbbbb;
+QScrollBar::handle:vertical {
+    background: #bbbbbb;
+    min-height: 20px;
+    border-radius: 6px;
 }
 
-/* Specific styling for forecast areas if needed */
-#StationHourlyForecastArea, #DailyForecastArea, #AlertsDisplayArea {
-    font-size: 9pt;
-    /* background-color: #f9f9f9; */ /* Inherits from QTextEdit */
+QScrollBar::handle:vertical:hover {
+    background: #a0a0a0;
 }
 
-/* Styling for Dialogs in Light Mode */
-QDialog {
-    background-color: #f0f0f0; /* Match QMainWindow background or a specific dialog light color */
-    color: #333333; /* Default text color for dialogs */
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+    height: 15px;
 }
 
-QDialog QLabel, QDialog QLineEdit, QDialog QPushButton, QDialog QComboBox, QDialog QCheckBox {
-    /* These will inherit from global styles or can be overridden here if needed */
-    /* For example, to ensure dialog buttons have the same style: */
-    /* QDialog QPushButton { background-color: #3498db; color: white; } */
+QScrollBar:horizontal {
+    border: none;
+    background: #e9e9e9;
+    height: 12px;
+    margin: 0 15px 0 15px;
+    border-radius: 6px;
 }
-/* resources/modern.qss - Light Theme */
 
-/* ... (existing styles) ... */
+QScrollBar::handle:horizontal {
+    background: #bbbbbb;
+    min-width: 20px;
+    border-radius: 6px;
+}
 
-/* Styling for the new custom forecast widget */
+QScrollBar::handle:horizontal:hover {
+    background: #a0a0a0;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    border: none;
+    background: none;
+    width: 15px;
+}
+
+/* --- Tabs --- */
+QTabWidget::pane {
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 8px;
+}
+
+QTabBar::tab {
+    background: #e9e9e9;
+    border: 1px solid #cccccc;
+    border-bottom: none;
+    padding: 8px 16px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    color: #555555;
+}
+
+QTabBar::tab:hover {
+    background: #f0f0f0;
+}
+
+QTabBar::tab:selected {
+    background: #ffffff;
+    color: #212121;
+    font-weight: bold;
+}
+
+/* --- Table / Tree Headers --- */
+QHeaderView::section {
+    background-color: #e9e9e9;
+    padding: 4px;
+    border: 1px solid #dcdcdc;
+    font-weight: bold;
+}
+
+/* --- Custom Widget Styles --- */
+/* These are preserved from your original file */
+
 #DailyForecastWidget {
     background-color: #fafafa;
     border: 1px solid #e0e0e0;
     border-radius: 5px;
-    margin: 4px 0; /* Add some vertical space between forecast days */
+    margin: 4px 0;
 }
 
 #DailyForecastWidget:hover {
@@ -187,16 +392,12 @@ QDialog QLabel, QDialog QLineEdit, QDialog QPushButton, QDialog QComboBox, QDial
 
 #DailyForecastWidget QLabel#highTemp {
     font-weight: bold;
-    color: #c0392b; /* A soft red for high temps */
+    color: #c0392b; /* Soft Red */
 }
 
 #DailyForecastWidget QLabel#lowTemp {
-    color: #2980b9; /* A soft blue for low temps */
+    color: #2980b9; /* Soft Blue */
 }
-
-
-/* Styling for the new custom alert widgets using dynamic properties */
-/* You would set this property in your Python code: alert_widget.setProperty("severity", "warning") */
 
 AlertWidget {
     border-radius: 5px;
@@ -206,24 +407,24 @@ AlertWidget {
 }
 
 AlertWidget[severity="warning"] {
-    background-color: #fff3cd; /* A bootstrap-like warning yellow */
+    background-color: #fff3cd;
     border-left: 5px solid #ffc107;
     color: #856404;
 }
 
 AlertWidget[severity="watch"] {
-    background-color: #d1ecf1; /* A bootstrap-like info blue */
+    background-color: #d1ecf1;
     border-left: 5px solid #17a2b8;
     color: #0c5460;
 }
 
 AlertWidget[severity="advisory"] {
-    background-color: #e2e3e5; /* A bootstrap-like secondary gray */
+    background-color: #e2e3e5;
     border-left: 5px solid #6c757d;
     color: #383d41;
 }
 
 AlertWidget QLabel {
-    color: inherit; /* Make labels inside the alert inherit its text color */
+    color: inherit;
     background-color: transparent;
 }

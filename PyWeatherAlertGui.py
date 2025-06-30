@@ -657,6 +657,31 @@ class WeatherAlertApp(QMainWindow):
         self.current_mute_audio_checked = FALLBACK_MUTE_AUDIO_CHECKED
 
     @Slot()
+    def perform_check_cycle(self):
+        """The main periodic task, now simplified to trigger background updates."""
+        if not (self.announce_alerts_action.isChecked() or self.auto_refresh_action.isChecked()):
+            # This check is still useful in case the user disabled it while a check was pending
+            self.main_check_timer.stop()
+            self.countdown_timer.stop()
+            self.top_countdown_label.setText("Next Check:")
+
+            # ... after self.thread_pool initialization ...
+            self.log_to_gui(f"Multithreading with up to {self.thread_pool.maxThreadCount()} threads.", level="DEBUG")
+
+            self.current_coords: Optional[Tuple[float, float]] = None
+            self.is_check_running = False  # <-- ADD THIS LINE
+
+            # Initialize application state variables
+            # ... (rest of the variable initializations) ...# In WeatherAlertApp.__init__ method
+
+            self.current_check_interval_ms = CHECK_INTERVAL_OPTIONS.get(
+                self.current_interval_key, FALLBACK_INITIAL_CHECK_INTERVAL_MS)
+
+            self.main_check_timer = QTimer(self)
+            self.main_check_timer.setSingleShot(True)  # <-- ADD THIS LINE
+            self.main_check_timer.timeout.connect(self.perform_check_cycle)
+            self.countdown_timer = QTimer(self)
+
     def _save_settings(self):
         settings = {
             "repeater_info": self.current_repeater_info,
