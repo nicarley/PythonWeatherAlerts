@@ -1,6 +1,6 @@
 {
     "repeater_info": "",
-    "location_id": "62881",
+    "location_id": "62234",
     "check_interval_key": "10 Minutes",
     "radar_options_dict": {
         "Apple Maps for Salem, IL": "https://maps.apple.com/search?map=hybrid&center=38.625824165947606%2C-88.95355326337172&span=0.047247173705066814%2C0.08257056924117023",

@@ -1461,17 +1461,79 @@ class WeatherAlertApp(QMainWindow):
     # --- Top Bar Editable Field Handlers ---
     @Slot()
     def _on_top_location_apply_clicked(self):
+        """
+        Handles the 'Apply' button click for the location ID.
+        This refactored method is more robust, providing better user feedback,
+        preventing race conditions, and handling failures gracefully.
+        """
         new_location_id = self.top_location_edit.text().strip().upper()
-        if new_location_id and new_location_id != self.current_location_id:
-            self.current_location_id = new_location_id
-            self.log_to_gui(f"Location ID changed to: {self.current_location_id} (from top bar)", level="INFO")
-            self.seen_alert_ids.clear()  # Clear seen alerts for new location
-            self._update_location_data()  # Trigger data fetch for new location
-            self._update_main_timer_state()  # Update timer state if needed
-            self._save_settings()
-        elif not new_location_id:
+
+        if not new_location_id:
             self.log_to_gui("Location ID cannot be empty.", level="WARNING")
-            self.top_location_edit.setText(self.current_location_id)  # Revert to last valid
+            self.top_location_edit.setText(self.current_location_id)
+            return
+
+        if new_location_id == self.current_location_id:
+            return  # No change needed
+
+        # Disable the button to prevent multiple clicks while processing
+        self.location_apply_button.setEnabled(False)
+        self.update_status(f"Fetching data for {new_location_id}...")
+        self._clear_and_set_loading_states()
+
+        # Store the old location ID to revert to on failure
+        old_location_id = self.current_location_id
+
+        worker = Worker(self._fetch_all_data_for_location, new_location_id)
+
+        # Connect signals to the new transactional handlers
+        worker.signals.result.connect(
+            lambda result: self._handle_location_change_success(result, new_location_id)
+        )
+        worker.signals.error.connect(
+            lambda error: self._handle_location_change_failure(error, old_location_id)
+        )
+        # Always re-enable the button when the worker is finished, regardless of outcome
+        worker.signals.finished.connect(
+            lambda: self.location_apply_button.setEnabled(True)
+        )
+
+        self.thread_pool.start(worker)
+
+    @Slot(object, str)
+    def _handle_location_change_success(self, result: Dict[str, Any], new_location_id: str):
+        """
+        Handles the successful change of a location.
+        This commits the new location, saves settings, and updates the UI.
+        """
+        self.log_to_gui(f"Location successfully changed to {new_location_id}", level="INFO")
+
+        # Commit the new state
+        self.current_location_id = new_location_id
+        self.seen_alert_ids.clear()  # Reset seen alerts for the new location
+        self._save_settings()
+
+        # Update the UI with the newly fetched data
+        self._on_location_data_loaded(result)
+
+    @Slot(Exception, str)
+    def _handle_location_change_failure(self, error: Exception, old_location_id: str):
+        """
+        Handles the failure to change location.
+        This reverts the UI, notifies the user, and restores the last valid location's data.
+        """
+        self.log_to_gui(f"Failed to fetch data for new location: {error}", level="ERROR")
+        QMessageBox.warning(self, "Location Error",
+                            f"Could not fetch data for the new location.\n\n"
+                            f"Reverting to '{old_location_id}'.\n\nError: {error}")
+
+        # Revert the state in the UI and internally
+        self.top_location_edit.setText(old_location_id)
+        self.current_location_id = old_location_id
+
+        # Re-fetch data for the last known good location to restore the UI state
+        # instead of leaving it blank.
+        self._update_location_data()
 
     @Slot(str)
     def _on_top_interval_changed(self, new_interval_key: str):
