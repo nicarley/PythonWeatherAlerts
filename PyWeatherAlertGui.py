@@ -1,5 +1,3 @@
-# PyWeatherAlertGui.py
-
 import sys
 import requests
 import feedparser
@@ -65,7 +63,6 @@ CHECK_INTERVAL_OPTIONS = {
 
 NWS_STATION_API_URL_TEMPLATE = "https://api.weather.gov/stations/{station_id}"
 NWS_POINTS_API_URL_TEMPLATE = "https://api.weather.gov/points/{latitude},{longitude}"
-# Modified WEATHER_URL_SUFFIX to include 'Immediate' urgency and remove 'Urgent' from severity
 WEATHER_URL_PREFIX = "https://api.weather.gov/alerts/active.atom?point="
 WEATHER_URL_SUFFIX = "&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2CSevere%2CModerate%2CMinor&urgency=Immediate%2CFuture%2CExpected"
 
@@ -83,20 +80,16 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 IMPORTANT_LEVEL_NUM = logging.WARNING - 5
 logging.addLevelName(IMPORTANT_LEVEL_NUM, "IMPORTANT")
 
-
 def important(self, message, *args, **kws):
     if self.isEnabledFor(IMPORTANT_LEVEL_NUM):
         self._log(IMPORTANT_LEVEL_NUM, message, args, **kws)
 
-
 logging.Logger.important = important
-
 
 # --- Custom Exceptions ---
 class ApiError(Exception):
     """Custom exception for API-related errors."""
     pass
-
 
 # --- Helper Classes ---
 
@@ -105,7 +98,6 @@ class Worker(QRunnable):
     Worker thread for executing long-running tasks without blocking the UI.
     Inherits from QRunnable to be used with QThreadPool.
     """
-
     def __init__(self, fn: Callable, *args, **kwargs):
         super().__init__()
         self.fn = fn
@@ -131,10 +123,8 @@ class Worker(QRunnable):
         error = Signal(Exception)
         result = Signal(object)
 
-
 class SettingsManager:
     """Handles loading and saving of application settings from a JSON file."""
-
     def __init__(self, file_path: str):
         self.file_path = file_path
 
@@ -163,10 +153,8 @@ class SettingsManager:
             logging.error(f"Error saving settings to {self.file_path}: {e}")
             return False
 
-
 class NwsApiClient:
     """Handles all network requests to the NWS API."""
-
     def __init__(self, user_agent: str):
         self.user_agent = user_agent
         self.headers = {'User-Agent': self.user_agent, 'Accept': 'application/geo+json'}
@@ -241,7 +229,6 @@ class NwsApiClient:
             logging.error(f"Error fetching alerts from {url}: {e}")
             return []
 
-
 # --- Dialog Classes ---
 class AboutDialog(QDialog):
     def __init__(self, parent: Optional[QWidget] = None):
@@ -282,7 +269,6 @@ class AboutDialog(QDialog):
         layout.addWidget(self.button_box, alignment=Qt.AlignmentFlag.AlignCenter)
         self.setLayout(layout)
 
-
 class AddEditSourceDialog(QDialog):
     def __init__(self, parent: Optional[QWidget] = None, current_name: Optional[str] = None,
                  current_url: Optional[str] = None):
@@ -310,7 +296,6 @@ class AddEditSourceDialog(QDialog):
         QMessageBox.warning(self, "Invalid Input",
                             "Please provide a valid name and a URL starting with http:// or https://.")
         return None
-
 
 class ManageSourcesDialog(QDialog):
     def __init__(self, sources: Dict[str, str], parent: Optional[QWidget] = None):
@@ -430,7 +415,6 @@ class ManageSourcesDialog(QDialog):
         # Python dictionaries (since 3.7) preserve insertion order, so this will maintain the order.
         return dict(self.sources_list)
 
-
 class SettingsDialog(QDialog):
     def __init__(self, parent: Optional[QWidget] = None, current_settings: Optional[Dict[str, Any]] = None):
         super().__init__(parent)
@@ -532,7 +516,6 @@ class SettingsDialog(QDialog):
             "show_forecasts_area": self.show_forecasts_check.isChecked(),
             "log_sort_order": self.log_sort_combo.currentText().lower(),
         }
-
 
 # --- Main Application Window ---
 class WeatherAlertApp(QMainWindow):
@@ -1465,6 +1448,7 @@ class WeatherAlertApp(QMainWindow):
         Handles the 'Apply' button click for the location ID.
         This refactored method is more robust, providing better user feedback,
         preventing race conditions, and handling failures gracefully.
+        Modified: Removed button disabling to keep 'Apply' button enabled during processing.
         """
         new_location_id = self.top_location_edit.text().strip().upper()
 
@@ -1476,8 +1460,6 @@ class WeatherAlertApp(QMainWindow):
         if new_location_id == self.current_location_id:
             return  # No change needed
 
-        # Disable the button to prevent multiple clicks while processing
-        self.location_apply_button.setEnabled(False)
         self.update_status(f"Fetching data for {new_location_id}...")
         self._clear_and_set_loading_states()
 
@@ -1492,10 +1474,6 @@ class WeatherAlertApp(QMainWindow):
         )
         worker.signals.error.connect(
             lambda error: self._handle_location_change_failure(error, old_location_id)
-        )
-        # Always re-enable the button when the worker is finished, regardless of outcome
-        worker.signals.finished.connect(
-            lambda: self.location_apply_button.setEnabled(True)
         )
 
         self.thread_pool.start(worker)
@@ -1610,217 +1588,190 @@ class WeatherAlertApp(QMainWindow):
             if url_str.lower().endswith('.pdf'):
                 # Display a message in the QWebEngineView
                 self.web_view.setHtml(
-                    f"<html><body><div style='text-align: center; margin-top: 50px; font-size: 18px; color: grey;'>Loading PDF...<br><br>Opening <a href='{url_str}'>{self._last_valid_radar_text}</a> in external viewer.</div></body></html>")
-                self.log_to_gui(f"Opening PDF: {self._last_valid_radar_text} externally.", level="INFO")
-                # Open the PDF URL in the default external viewer
+                    f"<html><body><div style='text-align: center; margin-top: 50px; font-size: 18px; color: grey;'>"
+                    f"Loading PDF...<br><br>Opening <a href='{url_str}'>{url_str}</a> in default browser.</div></body></html>"
+                )
+                # Open PDF in the default system browser or PDF viewer
                 QDesktopServices.openUrl(QUrl(url_str))
             else:
-                # Load non-PDF URLs directly
+                # Load non-PDF URLs directly in QWebEngineView
                 self.web_view.setUrl(QUrl(url_str))
-                self.log_to_gui(f"Loading web source: {self._last_valid_radar_text}", level="INFO")
+            self.log_to_gui(f"Loaded web view: {url_str}", level="INFO")
         else:
-            # Fallback for when QWebEngineView is not available
-            self.log_to_gui(f"QWebEngineView not available. Opening {self._last_valid_radar_text} externally.",
-                            level="WARNING")
-            QDesktopServices.openUrl(QUrl(url_str))
+            self.log_to_gui("Web view not available.", level="WARNING")
 
-    @Slot()
     def _open_current_in_browser(self):
-        """Opens the current web view URL in the user's default browser."""
-        if not QWebEngineView or not self.web_view:
-            self.log_to_gui("Web view is not available.", level="WARNING")
-            return
-
-        current_url = self.web_view.url()
-        if current_url.isValid() and not current_url.isEmpty():
-            QDesktopServices.openUrl(current_url)
-            self.log_to_gui(f"Opening {current_url.toString()} in external browser.", level="INFO")
+        """Opens the current web view URL in the system's default browser."""
+        if QWebEngineView and self.web_view:
+            QDesktopServices.openUrl(QUrl(self.current_radar_url))
+            self.log_to_gui(f"Opening {self.current_radar_url} in default browser.", level="INFO")
         else:
-            self.log_to_gui("No valid URL to open in browser.", level="WARNING")
+            self.log_to_gui("No web view available to open in browser.", level="WARNING")
 
-    @Slot()
     def _save_current_web_source(self):
-        """Saves the current URL in the web view as a new source."""
-        if not QWebEngineView or not self.web_view:
-            self.log_to_gui("Web view is not available.", level="WARNING")
+        """Saves the current web view URL as a new source."""
+        if not (QWebEngineView and self.web_view):
+            self.log_to_gui("No web view available to save.", level="WARNING")
             return
 
-        current_url = self.web_view.url().toString()
-
-        # Don't save empty or internal URLs
-        if not current_url or current_url == "about:blank" or not current_url.startswith("http"):
-            QMessageBox.warning(self, "Cannot Save Source", "The current page does not have a savable URL.")
-            return
-
-        # Open the dialog with the URL pre-filled
+        current_url = self.current_radar_url
         dialog = AddEditSourceDialog(self, current_url=current_url)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             data = dialog.get_data()
-            if data:
-                name, url = data
-                if name in self.RADAR_OPTIONS:
-                    QMessageBox.warning(self, "Duplicate Name", f"A source with the name '{name}' already exists.")
-                    return
-
-                # Add the new source
-                self.RADAR_OPTIONS[name] = url
-                self.log_to_gui(f"Saved new web source: '{name}' -> {url}", level="INFO")
-
-                # Update the UI to reflect the new source as the current one
-                self.current_radar_url = url
-                self._last_valid_radar_text = name
-
-                # Refresh menus and save
-                self._update_web_sources_menu()
-                self._save_settings()
+            if not data: return
+            name, url = data
+            if name in self.RADAR_OPTIONS:
+                QMessageBox.warning(self, "Duplicate Name", f"A source with the name '{name}' already exists.")
+                return
+            self.RADAR_OPTIONS[name] = url
+            self.current_radar_url = url
+            self._last_valid_radar_text = name
+            self._save_settings()
+            self._update_web_sources_menu()
+            self.log_to_gui(f"Added new web source: {name} ({url})", level="INFO")
 
     def _add_new_web_source(self):
+        """Opens a dialog to add a new web source."""
         dialog = AddEditSourceDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             data = dialog.get_data()
-            if data:
-                name, url = data
-                if name in self.RADAR_OPTIONS:
-                    QMessageBox.warning(self, "Duplicate Name", f"A source with the name '{name}' already exists.")
-                    return
-                self.RADAR_OPTIONS[name] = url
-                self.current_radar_url = url
-                self._update_web_sources_menu()
-                self._on_radar_source_selected(True, action_to_use=self.web_source_action_group.actions()[-1])
-                self._save_settings()
+            if not data: return
+            name, url = data
+            if name in self.RADAR_OPTIONS:
+                QMessageBox.warning(self, "Duplicate Name", f"A source with the name '{name}' already exists.")
+                return
+            self.RADAR_OPTIONS[name] = url
+            self.current_radar_url = url
+            self._last_valid_radar_text = name
+            self._load_web_view_url(url)
+            self._save_settings()
+            self._update_web_sources_menu()
+            self.log_to_gui(f"Added new web source: {name} ({url})", level="INFO")
 
     def _manage_web_sources(self):
+        """Opens the manage sources dialog."""
         dialog = ManageSourcesDialog(self.RADAR_OPTIONS, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.RADAR_OPTIONS = dialog.get_sources()
+            new_sources = dialog.get_sources()
+            self.RADAR_OPTIONS = new_sources
+            # Ensure the current radar URL is still valid
             if self.current_radar_url not in self.RADAR_OPTIONS.values():
-                if self.RADAR_OPTIONS:
-                    self.current_radar_url = list(self.RADAR_OPTIONS.values())[0]
-                else:
-                    self.current_radar_url = ""
-            self._update_web_sources_menu()
+                self.current_radar_url = list(self.RADAR_OPTIONS.values())[0] if self.RADAR_OPTIONS else ""
+                self._last_valid_radar_text = list(self.RADAR_OPTIONS.keys())[0] if self.RADAR_OPTIONS else ""
+                self._load_web_view_url(self.current_radar_url)
             self._save_settings()
+            self._update_web_sources_menu()
+            self.log_to_gui("Web sources updated.", level="INFO")
 
-    def _get_display_name_for_url(self, url_to_find: str) -> Optional[str]:
-        for name, url in self.RADAR_OPTIONS.items():
-            if url == url_to_find:
+    def _get_display_name_for_url(self, url: str) -> Optional[str]:
+        """Finds the display name for a given URL in RADAR_OPTIONS."""
+        for name, u in self.RADAR_OPTIONS.items():
+            if u == url:
                 return name
         return None
 
-    # --- Log Sorting ---
-    def _sort_log(self, reverse: bool):
-        """Sorts the log area's content."""
-        if not hasattr(self, 'log_area'):
+    def _apply_color_scheme(self):
+        """Applies the light or dark color scheme based on settings."""
+        stylesheet_file = DARK_STYLESHEET_FILE_NAME if self.current_dark_mode_enabled else LIGHT_STYLESHEET_FILE_NAME
+        stylesheet_path = os.path.join(self._get_resources_path(), stylesheet_file)
+        try:
+            with open(stylesheet_path, 'r') as f:
+                stylesheet = f.read()
+            self.setStyleSheet(stylesheet)
+            self.log_to_gui(f"Applied {'dark' if self.current_dark_mode_enabled else 'light'} theme.", level="INFO")
+        except (IOError, OSError) as e:
+            self.log_to_gui(f"Error loading stylesheet {stylesheet_path}: {e}", level="WARNING")
+            # Apply a fallback stylesheet to ensure readability
+            fallback_stylesheet = """
+                QWidget { background-color: #ffffff; color: #000000; }
+                QTextEdit, QListWidget { background-color: #f0f0f0; }
+                QPushButton { background-color: #e0e0e0; border: 1px solid #aaaaaa; }
+            """ if not self.current_dark_mode_enabled else """
+                QWidget { background-color: #2e2e2e; color: #ffffff; }
+                QTextEdit, QListWidget { background-color: #3a3a3a; }
+                QPushButton { background-color: #4a4a4a; border: 1px solid #666666; }
+            """
+            self.setStyleSheet(fallback_stylesheet)
+            self.log_to_gui("Applied fallback stylesheet.", level="INFO")
+
+    def _apply_log_sort(self):
+        """Applies the current log sort order."""
+        current_text = self.log_area.toPlainText()
+        if not current_text:
             return
-        lines = self.log_area.toPlainText().splitlines()
-        if not lines:
-            return
-        sorted_lines = sorted(lines, reverse=reverse)
-        self.log_area.setPlainText("\n".join(sorted_lines))
-        self.log_to_gui(f"Log sorted {'descending' if reverse else 'ascending'}.", level="DEBUG")
+
+        lines = current_text.split('\n')
+        if self.current_log_sort_order == "chronological":
+            # Already in chronological order as appended
+            pass
+        elif self.current_log_sort_order == "ascending":
+            lines.sort()
+        elif self.current_log_sort_order == "descending":
+            lines.sort(reverse=True)
+
+        self.log_area.clear()
+        self.log_area.append('\n'.join(lines))
 
     @Slot()
     def _sort_log_ascending(self):
-        self._sort_log(reverse=False)
+        """Sorts the log in ascending order (A-Z)."""
+        self.current_log_sort_order = "ascending"
+        self._apply_log_sort()
+        self._save_settings()
+        self.log_to_gui("Log sorted in ascending order.", level="INFO")
 
     @Slot()
     def _sort_log_descending(self):
-        self._sort_log(reverse=True)
+        """Sorts the log in descending order (Z-A)."""
+        self.current_log_sort_order = "descending"
+        self._apply_log_sort()
+        self._save_settings()
+        self.log_to_gui("Log sorted in descending order.", level="INFO")
 
-    def _apply_log_sort(self):
-        """Applies the stored log sort preference."""
-        if self.current_log_sort_order == "ascending":
-            self._sort_log(reverse=False)
-        elif self.current_log_sort_order == "descending":
-            self._sort_log(reverse=True)
-        # If "chronological", do nothing.
-
-    # --- Settings Backup/Restore and Theming ---
     def _backup_settings(self):
-        src_path = self.settings_manager.file_path
-        if not os.path.exists(src_path):
-            QMessageBox.warning(self, "Backup Failed", "No settings file to back up.")
-            return
-        dest_path, _ = QFileDialog.getSaveFileName(self, "Backup Settings",
-                                                   f"PyWeatherAlert_backup_{time.strftime('%Y%m%d')}.txt",
-                                                   "Text Files (*.txt)")
-        if dest_path:
+        """Backs up the current settings to a user-selected file."""
+        file_name, _ = QFileDialog.getSaveFileName(
+            self, "Backup Settings", "", "JSON Files (*.json);;All Files (*)"
+        )
+        if file_name:
             try:
-                shutil.copy2(src_path, dest_path)
-                self.update_status("Settings backed up successfully.")
-            except Exception as e:
-                QMessageBox.critical(self, "Backup Error", f"Could not back up settings: {e}")
+                settings_file = os.path.join(self._get_resources_path(), SETTINGS_FILE_NAME)
+                if os.path.exists(settings_file):
+                    shutil.copy(settings_file, file_name)
+                    self.log_to_gui(f"Settings backed up to {file_name}", level="INFO")
+                    QMessageBox.information(self, "Backup Successful", f"Settings backed up to:\n{file_name}")
+                else:
+                    self.log_to_gui("No settings file found to backup.", level="WARNING")
+                    QMessageBox.warning(self, "Backup Failed", "No settings file found to backup.")
+            except (IOError, OSError) as e:
+                self.log_to_gui(f"Error backing up settings: {e}", level="ERROR")
+                QMessageBox.critical(self, "Backup Error", f"Failed to backup settings:\n{e}")
 
     def _restore_settings(self):
-        src_path, _ = QFileDialog.getOpenFileName(self, "Restore Settings", "", "Text Files (*.txt)")
-        if src_path:
-            dest_path = self.settings_manager.file_path
+        """Restores settings from a user-selected backup file."""
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Restore Settings", "", "JSON Files (*.json);;All Files (*)"
+        )
+        if file_name:
             try:
-                shutil.copy2(src_path, dest_path)
-                QMessageBox.information(self, "Restore Complete",
-                                        "Settings restored. The application will now restart to apply changes.")
-                self.close()
-                os.execl(sys.executable, sys.executable, *sys.argv)
-            except Exception as e:
-                QMessageBox.critical(self, "Restore Error", f"Could not restore settings: {e}")
+                with open(file_name, 'r') as f:
+                    settings = json.load(f)
+                settings_file = os.path.join(self._get_resources_path(), SETTINGS_FILE_NAME)
+                with open(settings_file, 'w') as f:
+                    json.dump(settings, f, indent=4)
+                self.log_to_gui(f"Settings restored from {file_name}", level="INFO")
+                QMessageBox.information(self, "Restore Successful", "Settings restored. Restarting application...")
+                self._load_settings()
+                self._apply_loaded_settings_to_ui()
+                self._update_location_data()
+            except (IOError, OSError, json.JSONDecodeError) as e:
+                self.log_to_gui(f"Error restoring settings: {e}", level="ERROR")
+                QMessageBox.critical(self, "Restore Error", f"Failed to restore settings:\n{e}")
 
-    def _on_dark_mode_toggled(self, checked):
-        self.current_dark_mode_enabled = checked
-        self._apply_color_scheme()
-        self._save_settings()
-
-    def _apply_color_scheme(self):
-        """Applies the appropriate stylesheet (light or dark)."""
-        stylesheet_name = DARK_STYLESHEET_FILE_NAME if self.current_dark_mode_enabled else LIGHT_STYLESHEET_FILE_NAME
-        stylesheet_path = os.path.join(self._get_resources_path(), stylesheet_name)
-
-        # Create placeholder stylesheets if they don't exist
-        if not os.path.exists(stylesheet_path):
-            self._create_placeholder_stylesheet(stylesheet_path, self.current_dark_mode_enabled)
-
-        try:
-            with open(stylesheet_path, "r") as f:
-                self.setStyleSheet(f.read())
-            self.log_to_gui(f"Applied {stylesheet_name} theme.", level="INFO")
-        except FileNotFoundError:
-            self.log_to_gui(f"Stylesheet not found: {stylesheet_path}. Using default style.", level="WARNING")
-            self.setStyleSheet("")  # Reset to default
-
-    def _create_placeholder_stylesheet(self, path: str, is_dark: bool):
-        """Creates a basic QSS file for modern light/dark themes."""
-        if is_dark:
-            content = """
-            QWidget { background-color: #2b2b2b; color: #f0f0f0; }
-            QGroupBox { border: 1px solid #444; margin-top: 1em; }
-            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }
-            QTextEdit, QListWidget { background-color: #3c3c3c; border: 1px solid #555; }
-            QPushButton { background-color: #555; border: 1px solid #666; padding: 5px; }
-            QPushButton:hover { background-color: #666; }
-            QPushButton:pressed { background-color: #777; }
-            """
-        else:
-            content = """
-            QWidget { background-color: #f0f0f0; color: #000; }
-            QGroupBox { border: 1px solid #ccc; margin-top: 1em; }
-            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px 0 5px; }
-            QTextEdit, QListWidget { background-color: #fff; border: 1px solid #ccc; }
-            QPushButton { background-color: #e0e0e0; border: 1px solid #ccc; padding: 5px; }
-            QPushButton:hover { background-color: #e8e8e8; }
-            QPushButton:pressed { background-color: #d0d0d0; }
-            """
-        try:
-            with open(path, "w") as f:
-                f.write(content)
-            self.log_to_gui(f"Created placeholder stylesheet at {path}", level="INFO")
-        except IOError as e:
-            self.log_to_gui(f"Could not create placeholder stylesheet: {e}", level="ERROR")
-
-
-if __name__ == "__main__":
+# --- Application Entry Point ---
+if __name__ == '__main__':
     app = QApplication(sys.argv)
-    if "Fusion" in QStyleFactory.keys():
-        app.setStyle(QStyleFactory.create("Fusion"))
-
-    main_win = WeatherAlertApp()
-    main_win.show()
+    app.setStyle(QStyleFactory.create('Fusion'))
+    window = WeatherAlertApp()
+    window.show()
     sys.exit(app.exec())
