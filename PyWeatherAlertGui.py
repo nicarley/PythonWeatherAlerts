@@ -10,6 +10,8 @@ import shutil
 import pandas
 import pgeocode
 from typing import Optional, Dict, Any, List, Tuple, Callable
+import pickle
+from collections import deque
 
 # PySide6 imports
 from PySide6.QtWidgets import (
@@ -17,11 +19,14 @@ from PySide6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QComboBox, QTextEdit, QMessageBox,
     QStatusBar, QCheckBox, QSplitter, QStyleFactory, QGroupBox, QDialog,
     QDialogButtonBox, QFormLayout, QListWidget, QListWidgetItem, QLayout,
-    QSpacerItem, QSizePolicy, QFileDialog, QFrame, QMenu, QStyle, QTableWidget, QTableWidgetItem, QHeaderView
+    QSpacerItem, QSizePolicy, QFileDialog, QFrame, QMenu, QStyle, QTableWidget,
+    QTableWidgetItem, QHeaderView, QSystemTrayIcon
 )
 from PySide6.QtCore import Qt, QTimer, Slot, QUrl, QFile, QTextStream, QObject, Signal, QRunnable, QThreadPool
-from PySide6.QtGui import QTextCursor, QIcon, QColor, QDesktopServices, QPalette, QAction, QActionGroup, \
-    QFont
+from PySide6.QtGui import (
+    QTextCursor, QIcon, QColor, QDesktopServices, QPalette, QAction,
+    QActionGroup, QFont, QPixmap
+)
 
 try:
     from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -30,12 +35,12 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-versionnumber = "25.07.09"
+versionnumber = "25.07.15"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
 FALLBACK_DEFAULT_INTERVAL_KEY = "15 Minutes"
-FALLBACK_DEFAULT_LOCATION_ID = "62881"  # Changed to a zip code for a more universal default
+FALLBACK_DEFAULT_LOCATION_ID = "62881"
 FALLBACK_INITIAL_REPEATER_INFO = ""
 GITHUB_HELP_URL = "https://github.com/nicarley/PythonWeatherAlerts/wiki"
 
@@ -54,6 +59,7 @@ FALLBACK_AUTO_REFRESH_CONTENT_CHECKED = False
 FALLBACK_DARK_MODE_ENABLED = False
 FALLBACK_LOG_SORT_ORDER = "chronological"
 FALLBACK_MUTE_AUDIO_CHECKED = False
+FALLBACK_ENABLE_SOUNDS = True
 
 CHECK_INTERVAL_OPTIONS = {
     "1 Minute": 1 * 60 * 1000, "5 Minutes": 5 * 60 * 1000,
@@ -70,34 +76,81 @@ SETTINGS_FILE_NAME = "settings.txt"
 RESOURCES_FOLDER_NAME = "resources"
 LIGHT_STYLESHEET_FILE_NAME = "modern.qss"
 DARK_STYLESHEET_FILE_NAME = "dark_modern.qss"
+ALERT_HISTORY_FILE = "alert_history.dat"
 
 ADD_NEW_SOURCE_TEXT = "Add New Source..."
 MANAGE_SOURCES_TEXT = "Manage Sources..."
 ADD_CURRENT_SOURCE_TEXT = "Add Current View as Source..."
+
+MAX_HISTORY_ITEMS = 100
 
 # --- Logging Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 IMPORTANT_LEVEL_NUM = logging.WARNING - 5
 logging.addLevelName(IMPORTANT_LEVEL_NUM, "IMPORTANT")
 
+
 def important(self, message, *args, **kws):
     if self.isEnabledFor(IMPORTANT_LEVEL_NUM):
         self._log(IMPORTANT_LEVEL_NUM, message, args, **kws)
 
+
 logging.Logger.important = important
+
 
 # --- Custom Exceptions ---
 class ApiError(Exception):
     """Custom exception for API-related errors."""
     pass
 
+
 # --- Helper Classes ---
+class AlertHistoryManager:
+    """Manages persistent storage of seen alerts."""
+
+    def __init__(self, file_path: str):
+        self.file_path = file_path
+        self.seen_alerts = set()
+        self.alert_history = deque(maxlen=MAX_HISTORY_ITEMS)
+        self._load_history()
+
+    def _load_history(self):
+        try:
+            if os.path.exists(self.file_path):
+                with open(self.file_path, 'rb') as f:
+                    data = pickle.load(f)
+                    self.seen_alerts = data.get('seen_alerts', set())
+                    self.alert_history = data.get('history', deque(maxlen=MAX_HISTORY_ITEMS))
+        except Exception as e:
+            logging.error(f"Error loading alert history: {e}")
+
+    def save_history(self):
+        try:
+            with open(self.file_path, 'wb') as f:
+                pickle.dump({
+                    'seen_alerts': self.seen_alerts,
+                    'history': self.alert_history
+                }, f)
+        except Exception as e:
+            logging.error(f"Error saving alert history: {e}")
+
+    def add_alert(self, alert_id: str, alert_data: dict):
+        if alert_id not in self.seen_alerts:
+            self.seen_alerts.add(alert_id)
+            self.alert_history.appendleft(alert_data)
+            return True
+        return False
+
+    def get_recent_alerts(self, count=5) -> list:
+        return list(self.alert_history)[:count]
+
 
 class Worker(QRunnable):
     """
     Worker thread for executing long-running tasks without blocking the UI.
     Inherits from QRunnable to be used with QThreadPool.
     """
+
     def __init__(self, fn: Callable, *args, **kwargs):
         super().__init__()
         self.fn = fn
@@ -123,8 +176,10 @@ class Worker(QRunnable):
         error = Signal(Exception)
         result = Signal(object)
 
+
 class SettingsManager:
     """Handles loading and saving of application settings from a JSON file."""
+
     def __init__(self, file_path: str):
         self.file_path = file_path
 
@@ -153,8 +208,10 @@ class SettingsManager:
             logging.error(f"Error saving settings to {self.file_path}: {e}")
             return False
 
+
 class NwsApiClient:
     """Handles all network requests to the NWS API."""
+
     def __init__(self, user_agent: str):
         self.user_agent = user_agent
         self.headers = {'User-Agent': self.user_agent, 'Accept': 'application/geo+json'}
@@ -229,6 +286,7 @@ class NwsApiClient:
             logging.error(f"Error fetching alerts from {url}: {e}")
             return []
 
+
 # --- Dialog Classes ---
 class AboutDialog(QDialog):
     def __init__(self, parent: Optional[QWidget] = None):
@@ -269,6 +327,7 @@ class AboutDialog(QDialog):
         layout.addWidget(self.button_box, alignment=Qt.AlignmentFlag.AlignCenter)
         self.setLayout(layout)
 
+
 class AddEditSourceDialog(QDialog):
     def __init__(self, parent: Optional[QWidget] = None, current_name: Optional[str] = None,
                  current_url: Optional[str] = None):
@@ -297,17 +356,16 @@ class AddEditSourceDialog(QDialog):
                             "Please provide a valid name and a URL starting with http:// or https://.")
         return None
 
+
 class ManageSourcesDialog(QDialog):
     def __init__(self, sources: Dict[str, str], parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle("Manage Web Sources")
-        # Store sources internally as a list of (name, url) tuples to preserve order
         self.sources_list: List[Tuple[str, str]] = list(sources.items())
         self.setMinimumWidth(400)
 
         layout = QVBoxLayout(self)
         self.list_widget = QListWidget()
-        # Populate list widget from the list of tuples
         for name, _ in self.sources_list:
             self.list_widget.addItem(name)
         layout.addWidget(self.list_widget)
@@ -319,8 +377,6 @@ class ManageSourcesDialog(QDialog):
         edit_button.clicked.connect(self.edit_source)
         remove_button = QPushButton("Remove")
         remove_button.clicked.connect(self.remove_source)
-
-        # New Move Up/Down buttons
         move_up_button = QPushButton("Move Up")
         move_up_button.clicked.connect(self.move_up_source)
         move_down_button = QPushButton("Move Down")
@@ -329,7 +385,7 @@ class ManageSourcesDialog(QDialog):
         button_layout.addWidget(add_button)
         button_layout.addWidget(edit_button)
         button_layout.addWidget(remove_button)
-        button_layout.addStretch() # Add stretch to push move buttons to the right
+        button_layout.addStretch()
         button_layout.addWidget(move_up_button)
         button_layout.addWidget(move_down_button)
         layout.addLayout(button_layout)
@@ -345,20 +401,19 @@ class ManageSourcesDialog(QDialog):
             data = dialog.get_data()
             if not data: return
             name, url = data
-            # Check for duplicate name in the current list
             if any(n == name for n, _ in self.sources_list):
                 QMessageBox.warning(self, "Duplicate Name", f"A source with the name '{name}' already exists.")
                 return
-            self.sources_list.append((name, url)) # Add to internal list
-            self.list_widget.addItem(name) # Add to QListWidget
-            self.list_widget.setCurrentRow(len(self.sources_list) - 1) # Select the newly added item
+            self.sources_list.append((name, url))
+            self.list_widget.addItem(name)
+            self.list_widget.setCurrentRow(len(self.sources_list) - 1)
 
     def edit_source(self):
         selected_item = self.list_widget.currentItem()
         if not selected_item:
             return
         current_row = self.list_widget.currentRow()
-        old_name, old_url = self.sources_list[current_row] # Get from internal list
+        old_name, old_url = self.sources_list[current_row]
 
         dialog = AddEditSourceDialog(self, current_name=old_name, current_url=old_url)
         if dialog.exec() == QDialog.DialogCode.Accepted:
@@ -366,54 +421,82 @@ class ManageSourcesDialog(QDialog):
             if not data: return
             new_name, new_url = data
 
-            # Check for duplicate name if name changed, excluding the current item
-            if new_name != old_name and any(n == new_name for i, (n, _) in enumerate(self.sources_list) if i != current_row):
+            if new_name != old_name and any(
+                    n == new_name for i, (n, _) in enumerate(self.sources_list) if i != current_row):
                 QMessageBox.warning(self, "Duplicate Name", f"A source with the name '{new_name}' already exists.")
                 return
 
-            self.sources_list[current_row] = (new_name, new_url) # Update internal list
-            selected_item.setText(new_name) # Update QListWidgetItem text
+            self.sources_list[current_row] = (new_name, new_url)
+            selected_item.setText(new_name)
 
     def remove_source(self):
         selected_item = self.list_widget.currentItem()
         if not selected_item:
             return
         current_row = self.list_widget.currentRow()
-        name_to_remove = self.sources_list[current_row][0] # Get name from internal list
+        name_to_remove = self.sources_list[current_row][0]
 
         reply = QMessageBox.question(self, "Confirm Removal", f"Are you sure you want to remove '{name_to_remove}'?")
         if reply == QMessageBox.StandardButton.Yes:
-            self.sources_list.pop(current_row) # Remove from internal list
-            self.list_widget.takeItem(current_row) # Remove from QListWidget
+            self.sources_list.pop(current_row)
+            self.list_widget.takeItem(current_row)
 
     def move_up_source(self):
         current_row = self.list_widget.currentRow()
-        if current_row > 0: # Can move up if not the first item
-            # Update internal list
+        if current_row > 0:
             item_to_move = self.sources_list.pop(current_row)
             self.sources_list.insert(current_row - 1, item_to_move)
-
-            # Update QListWidget
             q_item = self.list_widget.takeItem(current_row)
             self.list_widget.insertItem(current_row - 1, q_item)
-            self.list_widget.setCurrentRow(current_row - 1) # Keep selection on the moved item
+            self.list_widget.setCurrentRow(current_row - 1)
 
     def move_down_source(self):
         current_row = self.list_widget.currentRow()
-        if current_row < len(self.sources_list) - 1: # Can move down if not the last item
-            # Update internal list
+        if current_row < len(self.sources_list) - 1:
             item_to_move = self.sources_list.pop(current_row)
             self.sources_list.insert(current_row + 1, item_to_move)
-
-            # Update QListWidget
             q_item = self.list_widget.takeItem(current_row)
             self.list_widget.insertItem(current_row + 1, q_item)
-            self.list_widget.setCurrentRow(current_row + 1) # Keep selection on the moved item
+            self.list_widget.setCurrentRow(current_row + 1)
 
     def get_sources(self) -> Dict[str, str]:
-        # Convert the internal list of tuples back to a dictionary for external use
-        # Python dictionaries (since 3.7) preserve insertion order, so this will maintain the order.
         return dict(self.sources_list)
+
+
+class AlertHistoryDialog(QDialog):
+    def __init__(self, history_data: List[dict], parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.setWindowTitle("Alert History")
+        self.setMinimumSize(600, 400)
+
+        layout = QVBoxLayout()
+        self.table = QTableWidget()
+        self.table.setColumnCount(4)
+        self.table.setHorizontalHeaderLabels(["Time", "Type", "Location", "Summary"])
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+
+        for alert in history_data:
+            self._add_alert_to_table(alert)
+
+        clear_button = QPushButton("Clear History")
+        clear_button.clicked.connect(self._clear_history)
+
+        layout.addWidget(self.table)
+        layout.addWidget(clear_button)
+        self.setLayout(layout)
+
+    def _add_alert_to_table(self, alert: dict):
+        row = self.table.rowCount()
+        self.table.insertRow(row)
+        self.table.setItem(row, 0, QTableWidgetItem(alert.get('time', '')))
+        self.table.setItem(row, 1, QTableWidgetItem(alert.get('type', '')))
+        self.table.setItem(row, 2, QTableWidgetItem(alert.get('location', '')))
+        self.table.setItem(row, 3, QTableWidgetItem(alert.get('summary', '')))
+
+    def _clear_history(self):
+        self.table.setRowCount(0)
+
 
 class SettingsDialog(QDialog):
     def __init__(self, parent: Optional[QWidget] = None, current_settings: Optional[Dict[str, Any]] = None):
@@ -449,20 +532,26 @@ class SettingsDialog(QDialog):
         main_layout.addWidget(general_group)
 
         # --- Behavior & Display Settings ---
-        behavior_group = QGroupBox("Behavior & Display")
-        behavior_form_layout = QFormLayout(behavior_group) # Use QFormLayout for alignment
+        behavior_group = QGroupBox("Behavior and Display")
+        behavior_form_layout = QFormLayout(behavior_group)
 
         self.announce_alerts_check = QCheckBox("Announce Alerts and Start Timer")
-        self.announce_alerts_check.setChecked(self.current_settings.get("announce_alerts", FALLBACK_ANNOUNCE_ALERTS_CHECKED))
+        self.announce_alerts_check.setChecked(
+            self.current_settings.get("announce_alerts", FALLBACK_ANNOUNCE_ALERTS_CHECKED))
         behavior_form_layout.addRow(self.announce_alerts_check)
 
         self.auto_refresh_check = QCheckBox("Auto-Refresh Web Content")
-        self.auto_refresh_check.setChecked(self.current_settings.get("auto_refresh_content", FALLBACK_AUTO_REFRESH_CONTENT_CHECKED))
+        self.auto_refresh_check.setChecked(
+            self.current_settings.get("auto_refresh_content", FALLBACK_AUTO_REFRESH_CONTENT_CHECKED))
         behavior_form_layout.addRow(self.auto_refresh_check)
 
         self.mute_audio_check = QCheckBox("Mute All Audio")
         self.mute_audio_check.setChecked(self.current_settings.get("mute_audio", FALLBACK_MUTE_AUDIO_CHECKED))
         behavior_form_layout.addRow(self.mute_audio_check)
+
+        self.notification_sound_check = QCheckBox("Enable Alert Sounds")
+        self.notification_sound_check.setChecked(self.current_settings.get("enable_sounds", FALLBACK_ENABLE_SOUNDS))
+        behavior_form_layout.addRow(self.notification_sound_check)
 
         self.dark_mode_check = QCheckBox("Enable Dark Mode")
         self.dark_mode_check.setChecked(self.current_settings.get("dark_mode_enabled", FALLBACK_DARK_MODE_ENABLED))
@@ -477,19 +566,22 @@ class SettingsDialog(QDialog):
 
         self.show_alerts_check = QCheckBox("Show Current Alerts Area on Startup")
         self.show_alerts_check.setToolTip("Show or hide the Current Alerts panel.")
-        self.show_alerts_check.setChecked(self.current_settings.get("show_alerts_area", FALLBACK_SHOW_ALERTS_AREA_CHECKED))
+        self.show_alerts_check.setChecked(
+            self.current_settings.get("show_alerts_area", FALLBACK_SHOW_ALERTS_AREA_CHECKED))
         behavior_form_layout.addRow(self.show_alerts_check)
 
         self.show_forecasts_check = QCheckBox("Show Weather Forecast Area on Startup")
         self.show_forecasts_check.setToolTip("Show or hide the Weather Forecast panel.")
-        self.show_forecasts_check.setChecked(self.current_settings.get("show_forecasts_area", FALLBACK_SHOW_FORECASTS_AREA_CHECKED))
+        self.show_forecasts_check.setChecked(
+            self.current_settings.get("show_forecasts_area", FALLBACK_SHOW_FORECASTS_AREA_CHECKED))
         behavior_form_layout.addRow(self.show_forecasts_check)
 
         behavior_form_layout.addRow(QFrame(frameShape=QFrame.Shape.HLine, frameShadow=QFrame.Shadow.Sunken))
 
         self.log_sort_combo = QComboBox()
         self.log_sort_combo.addItems(["Chronological", "Ascending", "Descending"])
-        self.log_sort_combo.setCurrentText(self.current_settings.get("log_sort_order", FALLBACK_LOG_SORT_ORDER).capitalize())
+        self.log_sort_combo.setCurrentText(
+            self.current_settings.get("log_sort_order", FALLBACK_LOG_SORT_ORDER).capitalize())
         behavior_form_layout.addRow("Initial Log Sort Order:", self.log_sort_combo)
 
         main_layout.addWidget(behavior_group)
@@ -502,20 +594,20 @@ class SettingsDialog(QDialog):
 
     def get_settings_data(self) -> Dict[str, Any]:
         return {
-            # General
             "repeater_info": self.repeater_entry.text(),
             "location_id": self.location_id_entry.text().strip().upper(),
             "interval_key": self.interval_combobox.currentText(),
-            # Behavior & Display
             "announce_alerts": self.announce_alerts_check.isChecked(),
             "auto_refresh_content": self.auto_refresh_check.isChecked(),
             "mute_audio": self.mute_audio_check.isChecked(),
+            "enable_sounds": self.notification_sound_check.isChecked(),
             "dark_mode_enabled": self.dark_mode_check.isChecked(),
             "show_log": self.show_log_check.isChecked(),
             "show_alerts_area": self.show_alerts_check.isChecked(),
             "show_forecasts_area": self.show_forecasts_check.isChecked(),
             "log_sort_order": self.log_sort_combo.currentText().lower(),
         }
+
 
 # --- Main Application Window ---
 class WeatherAlertApp(QMainWindow):
@@ -528,6 +620,8 @@ class WeatherAlertApp(QMainWindow):
 
         self.api_client = NwsApiClient(f'PyWeatherAlertGui/{versionnumber} (github.com/nicarley/PythonWeatherAlerts)')
         self.settings_manager = SettingsManager(os.path.join(self._get_resources_path(), SETTINGS_FILE_NAME))
+        self.alert_history_manager = AlertHistoryManager(
+            os.path.join(self._get_resources_path(), ALERT_HISTORY_FILE))
         self.thread_pool = QThreadPool()
         self.log_to_gui(f"Multithreading with up to {self.thread_pool.maxThreadCount()} threads.", level="DEBUG")
 
@@ -548,11 +642,11 @@ class WeatherAlertApp(QMainWindow):
         self.current_dark_mode_enabled = FALLBACK_DARK_MODE_ENABLED
         self.current_log_sort_order = FALLBACK_LOG_SORT_ORDER
         self.current_mute_audio_checked = FALLBACK_MUTE_AUDIO_CHECKED
+        self.current_enable_sounds = FALLBACK_ENABLE_SOUNDS
 
         self._load_settings()
         self._set_window_icon()
 
-        self.seen_alert_ids = set()
         self.tts_engine = self._initialize_tts_engine()
         self.is_tts_dummy = isinstance(self.tts_engine, self._DummyEngine)
 
@@ -564,6 +658,8 @@ class WeatherAlertApp(QMainWindow):
         self.countdown_timer = QTimer(self)
         self.countdown_timer.timeout.connect(self._update_countdown_display)
         self.remaining_time_seconds = 0
+        self.clock_timer = QTimer(self)
+        self.clock_timer.timeout.connect(self._update_current_time_display)
 
         self._init_ui()
         self._apply_loaded_settings_to_ui()
@@ -571,6 +667,10 @@ class WeatherAlertApp(QMainWindow):
         self.log_to_gui(f"Monitoring Location: {self.current_location_id}", level="INFO")
         self._update_location_data()  # Initial fetch for coords, alerts, and forecasts
         self._update_main_timer_state()
+
+        # Start the clock timer
+        self.clock_timer.start(1000)
+        self._update_current_time_display()
 
     def _set_window_icon(self):
         """Sets the application window icon, trying custom files first."""
@@ -584,7 +684,6 @@ class WeatherAlertApp(QMainWindow):
             icon = QIcon(icon_path_png)
             self.log_to_gui(f"Loaded application icon from: {icon_path_png}", level="DEBUG")
         else:
-            # Fallback to a standard PySide6 icon if custom files are not found
             icon = self.style().standardIcon(QStyle.StandardPixmap.SP_MessageBoxInformation)
             self.log_to_gui("Custom application icon not found. Using default PySide6 icon.", level="WARNING")
 
@@ -617,13 +716,13 @@ class WeatherAlertApp(QMainWindow):
         self.current_dark_mode_enabled = settings.get("dark_mode_enabled", FALLBACK_DARK_MODE_ENABLED)
         self.current_log_sort_order = settings.get("log_sort_order", FALLBACK_LOG_SORT_ORDER)
         self.current_mute_audio_checked = settings.get("mute_audio", FALLBACK_MUTE_AUDIO_CHECKED)
+        self.current_enable_sounds = settings.get("enable_sounds", FALLBACK_ENABLE_SOUNDS)
 
         self._last_valid_radar_text = self._get_display_name_for_url(self.current_radar_url) or \
                                       (list(self.RADAR_OPTIONS.keys())[0] if self.RADAR_OPTIONS else "")
 
     def _apply_fallback_settings(self, reason_message: str):
         self.log_to_gui(reason_message, level="WARNING")
-        # Reset all settings to their fallback values
         self.current_repeater_info = FALLBACK_INITIAL_REPEATER_INFO
         self.current_location_id = FALLBACK_DEFAULT_LOCATION_ID
         self.current_interval_key = FALLBACK_DEFAULT_INTERVAL_KEY
@@ -638,6 +737,7 @@ class WeatherAlertApp(QMainWindow):
         self.current_dark_mode_enabled = FALLBACK_DARK_MODE_ENABLED
         self.current_log_sort_order = FALLBACK_LOG_SORT_ORDER
         self.current_mute_audio_checked = FALLBACK_MUTE_AUDIO_CHECKED
+        self.current_enable_sounds = FALLBACK_ENABLE_SOUNDS
 
     @Slot()
     def _save_settings(self):
@@ -650,6 +750,7 @@ class WeatherAlertApp(QMainWindow):
             "announce_alerts": self.announce_alerts_action.isChecked(),
             "auto_refresh_content": self.auto_refresh_action.isChecked(),
             "mute_audio": self.mute_action.isChecked(),
+            "enable_sounds": self.enable_sounds_action.isChecked(),
             "dark_mode_enabled": self.dark_mode_action.isChecked(),
             "show_log": self.show_log_action.isChecked(),
             "show_alerts_area": self.show_alerts_area_action.isChecked(),
@@ -681,58 +782,67 @@ class WeatherAlertApp(QMainWindow):
         # Alerts Group
         self.alerts_group = QGroupBox("Current Alerts")
         alerts_layout = QVBoxLayout(self.alerts_group)
+
+        # Add filter buttons
+        filter_layout = QHBoxLayout()
+        self.all_alerts_button = QPushButton("All", checkable=True, checked=True)
+        self.warning_button = QPushButton("Warnings", checkable=True)
+        self.watch_button = QPushButton("Watches", checkable=True)
+        self.advisory_button = QPushButton("Advisories", checkable=True)
+
+        for btn in [self.all_alerts_button, self.warning_button,
+                    self.watch_button, self.advisory_button]:
+            btn.clicked.connect(self._filter_alerts)
+            filter_layout.addWidget(btn)
+
+        alerts_layout.addLayout(filter_layout)
+
         self.alerts_display_area = QListWidget()
         self.alerts_display_area.setObjectName("AlertsDisplayArea")
         self.alerts_display_area.setWordWrap(True)
         self.alerts_display_area.setAlternatingRowColors(True)
         alerts_layout.addWidget(self.alerts_display_area)
-        alerts_forecasts_layout.addWidget(self.alerts_group, 1)  # Stretch 1 for alerts
+        alerts_forecasts_layout.addWidget(self.alerts_group, 1)
 
-        # Combined Forecasts Group (main container for all forecasts)
+        # Combined Forecasts Group
         self.combined_forecast_widget = QGroupBox("Weather Forecast")
-        # Changed to QHBoxLayout to place hourly and daily side-by-side
         combined_forecast_main_layout = QHBoxLayout(self.combined_forecast_widget)
-        combined_forecast_main_layout.setContentsMargins(5, 5, 5, 5)  # Add some margins to the main forecast box
+        combined_forecast_main_layout.setContentsMargins(5, 5, 5, 5)
 
         # Hourly Forecast Sub-Group
-        hourly_forecast_sub_group = QGroupBox("8-Hour Forecast")  # New QGroupBox for hourly
+        hourly_forecast_sub_group = QGroupBox("8-Hour Forecast")
         hourly_forecast_sub_group_layout = QVBoxLayout(hourly_forecast_sub_group)
-        hourly_forecast_sub_group_layout.setContentsMargins(5, 5, 5, 5)  # Margins for the sub-group box
-        self.hourly_forecast_widget = QWidget()  # This widget holds the QGridLayout
+        hourly_forecast_sub_group_layout.setContentsMargins(5, 5, 5, 5)
+        self.hourly_forecast_widget = QWidget()
         self.hourly_forecast_layout = QGridLayout(self.hourly_forecast_widget)
-        self.hourly_forecast_layout.setContentsMargins(5, 5, 5, 5)  # Margins for the grid itself
-        self.hourly_forecast_layout.setSpacing(5)  # Spacing between cells
+        self.hourly_forecast_layout.setContentsMargins(5, 5, 5, 5)
+        self.hourly_forecast_layout.setSpacing(5)
 
-        # Set font for the hourly forecast content
         hourly_font = QFont()
-        hourly_font.setPointSize(9)  # A common readable size for table-like data
+        hourly_font.setPointSize(9)
         self.hourly_forecast_widget.setFont(hourly_font)
 
         hourly_forecast_sub_group_layout.addWidget(self.hourly_forecast_widget)
-        combined_forecast_main_layout.addWidget(hourly_forecast_sub_group, 1)  # Stretch 1 for hourly sub-group
+        combined_forecast_main_layout.addWidget(hourly_forecast_sub_group, 1)
 
         # Daily Forecast Sub-Group
-        daily_forecast_sub_group = QGroupBox("5-Day Forecast")  # New QGroupBox for daily
+        daily_forecast_sub_group = QGroupBox("5-Day Forecast")
         daily_forecast_sub_group_layout = QVBoxLayout(daily_forecast_sub_group)
-        daily_forecast_sub_group_layout.setContentsMargins(5, 5, 5, 5)  # Margins for the sub-group box
-        self.daily_forecast_widget = QWidget()  # This widget holds the QGridLayout
+        daily_forecast_sub_group_layout.setContentsMargins(5, 5, 5, 5)
+        self.daily_forecast_widget = QWidget()
         self.daily_forecast_layout = QGridLayout(self.daily_forecast_widget)
-        self.daily_forecast_layout.setContentsMargins(5, 5, 5, 5)  # Margins for the grid itself
-        self.daily_forecast_layout.setSpacing(5)  # Spacing between cells
+        self.daily_forecast_layout.setContentsMargins(5, 5, 5, 5)
+        self.daily_forecast_layout.setSpacing(5)
 
-        # Set font for the daily forecast content
         daily_font = QFont()
-        daily_font.setPointSize(9)  # Same size for consistency
+        daily_font.setPointSize(9)
         self.daily_forecast_widget.setFont(daily_font)
 
         daily_forecast_sub_group_layout.addWidget(self.daily_forecast_widget)
-        combined_forecast_main_layout.addWidget(daily_forecast_sub_group, 1)  # Stretch 1 for daily sub-group
+        combined_forecast_main_layout.addWidget(daily_forecast_sub_group, 1)
 
-        alerts_forecasts_layout.addWidget(self.combined_forecast_widget,
-                                          2)  # Stretch 2 for the main combined forecasts group
-
-        # Add the alerts/forecasts layout to the main layout
-        main_layout.addLayout(alerts_forecasts_layout, 1)  # Stretch 1 for this whole top section
+        alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2)
+        main_layout.addLayout(alerts_forecasts_layout, 1)
 
         # --- Splitter for Web View and Log ---
         self.splitter = QSplitter(Qt.Orientation.Vertical)
@@ -751,7 +861,6 @@ class WeatherAlertApp(QMainWindow):
         log_toolbar.addWidget(QLabel("<b>Application Log</b>"))
         log_toolbar.addStretch()
 
-        # Add sorting buttons
         style = self.style()
         sort_asc_button = QPushButton("Sort Asc")
         sort_asc_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ArrowUp))
@@ -776,28 +885,48 @@ class WeatherAlertApp(QMainWindow):
         log_layout.addWidget(self.log_area)
         self.splitter.addWidget(log_widget)
 
-        # Flush any buffered log messages
         if self._log_buffer:
             self.log_area.append("\n".join(self._log_buffer))
             self._log_buffer.clear()
 
         self.splitter.setSizes([400, 200])
-        # Add the splitter with a larger stretch factor to make it take up more space
         main_layout.addWidget(self.splitter, 3)
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
 
-        # --- Network Status Indicator ---
         self.network_status_indicator = QLabel("● Network OK")
         self.network_status_indicator.setStyleSheet("color: green; font-weight: bold;")
         self.status_bar.addPermanentWidget(self.network_status_indicator)
-        # ---
 
-        self.update_status("Application started.")
+        # Initialize system tray
+        self._init_system_tray()
+
+    def _init_system_tray(self):
+        """Initializes the system tray icon and menu."""
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            return
+
+        self.tray_icon = QSystemTrayIcon(self)
+        self.tray_icon.setIcon(self.windowIcon())
+
+        tray_menu = QMenu()
+        restore_action = tray_menu.addAction("Restore")
+        restore_action.triggered.connect(self.showNormal)
+        quit_action = tray_menu.addAction("Quit")
+        quit_action.triggered.connect(self.close)
+
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.show()
+        self.tray_icon.activated.connect(self._on_tray_activated)
+
+    def _on_tray_activated(self, reason):
+        """Handles tray icon activation (click/double-click)."""
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:
+            self.showNormal()
+            self.activateWindow()
 
     def _create_top_status_bar(self) -> QHBoxLayout:
-        """Creates and returns the layout for the top status bar."""
         top_status_layout = QHBoxLayout()
         top_status_layout.setContentsMargins(5, 3, 5, 3)
 
@@ -806,21 +935,19 @@ class WeatherAlertApp(QMainWindow):
         self.top_countdown_label = QLabel("Next Check: --:--")
         self.current_time_label = QLabel("Current Time: --:--:--")
 
-        # Volume Icon
         volume_icon_label = QLabel()
         volume_icon_label.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_MediaVolume).pixmap(16, 16))
         top_status_layout.addWidget(volume_icon_label)
         top_status_layout.addWidget(self.top_repeater_label)
         top_status_layout.addSpacing(20)
 
-        # Location
         location_icon_label = QLabel()
         location_icon_label.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon).pixmap(16, 16))
         top_status_layout.addWidget(location_icon_label)
 
         self.top_location_edit = QLineEdit()
         self.top_location_edit.setPlaceholderText("Zip/Airport ID")
-        self.top_location_edit.setFixedWidth(100)  # Adjust as needed
+        self.top_location_edit.setFixedWidth(100)
         self.top_location_edit.setToolTip("Enter US Zip Code or NWS Airport ID (e.g., KSTL)")
         top_status_layout.addWidget(self.top_location_edit)
 
@@ -831,7 +958,6 @@ class WeatherAlertApp(QMainWindow):
         top_status_layout.addWidget(self.location_apply_button)
         top_status_layout.addSpacing(20)
 
-        # Interval
         interval_icon_label = QLabel()
         interval_icon_label.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload).pixmap(16, 16))
         top_status_layout.addWidget(interval_icon_label)
@@ -849,28 +975,21 @@ class WeatherAlertApp(QMainWindow):
         self.web_source_quick_select_button.clicked.connect(self._show_web_source_quick_select_menu)
         top_status_layout.addWidget(self.web_source_quick_select_button)
 
-        # --- Add Mute Button ---
         self.mute_button = QPushButton("Mute")
         self.mute_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolumeMuted))
         self.mute_button.setToolTip("Mute All Audio")
         self.mute_button.setCheckable(True)
         self.mute_button.toggled.connect(self._on_mute_toggled)
         top_status_layout.addWidget(self.mute_button)
-        # ---
 
         top_status_layout.addStretch(1)
         top_status_layout.addWidget(self.top_countdown_label)
         top_status_layout.addSpacing(15)
         top_status_layout.addWidget(self.current_time_label)
 
-        self.clock_timer = QTimer(self)
-        self.clock_timer.timeout.connect(self._update_current_time_display)
-        self.clock_timer.start(1000)
-        self._update_current_time_display()
         return top_status_layout
 
     def _create_menu_bar(self):
-        """Creates the main menu bar with actions and icons."""
         menu_bar = self.menuBar()
         style = self.style()
 
@@ -914,6 +1033,12 @@ class WeatherAlertApp(QMainWindow):
         self.dark_mode_action.toggled.connect(self._on_dark_mode_toggled)
         view_menu.addAction(self.dark_mode_action)
 
+        # History Menu
+        history_menu = menu_bar.addMenu("&History")
+        view_history_action = QAction("View Alert History", self)
+        view_history_action.triggered.connect(self._show_alert_history)
+        history_menu.addAction(view_history_action)
+
         # Actions Menu
         actions_menu = menu_bar.addMenu("&Actions")
         self.announce_alerts_action = QAction("&Announce Alerts and Start Timer", self, checkable=True)
@@ -925,6 +1050,9 @@ class WeatherAlertApp(QMainWindow):
         self.mute_action = QAction("Mute All Audio", self, checkable=True)
         self.mute_action.toggled.connect(self._on_mute_toggled)
         actions_menu.addAction(self.mute_action)
+        self.enable_sounds_action = QAction("Enable Alert Sounds", self, checkable=True)
+        self.enable_sounds_action.toggled.connect(self._on_enable_sounds_toggled)
+        actions_menu.addAction(self.enable_sounds_action)
         actions_menu.addSeparator()
         self.speak_reset_action = QAction("&Speak Repeater Info and Reset Timer", self)
         self.speak_reset_action.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
@@ -943,10 +1071,6 @@ class WeatherAlertApp(QMainWindow):
         help_menu.addAction(about_action)
 
     def _update_location_data(self):
-        """
-        Fetches all data for the current location (coords, alerts, forecasts)
-        in a background thread.
-        """
         self.update_status(f"Fetching data for {self.current_location_id}...")
         self._clear_and_set_loading_states()
 
@@ -956,18 +1080,12 @@ class WeatherAlertApp(QMainWindow):
         self.thread_pool.start(worker)
 
     def _fetch_all_data_for_location(self, location_id: str) -> Dict[str, Any]:
-        """Worker function to be run in a background thread."""
         coords = self.api_client.get_coordinates_for_location(location_id)
         if not coords:
-            # This already raises ValueError, which is caught by Worker.signals.error
             raise ValueError(f"Could not find coordinates for location '{location_id}'.")
 
         lat, lon = coords
-
-        # Fetch alerts (empty list is acceptable if no alerts)
         alerts = self.api_client.get_alerts(lat, lon)
-
-        # Fetch forecast URLs - critical for forecasts
         forecast_urls = self.api_client.get_forecast_urls(lat, lon)
         if not forecast_urls:
             raise ApiError(f"Could not retrieve forecast URLs for {lat},{lon}. API might be down or rate-limited.")
@@ -975,13 +1093,11 @@ class WeatherAlertApp(QMainWindow):
         hourly_forecast = None
         daily_forecast = None
 
-        # Fetch hourly forecast data
         if forecast_urls.get("hourly"):
             hourly_forecast = self.api_client.get_forecast_data(forecast_urls["hourly"])
             if not hourly_forecast:
                 raise ApiError(f"Failed to fetch hourly forecast data from {forecast_urls['hourly']}.")
 
-        # Fetch daily forecast data
         if forecast_urls.get("daily"):
             daily_forecast = self.api_client.get_forecast_data(forecast_urls["daily"])
             if not daily_forecast:
@@ -996,37 +1112,33 @@ class WeatherAlertApp(QMainWindow):
 
     @Slot(object)
     def _on_location_data_loaded(self, result: Dict[str, Any]):
-        """Handles the successful loading of all location data."""
         self.network_status_indicator.setText("● Network OK")
         self.network_status_indicator.setStyleSheet("color: green; font-weight: bold;")
         self.current_coords = result["coords"]
-        alerts = result["alerts"] # Get alerts from the result
+        alerts = result["alerts"]
 
         self.log_to_gui(f"Successfully fetched data for {self.current_location_id} at {self.current_coords}",
                         level="INFO")
-        self._update_alerts_display_area(alerts) # Update UI
+        self._update_alerts_display_area(alerts)
         self._update_hourly_forecast_display(result["hourly_forecast"])
         self._update_daily_forecast_display(result["daily_forecast"])
         self.update_status(f"Data for {self.current_location_id} updated.")
 
-        # Process the same alerts for speech if enabled
         if self.announce_alerts_action.isChecked():
             self._process_and_speak_alerts(alerts)
 
     @Slot(Exception)
     def _on_data_load_error(self, e: Exception):
-        """Handles errors during background data fetching."""
         self.network_status_indicator.setText("● Network FAIL")
         self.network_status_indicator.setStyleSheet("color: red; font-weight: bold;")
         self.log_to_gui(str(e), level="ERROR")
         self.update_status(f"Error: {e}")
         self.current_coords = None
-        self._update_alerts_display_area([])  # Clear alerts
-        self._update_hourly_forecast_display(None)  # Clear forecasts
+        self._update_alerts_display_area([])
+        self._update_hourly_forecast_display(None)
         self._update_daily_forecast_display(None)
 
     def _clear_and_set_loading_states(self):
-        """Clears data displays and shows a 'Loading...' message."""
         self.alerts_display_area.clear()
         self.alerts_display_area.addItem("Loading alerts...")
         self._clear_layout(self.hourly_forecast_layout)
@@ -1045,15 +1157,40 @@ class WeatherAlertApp(QMainWindow):
             summary = alert.get('summary', 'No summary available.')
             item = QListWidgetItem(f"{title}\n\n{summary}")
 
-            # Set color based on alert type
+            # Track in history
+            is_new = self.alert_history_manager.add_alert(
+                alert.id,
+                {
+                    'time': time.strftime('%Y-%m-%d %H:%M'),
+                    'type': title.split(' ')[0],
+                    'location': self.current_location_id,
+                    'summary': summary
+                }
+            )
+
+            # Highlight new alerts
+            if is_new:
+                item.setBackground(QColor("#ffcccc"))  # Light red for new alerts
+                self._play_alert_sound(title.lower())
+
+            # Color coding by alert type
             title_lower = title.lower()
             if 'warning' in title_lower:
-                item.setBackground(QColor("#ffdddd"))  # Light red
+                item.setForeground(QColor("#cc0000"))  # Red text
             elif 'watch' in title_lower:
-                item.setBackground(QColor("#fff3cd"))  # Light orange
+                item.setForeground(QColor("#ff9900"))  # Orange text
             elif 'advisory' in title_lower:
-                item.setBackground(QColor("#d1ecf1"))  # Light blue
+                item.setForeground(QColor("#0066cc"))  # Blue text
+
             self.alerts_display_area.addItem(item)
+
+    def _play_alert_sound(self, alert_text: str):
+        """Plays appropriate system sound for alert type."""
+        if self.mute_action.isChecked() or not self.enable_sounds_action.isChecked():
+            return
+
+        if 'warning' in alert_text or 'watch' in alert_text or 'advisory' in alert_text:
+            QApplication.beep()
 
     def _update_hourly_forecast_display(self, forecast_json: Optional[Dict[str, Any]]):
         self._clear_layout(self.hourly_forecast_layout)
@@ -1062,7 +1199,7 @@ class WeatherAlertApp(QMainWindow):
             return
 
         periods = forecast_json['properties']['periods'][:8]
-        headers = ["Time", "Temp", "Forecast"]
+        headers = ["Time", "Temp", "Wind", "Precip", "Forecast"]
         for col, header in enumerate(headers):
             self.hourly_forecast_layout.addWidget(QLabel(f"<b>{header}</b>"), 0, col)
 
@@ -1072,11 +1209,23 @@ class WeatherAlertApp(QMainWindow):
                 time_obj = time.strptime(start_time_str.split('T')[1].split('-')[0], "%H:%M:%S")
                 formatted_time = time.strftime("%I %p", time_obj).lstrip('0')
                 temp = f"{p.get('temperature', 'N/A')}°{p.get('temperatureUnit', '')}"
+
+                # Enhanced wind display
+                wind_speed = p.get('windSpeed', 'N/A')
+                wind_dir = p.get('windDirection', '')
+                wind = f"{wind_dir} {wind_speed}" if wind_dir else wind_speed
+
+                # Precipitation chance
+                precip = p.get('probabilityOfPrecipitation', {}).get('value', '0')
+                precip = f"{precip}%" if precip != '0' else "-"
+
                 short_fc = p.get('shortForecast', 'N/A')
 
                 self.hourly_forecast_layout.addWidget(QLabel(formatted_time), i + 1, 0)
                 self.hourly_forecast_layout.addWidget(QLabel(temp), i + 1, 1)
-                self.hourly_forecast_layout.addWidget(QLabel(short_fc), i + 1, 2)
+                self.hourly_forecast_layout.addWidget(QLabel(wind), i + 1, 2)
+                self.hourly_forecast_layout.addWidget(QLabel(precip), i + 1, 3)
+                self.hourly_forecast_layout.addWidget(QLabel(short_fc), i + 1, 4)
             except Exception as e:
                 self.log_to_gui(f"Error formatting hourly period: {e}", level="WARNING")
 
@@ -1104,7 +1253,6 @@ class WeatherAlertApp(QMainWindow):
                 self.log_to_gui(f"Error formatting daily period: {e}", level="WARNING")
 
     def _clear_layout(self, layout: QLayout):
-        """Removes all widgets from a layout."""
         if layout is None: return
         while layout.count():
             child = layout.takeAt(0)
@@ -1112,8 +1260,6 @@ class WeatherAlertApp(QMainWindow):
                 child.widget().deleteLater()
 
     def _open_preferences_dialog(self):
-        """Opens the comprehensive settings dialog."""
-        # Gather all current settings to pass to the dialog
         current_prefs = {
             "repeater_info": self.current_repeater_info,
             "location_id": self.current_location_id,
@@ -1121,6 +1267,7 @@ class WeatherAlertApp(QMainWindow):
             "announce_alerts": self.announce_alerts_action.isChecked(),
             "auto_refresh_content": self.auto_refresh_action.isChecked(),
             "mute_audio": self.mute_action.isChecked(),
+            "enable_sounds": self.enable_sounds_action.isChecked(),
             "dark_mode_enabled": self.dark_mode_action.isChecked(),
             "show_log": self.show_log_action.isChecked(),
             "show_alerts_area": self.show_alerts_area_action.isChecked(),
@@ -1133,7 +1280,6 @@ class WeatherAlertApp(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_data = dialog.get_settings_data()
 
-            # --- Apply General Settings ---
             location_changed = self.current_location_id != new_data["location_id"]
             interval_changed = self.current_interval_key != new_data["interval_key"]
 
@@ -1141,14 +1287,12 @@ class WeatherAlertApp(QMainWindow):
             self.current_location_id = new_data["location_id"]
             self.current_interval_key = new_data["interval_key"]
 
-            # Update top bar widgets to reflect changes
             self.top_location_edit.setText(self.current_location_id)
             self.top_interval_combo.setCurrentText(self.current_interval_key)
             self._update_top_status_bar_display()
 
             if location_changed:
                 self.log_to_gui(f"Location ID changed to: {self.current_location_id}", level="INFO")
-                self.seen_alert_ids.clear()
                 self._update_location_data()
 
             if interval_changed:
@@ -1156,7 +1300,6 @@ class WeatherAlertApp(QMainWindow):
                     self.current_interval_key, FALLBACK_INITIAL_CHECK_INTERVAL_MS)
                 self.log_to_gui(f"Interval changed to: {self.current_interval_key}", level="INFO")
 
-            # --- Apply Behavior & Display Settings ---
             if self.announce_alerts_action.isChecked() != new_data["announce_alerts"]:
                 self.announce_alerts_action.setChecked(new_data["announce_alerts"])
 
@@ -1165,6 +1308,9 @@ class WeatherAlertApp(QMainWindow):
 
             if self.mute_action.isChecked() != new_data["mute_audio"]:
                 self.mute_action.setChecked(new_data["mute_audio"])
+
+            if self.enable_sounds_action.isChecked() != new_data["enable_sounds"]:
+                self.enable_sounds_action.setChecked(new_data["enable_sounds"])
 
             if self.dark_mode_action.isChecked() != new_data["dark_mode_enabled"]:
                 self.dark_mode_action.setChecked(new_data["dark_mode_enabled"])
@@ -1183,14 +1329,11 @@ class WeatherAlertApp(QMainWindow):
                 self._apply_log_sort()
 
             self._update_main_timer_state()
-
-            # --- Save all changes ---
             self._save_settings()
             self.log_to_gui("Preferences updated.", level="INFO")
 
     @Slot()
     def perform_check_cycle(self):
-        """The main periodic task, now simplified to trigger background updates."""
         if not (self.announce_alerts_action.isChecked() or self.auto_refresh_action.isChecked()):
             self.main_check_timer.stop()
             self.countdown_timer.stop()
@@ -1200,12 +1343,8 @@ class WeatherAlertApp(QMainWindow):
         self.main_check_timer.stop()
 
         if self.auto_refresh_action.isChecked() and QWebEngineView and self.web_view:
-            # For auto-refresh, we'll just reload the current view.
-            # Note: If the current view is a "Loading PDF..." message, this will reload that message.
-            # The actual PDF opening is handled on source selection.
             self.web_view.reload()
 
-        # Fetch ALL data in the background. The completion slot will handle speaking.
         self._update_location_data()
 
         self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
@@ -1214,24 +1353,29 @@ class WeatherAlertApp(QMainWindow):
 
     @Slot(object)
     def _process_and_speak_alerts(self, alerts: List[Any]):
-        """Processes alerts, flashes the window, and speaks new ones."""
         new_alerts_found = False
         high_priority_keywords = ["tornado", "severe thunderstorm", "flash flood warning"]
 
         for alert in alerts:
-            if alert.id not in self.seen_alert_ids:
+            if alert.id not in self.alert_history_manager.seen_alerts:
                 new_alerts_found = True
                 alert_title_lower = alert.title.lower()
                 self.log_to_gui(f"New Alert: {alert.title}", level="IMPORTANT")
 
-                # Check if this is a high-priority alert
                 if any(keyword in alert_title_lower for keyword in high_priority_keywords):
                     self.log_to_gui("High-priority alert detected. Triggering extra notifications.", level="INFO")
-                    QApplication.alert(self)  # Flash the application window/taskbar icon
+                    QApplication.alert(self)
 
-                # Speak the alert (as before)
                 self._speak_weather_alert(alert.title, alert.summary)
-                self.seen_alert_ids.add(alert.id)
+                self.alert_history_manager.add_alert(
+                    alert.id,
+                    {
+                        'time': time.strftime('%Y-%m-%d %H:%M'),
+                        'type': alert.title.split(' ')[0],
+                        'location': self.current_location_id,
+                        'summary': alert.summary
+                    }
+                )
 
         if not new_alerts_found and alerts:
             self.log_to_gui(f"No new alerts. Total active: {len(alerts)}.", level="INFO")
@@ -1239,32 +1383,25 @@ class WeatherAlertApp(QMainWindow):
         self._speak_repeater_info()
 
     def log_to_gui(self, message: str, level: str = "INFO"):
-        """Logs a message to the standard logger and either the GUI or a buffer if the GUI is not ready."""
         formatted_message = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [{level.upper()}] {message}"
         if hasattr(self, 'log_area'):
-            # In a sorted view, new messages are just appended. The user can re-sort manually.
             self.log_area.append(formatted_message)
         else:
             self._log_buffer.append(formatted_message)
         getattr(logging, level.lower(), logging.info)(message)
 
     def update_status(self, message: str):
-        self.status_bar.showMessage(message, 5000)  # Show for 5 seconds
+        self.status_bar.showMessage(message, 5000)
 
     def closeEvent(self, event):
-        reply = QMessageBox.question(self, 'Quit Application', "Are you sure you want to quit?",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                     QMessageBox.StandardButton.No)
-        if reply == QMessageBox.StandardButton.Yes:
-            self.log_to_gui("Shutting down...", level="INFO")
-            self.main_check_timer.stop()
-            self.countdown_timer.stop()
-            self.clock_timer.stop()
-            self.thread_pool.waitForDone()  # Wait for background tasks to finish
-            self._save_settings()
-            event.accept()
-        else:
-            event.ignore()
+        self.log_to_gui("Shutting down...", level="INFO")
+        self.main_check_timer.stop()
+        self.countdown_timer.stop()
+        self.clock_timer.stop()
+        self.thread_pool.waitForDone()
+        self.alert_history_manager.save_history()
+        self._save_settings()
+        event.accept()
 
     # --- TTS Engine ---
     class _DummyEngine:
@@ -1279,8 +1416,6 @@ class WeatherAlertApp(QMainWindow):
     def _initialize_tts_engine(self):
         try:
             engine = pyttsx3.init()
-            # A more robust way to check for a valid engine is to try to access a property.
-            # If this fails, or there are no voices, the engine is not functional.
             voices = engine.getProperty('voices')
             if not voices:
                 raise RuntimeError("No TTS voices found on the system.")
@@ -1318,7 +1453,6 @@ class WeatherAlertApp(QMainWindow):
             self.current_time_label.setText(f"Current Time: {time.strftime('%I:%M:%S %p')}")
 
     def _update_top_status_bar_display(self):
-        # This method now updates the editable widgets
         if hasattr(self, 'top_repeater_label'):
             self.top_repeater_label.setText(f"Repeater: {self.current_repeater_info or 'N/A'}")
 
@@ -1326,26 +1460,24 @@ class WeatherAlertApp(QMainWindow):
         self.announce_alerts_action.setChecked(self.current_announce_alerts_checked)
         self.auto_refresh_action.setChecked(self.current_auto_refresh_content_checked)
         self.mute_action.setChecked(self.current_mute_audio_checked)
+        self.enable_sounds_action.setChecked(self.current_enable_sounds)
         self.dark_mode_action.setChecked(self.current_dark_mode_enabled)
         self.show_log_action.setChecked(self.current_show_log_checked)
         self.show_alerts_area_action.setChecked(self.current_show_alerts_area_checked)
         self.show_forecasts_area_action.setChecked(self.current_show_forecasts_area_checked)
 
-        # --- Manually set panel visibility on startup ---
         self.splitter.widget(1).setVisible(self.current_show_log_checked)
         self.alerts_group.setVisible(self.current_show_alerts_area_checked)
         self.combined_forecast_widget.setVisible(self.current_show_forecasts_area_checked)
 
-        # Set initial values for the new editable top bar widgets
         self.top_location_edit.setText(self.current_location_id)
         self.top_interval_combo.setCurrentText(self.current_interval_key)
 
         self._update_top_status_bar_display()
         self._update_web_sources_menu()
         self._apply_color_scheme()
-        self._apply_log_sort() # Apply initial sort order
+        self._apply_log_sort()
 
-        # Initial load of the radar URL, now handles PDFs via direct Chromium rendering
         if QWebEngineView and self.web_view:
             self._load_web_view_url(self.current_radar_url)
 
@@ -1394,23 +1526,21 @@ class WeatherAlertApp(QMainWindow):
 
     def _on_mute_toggled(self, checked):
         self.current_mute_audio_checked = checked
-
-        # Ensure both the action and the button reflect the state
-        # (This might cause a recursive call if not careful, but PySide6 handles this
-        # by not emitting 'toggled' if the state is already the target state)
         self.mute_action.setChecked(checked)
         self.mute_button.setChecked(checked)
 
-        style = self.style()  # Get the current style to access standard icons
+        style = self.style()
         if checked:
-            # Muted state: show muted icon
             self.mute_action.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaVolumeMuted))
             self.mute_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaVolumeMuted))
         else:
-            # Unmuted state: show unmuted icon
             self.mute_action.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaVolume))
             self.mute_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaVolume))
 
+        self._save_settings()
+
+    def _on_enable_sounds_toggled(self, checked):
+        self.current_enable_sounds = checked
         self._save_settings()
 
     def _on_dark_mode_toggled(self, checked):
@@ -1431,12 +1561,16 @@ class WeatherAlertApp(QMainWindow):
         self._save_settings()
 
     def _on_speak_and_reset_button_press(self):
-        if self.announce_alerts_action.isChecked():
-            self._speak_repeater_info()
+        self._speak_repeater_info()
         self._update_main_timer_state()
 
     def _show_about_dialog(self):
         AboutDialog(self).exec()
+
+    def _show_alert_history(self):
+        history_data = self.alert_history_manager.get_recent_alerts(20)
+        dialog = AlertHistoryDialog(history_data, self)
+        dialog.exec()
 
     def _show_github_help(self):
         QDesktopServices.openUrl(QUrl(GITHUB_HELP_URL))
@@ -1444,12 +1578,6 @@ class WeatherAlertApp(QMainWindow):
     # --- Top Bar Editable Field Handlers ---
     @Slot()
     def _on_top_location_apply_clicked(self):
-        """
-        Handles the 'Apply' button click for the location ID.
-        This refactored method is more robust, providing better user feedback,
-        preventing race conditions, and handling failures gracefully.
-        Modified: Removed button disabling to keep 'Apply' button enabled during processing.
-        """
         new_location_id = self.top_location_edit.text().strip().upper()
 
         if not new_location_id:
@@ -1458,17 +1586,14 @@ class WeatherAlertApp(QMainWindow):
             return
 
         if new_location_id == self.current_location_id:
-            return  # No change needed
+            return
 
         self.update_status(f"Fetching data for {new_location_id}...")
         self._clear_and_set_loading_states()
 
-        # Store the old location ID to revert to on failure
         old_location_id = self.current_location_id
 
         worker = Worker(self._fetch_all_data_for_location, new_location_id)
-
-        # Connect signals to the new transactional handlers
         worker.signals.result.connect(
             lambda result: self._handle_location_change_success(result, new_location_id)
         )
@@ -1480,37 +1605,20 @@ class WeatherAlertApp(QMainWindow):
 
     @Slot(object, str)
     def _handle_location_change_success(self, result: Dict[str, Any], new_location_id: str):
-        """
-        Handles the successful change of a location.
-        This commits the new location, saves settings, and updates the UI.
-        """
         self.log_to_gui(f"Location successfully changed to {new_location_id}", level="INFO")
-
-        # Commit the new state
         self.current_location_id = new_location_id
-        self.seen_alert_ids.clear()  # Reset seen alerts for the new location
         self._save_settings()
-
-        # Update the UI with the newly fetched data
         self._on_location_data_loaded(result)
 
     @Slot(Exception, str)
     def _handle_location_change_failure(self, error: Exception, old_location_id: str):
-        """
-        Handles the failure to change location.
-        This reverts the UI, notifies the user, and restores the last valid location's data.
-        """
         self.log_to_gui(f"Failed to fetch data for new location: {error}", level="ERROR")
         QMessageBox.warning(self, "Location Error",
                             f"Could not fetch data for the new location.\n\n"
                             f"Reverting to '{old_location_id}'.\n\nError: {error}")
 
-        # Revert the state in the UI and internally
         self.top_location_edit.setText(old_location_id)
         self.current_location_id = old_location_id
-
-        # Re-fetch data for the last known good location to restore the UI state
-        # instead of leaving it blank.
         self._update_location_data()
 
     @Slot(str)
@@ -1520,7 +1628,7 @@ class WeatherAlertApp(QMainWindow):
             self.current_check_interval_ms = CHECK_INTERVAL_OPTIONS.get(
                 self.current_interval_key, FALLBACK_INITIAL_CHECK_INTERVAL_MS)
             self.log_to_gui(f"Interval changed to: {self.current_interval_key} (from top bar)", level="INFO")
-            self._update_main_timer_state()  # Update timer state
+            self._update_main_timer_state()
             self._save_settings()
 
     # --- Web Source Management ---
@@ -1573,35 +1681,28 @@ class WeatherAlertApp(QMainWindow):
         if not checked: return
         action = action_to_use or self.sender()
         if action:
-            url_str = action.data()  # Get the URL string
+            url_str = action.data()
             self.current_radar_url = url_str
             self._last_valid_radar_text = action.text()
-
-            self._load_web_view_url(url_str)  # Use the new helper method
-
+            self._load_web_view_url(url_str)
             self._save_settings()
             self._update_web_sources_menu()
 
     def _load_web_view_url(self, url_str: str):
-        """Helper method to load any URL into QWebEngineView, handling PDFs by opening externally."""
         if QWebEngineView and self.web_view:
             if url_str.lower().endswith('.pdf'):
-                # Display a message in the QWebEngineView
                 self.web_view.setHtml(
                     f"<html><body><div style='text-align: center; margin-top: 50px; font-size: 18px; color: grey;'>"
                     f"Loading PDF...<br><br>Opening <a href='{url_str}'>{url_str}</a> in default browser.</div></body></html>"
                 )
-                # Open PDF in the default system browser or PDF viewer
                 QDesktopServices.openUrl(QUrl(url_str))
             else:
-                # Load non-PDF URLs directly in QWebEngineView
                 self.web_view.setUrl(QUrl(url_str))
             self.log_to_gui(f"Loaded web view: {url_str}", level="INFO")
         else:
             self.log_to_gui("Web view not available.", level="WARNING")
 
     def _open_current_in_browser(self):
-        """Opens the current web view URL in the system's default browser."""
         if QWebEngineView and self.web_view:
             QDesktopServices.openUrl(QUrl(self.current_radar_url))
             self.log_to_gui(f"Opening {self.current_radar_url} in default browser.", level="INFO")
@@ -1609,7 +1710,6 @@ class WeatherAlertApp(QMainWindow):
             self.log_to_gui("No web view available to open in browser.", level="WARNING")
 
     def _save_current_web_source(self):
-        """Saves the current web view URL as a new source."""
         if not (QWebEngineView and self.web_view):
             self.log_to_gui("No web view available to save.", level="WARNING")
             return
@@ -1631,7 +1731,6 @@ class WeatherAlertApp(QMainWindow):
             self.log_to_gui(f"Added new web source: {name} ({url})", level="INFO")
 
     def _add_new_web_source(self):
-        """Opens a dialog to add a new web source."""
         dialog = AddEditSourceDialog(self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             data = dialog.get_data()
@@ -1649,12 +1748,10 @@ class WeatherAlertApp(QMainWindow):
             self.log_to_gui(f"Added new web source: {name} ({url})", level="INFO")
 
     def _manage_web_sources(self):
-        """Opens the manage sources dialog."""
         dialog = ManageSourcesDialog(self.RADAR_OPTIONS, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_sources = dialog.get_sources()
             self.RADAR_OPTIONS = new_sources
-            # Ensure the current radar URL is still valid
             if self.current_radar_url not in self.RADAR_OPTIONS.values():
                 self.current_radar_url = list(self.RADAR_OPTIONS.values())[0] if self.RADAR_OPTIONS else ""
                 self._last_valid_radar_text = list(self.RADAR_OPTIONS.keys())[0] if self.RADAR_OPTIONS else ""
@@ -1664,14 +1761,12 @@ class WeatherAlertApp(QMainWindow):
             self.log_to_gui("Web sources updated.", level="INFO")
 
     def _get_display_name_for_url(self, url: str) -> Optional[str]:
-        """Finds the display name for a given URL in RADAR_OPTIONS."""
         for name, u in self.RADAR_OPTIONS.items():
             if u == url:
                 return name
         return None
 
     def _apply_color_scheme(self):
-        """Applies the light or dark color scheme based on settings."""
         stylesheet_file = DARK_STYLESHEET_FILE_NAME if self.current_dark_mode_enabled else LIGHT_STYLESHEET_FILE_NAME
         stylesheet_path = os.path.join(self._get_resources_path(), stylesheet_file)
         try:
@@ -1681,7 +1776,6 @@ class WeatherAlertApp(QMainWindow):
             self.log_to_gui(f"Applied {'dark' if self.current_dark_mode_enabled else 'light'} theme.", level="INFO")
         except (IOError, OSError) as e:
             self.log_to_gui(f"Error loading stylesheet {stylesheet_path}: {e}", level="WARNING")
-            # Apply a fallback stylesheet to ensure readability
             fallback_stylesheet = """
                 QWidget { background-color: #ffffff; color: #000000; }
                 QTextEdit, QListWidget { background-color: #f0f0f0; }
@@ -1695,14 +1789,12 @@ class WeatherAlertApp(QMainWindow):
             self.log_to_gui("Applied fallback stylesheet.", level="INFO")
 
     def _apply_log_sort(self):
-        """Applies the current log sort order."""
         current_text = self.log_area.toPlainText()
         if not current_text:
             return
 
         lines = current_text.split('\n')
         if self.current_log_sort_order == "chronological":
-            # Already in chronological order as appended
             pass
         elif self.current_log_sort_order == "ascending":
             lines.sort()
@@ -1714,7 +1806,6 @@ class WeatherAlertApp(QMainWindow):
 
     @Slot()
     def _sort_log_ascending(self):
-        """Sorts the log in ascending order (A-Z)."""
         self.current_log_sort_order = "ascending"
         self._apply_log_sort()
         self._save_settings()
@@ -1722,14 +1813,12 @@ class WeatherAlertApp(QMainWindow):
 
     @Slot()
     def _sort_log_descending(self):
-        """Sorts the log in descending order (Z-A)."""
         self.current_log_sort_order = "descending"
         self._apply_log_sort()
         self._save_settings()
         self.log_to_gui("Log sorted in descending order.", level="INFO")
 
     def _backup_settings(self):
-        """Backs up the current settings to a user-selected file."""
         file_name, _ = QFileDialog.getSaveFileName(
             self, "Backup Settings", "", "JSON Files (*.json);;All Files (*)"
         )
@@ -1748,7 +1837,6 @@ class WeatherAlertApp(QMainWindow):
                 QMessageBox.critical(self, "Backup Error", f"Failed to backup settings:\n{e}")
 
     def _restore_settings(self):
-        """Restores settings from a user-selected backup file."""
         file_name, _ = QFileDialog.getOpenFileName(
             self, "Restore Settings", "", "JSON Files (*.json);;All Files (*)"
         )
@@ -1767,6 +1855,35 @@ class WeatherAlertApp(QMainWindow):
             except (IOError, OSError, json.JSONDecodeError) as e:
                 self.log_to_gui(f"Error restoring settings: {e}", level="ERROR")
                 QMessageBox.critical(self, "Restore Error", f"Failed to restore settings:\n{e}")
+
+    def _filter_alerts(self):
+        sender = self.sender()
+        if sender == self.all_alerts_button:
+            for i in range(self.alerts_display_area.count()):
+                self.alerts_display_area.item(i).setHidden(False)
+            return
+
+        if sender.isChecked() and self.all_alerts_button.isChecked():
+            self.all_alerts_button.setChecked(False)
+
+        show_warning = self.warning_button.isChecked() or self.all_alerts_button.isChecked()
+        show_watch = self.watch_button.isChecked() or self.all_alerts_button.isChecked()
+        show_advisory = self.advisory_button.isChecked() or self.all_alerts_button.isChecked()
+
+        for i in range(self.alerts_display_area.count()):
+            item = self.alerts_display_area.item(i)
+            text = item.text().lower()
+
+            show = False
+            if 'warning' in text and show_warning:
+                show = True
+            elif 'watch' in text and show_watch:
+                show = True
+            elif 'advisory' in text and show_advisory:
+                show = True
+
+            item.setHidden(not show)
+
 
 # --- Application Entry Point ---
 if __name__ == '__main__':

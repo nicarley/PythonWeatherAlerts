@@ -24,13 +24,14 @@
         "LightningMaps.org": "https://www.lightningmaps.org/#m=oss;t=3;s=0;o=0;b=;ts=0;y=39.3343;x=-93.7573;z=5;d=2;dl=2;dc=0;",
         "What Three Words": "https://what3words.com/fame.amounts.explain"
     },
-    "radar_url": "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOm51bGwsImNlbnRlciI6Wy05NSwzN10sImxvY2F0aW9uIjpudWxsLCJ6b29tIjo0fSwiYW5pbWF0aW5nIjp0cnVlLCJiYXNlIjoic3RhbmRhcmQiLCJhcnRjYyI6ZmFsc2UsImNvdW50eSI6ZmFsc2UsImN3YSI6ZmFsc2UsInJmYyI6ZmFsc2UsInN0YXRlIjpmYWxzZSwibWVudSI6dHJ1ZSwic2hvcnRGdXNlZE9ubHkiOmZhbHNlLCJvcGFjaXR5Ijp7ImFsZXJ0cyI6MC44LCJsb2NhbCI6MC42LCJsb2NhbFN0YXRpb25zIjowLjgsIm5hdGlvbmFsIjowLjZ9fQ%3D%3D",
+    "radar_url": "https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOiJ3ZWF0aGVyIiwiY2VudGVyIjpbLTg4Ljk3NiwzOC42MzldLCJsb2NhdGlvbiI6Wy04OC45NzYsMzguNjM5XSwiem9vbSI6OC41NTU1NTU1MjE2NDcxMzYsImxheWVyIjoiYnJlZl9xY2QifSwiYW5pbWF0aW5nIjp0cnVlLCJiYXNlIjoic3RhbmRhcmQiLCJhcnRjYyI6ZmFsc2UsImNvdW50eSI6ZmFsc2UsImN3YSI6ZmFsc2UsInJmYyI6ZmFsc2UsInN0YXRlIjpmYWxzZSwibWVudSI6dHJ1ZSwic2hvcnRGdXNlZE9ubHkiOmZhbHNlLCJvcGFjaXR5Ijp7ImFsZXJ0cyI6MC44LCJsb2NhbCI6MC42LCJsb2NhbFN0YXRpb25zIjowLjgsIm5hdGlvbmFsIjowLjZ9fQ%3D%3D",
     "announce_alerts": false,
     "auto_refresh_content": true,
-    "mute_audio": true,
+    "mute_audio": false,
+    "enable_sounds": true,
     "dark_mode_enabled": false,
-    "show_log": true,
+    "show_log": false,
     "show_alerts_area": true,
     "show_forecasts_area": true,
-    "log_sort_order": "chronological"
+    "log_sort_order": "descending"
 }
