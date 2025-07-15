@@ -1603,14 +1603,13 @@ class WeatherAlertApp(QMainWindow):
 
         self.thread_pool.start(worker)
 
-    @Slot(object, str)
     def _handle_location_change_success(self, result: Dict[str, Any], new_location_id: str):
         self.log_to_gui(f"Location successfully changed to {new_location_id}", level="INFO")
         self.current_location_id = new_location_id
         self._save_settings()
         self._on_location_data_loaded(result)
+        self._update_main_timer_state()
 
-    @Slot(Exception, str)
     def _handle_location_change_failure(self, error: Exception, old_location_id: str):
         self.log_to_gui(f"Failed to fetch data for new location: {error}", level="ERROR")
         QMessageBox.warning(self, "Location Error",
@@ -1620,6 +1619,7 @@ class WeatherAlertApp(QMainWindow):
         self.top_location_edit.setText(old_location_id)
         self.current_location_id = old_location_id
         self._update_location_data()
+        self._update_main_timer_state()
 
     @Slot(str)
     def _on_top_interval_changed(self, new_interval_key: str):
