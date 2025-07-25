@@ -35,7 +35,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-versionnumber = "25.07.15"
+versionnumber = "25.07.25"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -1575,7 +1575,6 @@ class WeatherAlertApp(QMainWindow):
     def _show_github_help(self):
         QDesktopServices.openUrl(QUrl(GITHUB_HELP_URL))
 
-    # --- Top Bar Editable Field Handlers ---
     @Slot()
     def _on_top_location_apply_clicked(self):
         new_location_id = self.top_location_edit.text().strip().upper()
@@ -1585,9 +1584,13 @@ class WeatherAlertApp(QMainWindow):
             self.top_location_edit.setText(self.current_location_id)
             return
 
+        # If the location is the same, treat it as a manual refresh request.
         if new_location_id == self.current_location_id:
+            self.log_to_gui(f"Manual refresh triggered for {self.current_location_id}.", level="INFO")
+            self._update_location_data()
             return
 
+        # Otherwise, proceed with changing the location.
         self.update_status(f"Fetching data for {new_location_id}...")
         self._clear_and_set_loading_states()
 

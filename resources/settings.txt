@@ -30,7 +30,7 @@
     "mute_audio": false,
     "enable_sounds": true,
     "dark_mode_enabled": false,
-    "show_log": true,
+    "show_log": false,
     "show_alerts_area": true,
     "show_forecasts_area": true,
     "log_sort_order": "descending"

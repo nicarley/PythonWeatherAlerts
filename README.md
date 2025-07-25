@@ -1,7 +1,7 @@
 # PyWeatherAlert - Weather Alert Monitor
 
-PyWeatherAlertGui is a Python desktop application built with PySide6 that monitors weather alerts from the National Weather Service (NWS) for a specified location (US zip code or airport ID). It provides visual and (optional) audio notifications for new alerts, displays current alerts, shows station forecasts, and allows users to view web-based weather radar or other web sources.
-There is a graphical user interface, and a simple python script that allows you to put your HAM or GMRS Call sign in and nearest NWS location ID (zip/airport) and it will trigger the alert system inside the app.
+PyWeatherAlertGui is a Python desktop application built with PySide6 that monitors weather alerts from the National Weather Service (NWS) for a specified location (US zip code). It provides visual and (optional) audio notifications for new alerts, displays current alerts, shows station forecasts, and allows users to view web-based weather radar or other web sources.
+There is a graphical user interface, and a simple python script that allows you to put your HAM or GMRS Call sign in and nearest NWS location ID (zip) and it will trigger the alert system inside the app.
 <a href="https://github.com/nicarley/PythonWeatherAlerts/blob/master/resources/pyweather.png?raw=true">
 <img src="https://github.com/nicarley/PythonWeatherAlerts/blob/master/resources/pyweather.png?raw=true" width="800px" />
 </a>
