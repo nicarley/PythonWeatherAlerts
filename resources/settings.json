@@ -1,0 +1,19 @@
+{
+    "repeater_info": "",
+    "location_id": "62881",
+    "interval_key": "15 Minutes",
+    "radar_options_dict": {
+        "N.W.S. Radar": "https://radar.weather.gov/",
+        "Windy.com": "https://www.windy.com/"
+    },
+    "radar_url": "https://radar.weather.gov/",
+    "announce_alerts": false,
+    "auto_refresh_content": false,
+    "mute_audio": false,
+    "enable_sounds": true,
+    "dark_mode_enabled": false,
+    "show_log": false,
+    "show_alerts_area": true,
+    "show_forecasts_area": true,
+    "log_sort_order": "chronological"
+}
