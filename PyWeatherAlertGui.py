@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
     QStatusBar, QCheckBox, QSplitter, QStyleFactory, QGroupBox, QDialog,
     QDialogButtonBox, QFormLayout, QListWidget, QListWidgetItem, QLayout,
     QSpacerItem, QSizePolicy, QFileDialog, QFrame, QMenu, QStyle, QTableWidget,
-    QTableWidgetItem, QHeaderView, QSystemTrayIcon
+    QTableWidgetItem, QHeaderView, QSystemTrayIcon, QTabWidget
 )
 from PySide6.QtCore import Qt, QTimer, Slot, QUrl, QFile, QTextStream, QObject, Signal, QRunnable, QThreadPool
 from PySide6.QtGui import (
@@ -35,12 +35,12 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-versionnumber = "25.07.25"
+versionnumber = "25.07.26"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
 FALLBACK_DEFAULT_INTERVAL_KEY = "15 Minutes"
-FALLBACK_DEFAULT_LOCATION_ID = "62881"
+FALLBACK_DEFAULT_LOCATIONS = [{"name": "Default", "id": "62881"}]
 FALLBACK_INITIAL_REPEATER_INFO = ""
 GITHUB_HELP_URL = "https://github.com/nicarley/PythonWeatherAlerts/wiki"
 
@@ -60,6 +60,7 @@ FALLBACK_DARK_MODE_ENABLED = False
 FALLBACK_LOG_SORT_ORDER = "chronological"
 FALLBACK_MUTE_AUDIO_CHECKED = False
 FALLBACK_ENABLE_SOUNDS = True
+FALLBACK_ENABLE_DESKTOP_NOTIFICATIONS = True
 
 CHECK_INTERVAL_OPTIONS = {
     "1 Minute": 1 * 60 * 1000, "5 Minutes": 5 * 60 * 1000,
@@ -74,6 +75,7 @@ WEATHER_URL_SUFFIX = "&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2
 
 SETTINGS_FILE_NAME = "settings.txt"
 RESOURCES_FOLDER_NAME = "resources"
+ICONS_FOLDER_NAME = "icons"
 LIGHT_STYLESHEET_FILE_NAME = "modern.qss"
 DARK_STYLESHEET_FILE_NAME = "dark_modern.qss"
 ALERT_HISTORY_FILE = "alert_history.dat"
@@ -328,6 +330,118 @@ class AboutDialog(QDialog):
         self.setLayout(layout)
 
 
+class AddEditLocationDialog(QDialog):
+    def __init__(self, parent: Optional[QWidget] = None, current_name: Optional[str] = None,
+                 current_id: Optional[str] = None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Location" if current_name else "Add New Location")
+        self.layout = QFormLayout(self)
+        self.name_edit = QLineEdit(self)
+        self.id_edit = QLineEdit(self)
+        self.id_edit.setPlaceholderText("e.g., 62881 or KSTL")
+        if current_name: self.name_edit.setText(current_name)
+        if current_id: self.id_edit.setText(current_id)
+        self.layout.addRow("Location Name:", self.name_edit)
+        self.layout.addRow("Zip/Airport ID:", self.id_edit)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+                                        Qt.Orientation.Horizontal, self)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        self.layout.addWidget(self.buttons)
+
+    def get_data(self) -> Optional[Tuple[str, str]]:
+        name = self.name_edit.text().strip()
+        location_id = self.id_edit.text().strip().upper()
+        if name and location_id:
+            return name, location_id
+        QMessageBox.warning(self, "Invalid Input", "Please provide a valid name and location ID.")
+        return None
+
+
+class ManageLocationsDialog(QDialog):
+    def __init__(self, locations: List[Dict[str, str]], parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.setWindowTitle("Manage Locations")
+        self.locations: List[Dict[str, str]] = locations
+        self.setMinimumWidth(400)
+
+        layout = QVBoxLayout(self)
+        self.list_widget = QListWidget()
+        for loc in self.locations:
+            self.list_widget.addItem(f"{loc['name']} ({loc['id']})")
+        layout.addWidget(self.list_widget)
+
+        button_layout = QHBoxLayout()
+        add_button = QPushButton("Add...")
+        add_button.clicked.connect(self.add_location)
+        edit_button = QPushButton("Edit...")
+        edit_button.clicked.connect(self.edit_location)
+        remove_button = QPushButton("Remove")
+        remove_button.clicked.connect(self.remove_location)
+
+        button_layout.addWidget(add_button)
+        button_layout.addWidget(edit_button)
+        button_layout.addWidget(remove_button)
+        button_layout.addStretch()
+        layout.addLayout(button_layout)
+
+        dialog_buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        dialog_buttons.accepted.connect(self.accept)
+        dialog_buttons.rejected.connect(self.reject)
+        layout.addWidget(dialog_buttons)
+
+    def add_location(self):
+        dialog = AddEditLocationDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            data = dialog.get_data()
+            if not data: return
+            name, loc_id = data
+            if any(loc['name'] == name for loc in self.locations):
+                QMessageBox.warning(self, "Duplicate Name", f"A location with the name '{name}' already exists.")
+                return
+            self.locations.append({"name": name, "id": loc_id})
+            self.list_widget.addItem(f"{name} ({loc_id})")
+
+    def edit_location(self):
+        selected_item = self.list_widget.currentItem()
+        if not selected_item:
+            return
+        current_row = self.list_widget.currentRow()
+        old_loc = self.locations[current_row]
+
+        dialog = AddEditLocationDialog(self, current_name=old_loc['name'], current_id=old_loc['id'])
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            data = dialog.get_data()
+            if not data: return
+            new_name, new_id = data
+
+            if new_name != old_loc['name'] and any(
+                    loc['name'] == new_name for i, loc in enumerate(self.locations) if i != current_row):
+                QMessageBox.warning(self, "Duplicate Name", f"A location with the name '{new_name}' already exists.")
+                return
+
+            self.locations[current_row] = {"name": new_name, "id": new_id}
+            selected_item.setText(f"{new_name} ({new_id})")
+
+    def remove_location(self):
+        current_row = self.list_widget.currentRow()
+        if current_row == -1:
+            return
+
+        if len(self.locations) <= 1:
+            QMessageBox.warning(self, "Cannot Remove", "You must have at least one location.")
+            return
+
+        loc_to_remove = self.locations[current_row]
+        reply = QMessageBox.question(self, "Confirm Removal", f"Are you sure you want to remove '{loc_to_remove['name']}'?")
+        if reply == QMessageBox.StandardButton.Yes:
+            self.locations.pop(current_row)
+            self.list_widget.takeItem(current_row)
+
+    def get_locations(self) -> List[Dict[str, str]]:
+        return self.locations
+
+
 class AddEditSourceDialog(QDialog):
     def __init__(self, parent: Optional[QWidget] = None, current_name: Optional[str] = None,
                  current_url: Optional[str] = None):
@@ -505,35 +619,34 @@ class SettingsDialog(QDialog):
         self.current_settings = current_settings if current_settings else {}
 
         main_layout = QVBoxLayout(self)
+        self.tabs = QTabWidget()
 
         # --- General Settings ---
-        general_group = QGroupBox("General")
-        form_layout = QFormLayout(general_group)
+        general_tab = QWidget()
+        form_layout = QFormLayout(general_tab)
 
         self.repeater_entry = QLineEdit(self.current_settings.get("repeater_info", FALLBACK_INITIAL_REPEATER_INFO))
         form_layout.addRow("Repeater Announcement:", self.repeater_entry)
-
-        self.location_id_entry = QLineEdit(self.current_settings.get("location_id", FALLBACK_DEFAULT_LOCATION_ID))
-        self.location_id_entry.setFixedWidth(150)
-        location_id_layout = QHBoxLayout()
-        location_id_layout.addWidget(self.location_id_entry)
-        airport_lookup_label = QLabel(
-            '<a href="https://www.iata.org/en/publications/directories/code-search/">Airport ID Lookup</a>')
-        airport_lookup_label.setOpenExternalLinks(True)
-        location_id_layout.addWidget(airport_lookup_label)
-        location_id_layout.addStretch()
-        form_layout.addRow("Location (US Zip/Airport ID):", location_id_layout)
 
         self.interval_combobox = QComboBox()
         self.interval_combobox.addItems(CHECK_INTERVAL_OPTIONS.keys())
         self.interval_combobox.setCurrentText(self.current_settings.get("interval_key", FALLBACK_DEFAULT_INTERVAL_KEY))
         form_layout.addRow("Check Interval:", self.interval_combobox)
 
-        main_layout.addWidget(general_group)
+        self.tabs.addTab(general_tab, "General")
+
+        # --- Locations Tab ---
+        locations_tab = QWidget()
+        locations_layout = QVBoxLayout(locations_tab)
+        self.manage_locations_button = QPushButton("Manage Locations...")
+        self.manage_locations_button.clicked.connect(self._open_manage_locations_dialog)
+        locations_layout.addWidget(self.manage_locations_button)
+        locations_layout.addStretch()
+        self.tabs.addTab(locations_tab, "Locations")
 
         # --- Behavior & Display Settings ---
-        behavior_group = QGroupBox("Behavior and Display")
-        behavior_form_layout = QFormLayout(behavior_group)
+        behavior_tab = QWidget()
+        behavior_form_layout = QFormLayout(behavior_tab)
 
         self.announce_alerts_check = QCheckBox("Announce Alerts and Start Timer")
         self.announce_alerts_check.setChecked(
@@ -552,6 +665,10 @@ class SettingsDialog(QDialog):
         self.notification_sound_check = QCheckBox("Enable Alert Sounds")
         self.notification_sound_check.setChecked(self.current_settings.get("enable_sounds", FALLBACK_ENABLE_SOUNDS))
         behavior_form_layout.addRow(self.notification_sound_check)
+        
+        self.desktop_notification_check = QCheckBox("Enable Desktop Notifications")
+        self.desktop_notification_check.setChecked(self.current_settings.get("enable_desktop_notifications", FALLBACK_ENABLE_DESKTOP_NOTIFICATIONS))
+        behavior_form_layout.addRow(self.desktop_notification_check)
 
         self.dark_mode_check = QCheckBox("Enable Dark Mode")
         self.dark_mode_check.setChecked(self.current_settings.get("dark_mode_enabled", FALLBACK_DARK_MODE_ENABLED))
@@ -583,8 +700,9 @@ class SettingsDialog(QDialog):
         self.log_sort_combo.setCurrentText(
             self.current_settings.get("log_sort_order", FALLBACK_LOG_SORT_ORDER).capitalize())
         behavior_form_layout.addRow("Initial Log Sort Order:", self.log_sort_combo)
+        self.tabs.addTab(behavior_tab, "Behavior & Display")
 
-        main_layout.addWidget(behavior_group)
+        main_layout.addWidget(self.tabs)
 
         # --- Dialog Buttons ---
         self.button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -592,15 +710,21 @@ class SettingsDialog(QDialog):
         self.button_box.rejected.connect(self.reject)
         main_layout.addWidget(self.button_box)
 
+    def _open_manage_locations_dialog(self):
+        dialog = ManageLocationsDialog(self.current_settings.get("locations", FALLBACK_DEFAULT_LOCATIONS), self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.current_settings["locations"] = dialog.get_locations()
+
     def get_settings_data(self) -> Dict[str, Any]:
         return {
             "repeater_info": self.repeater_entry.text(),
-            "location_id": self.location_id_entry.text().strip().upper(),
+            "locations": self.current_settings.get("locations", FALLBACK_DEFAULT_LOCATIONS),
             "interval_key": self.interval_combobox.currentText(),
             "announce_alerts": self.announce_alerts_check.isChecked(),
             "auto_refresh_content": self.auto_refresh_check.isChecked(),
             "mute_audio": self.mute_audio_check.isChecked(),
             "enable_sounds": self.notification_sound_check.isChecked(),
+            "enable_desktop_notifications": self.desktop_notification_check.isChecked(),
             "dark_mode_enabled": self.dark_mode_check.isChecked(),
             "show_log": self.show_log_check.isChecked(),
             "show_alerts_area": self.show_alerts_check.isChecked(),
@@ -632,7 +756,8 @@ class WeatherAlertApp(QMainWindow):
         self._last_valid_radar_text = FALLBACK_DEFAULT_RADAR_DISPLAY_NAME
         self.current_radar_url = FALLBACK_DEFAULT_RADAR_URL
         self.current_repeater_info = FALLBACK_INITIAL_REPEATER_INFO
-        self.current_location_id = FALLBACK_DEFAULT_LOCATION_ID
+        self.locations = FALLBACK_DEFAULT_LOCATIONS
+        self.current_location_id = self.locations[0]["id"]
         self.current_interval_key = FALLBACK_DEFAULT_INTERVAL_KEY
         self.current_announce_alerts_checked = FALLBACK_ANNOUNCE_ALERTS_CHECKED
         self.current_show_log_checked = FALLBACK_SHOW_LOG_CHECKED
@@ -643,6 +768,7 @@ class WeatherAlertApp(QMainWindow):
         self.current_log_sort_order = FALLBACK_LOG_SORT_ORDER
         self.current_mute_audio_checked = FALLBACK_MUTE_AUDIO_CHECKED
         self.current_enable_sounds = FALLBACK_ENABLE_SOUNDS
+        self.current_enable_desktop_notifications = FALLBACK_ENABLE_DESKTOP_NOTIFICATIONS
 
         self._load_settings()
         self._set_window_icon()
@@ -664,13 +790,19 @@ class WeatherAlertApp(QMainWindow):
         self._init_ui()
         self._apply_loaded_settings_to_ui()
 
-        self.log_to_gui(f"Monitoring Location: {self.current_location_id}", level="INFO")
-        self._update_location_data()  # Initial fetch for coords, alerts, and forecasts
+        self.log_to_gui(f"Monitoring Location: {self.get_current_location_name()}", level="INFO")
+        self._update_location_data(self.current_location_id)
         self._update_main_timer_state()
 
         # Start the clock timer
         self.clock_timer.start(1000)
         self._update_current_time_display()
+
+    def get_current_location_name(self):
+        for loc in self.locations:
+            if loc["id"] == self.current_location_id:
+                return loc["name"]
+        return "Unknown"
 
     def _set_window_icon(self):
         """Sets the application window icon, trying custom files first."""
@@ -693,6 +825,8 @@ class WeatherAlertApp(QMainWindow):
         base_path = os.path.dirname(os.path.abspath(__file__))
         resources_path = os.path.join(base_path, RESOURCES_FOLDER_NAME)
         os.makedirs(resources_path, exist_ok=True)
+        icons_path = os.path.join(resources_path, ICONS_FOLDER_NAME)
+        os.makedirs(icons_path, exist_ok=True)
         return resources_path
 
     def _load_settings(self):
@@ -702,7 +836,8 @@ class WeatherAlertApp(QMainWindow):
             return
 
         self.current_repeater_info = settings.get("repeater_info", FALLBACK_INITIAL_REPEATER_INFO)
-        self.current_location_id = settings.get("location_id", FALLBACK_DEFAULT_LOCATION_ID)
+        self.locations = settings.get("locations", FALLBACK_DEFAULT_LOCATIONS)
+        self.current_location_id = self.locations[0]["id"]
         self.current_interval_key = settings.get("check_interval_key", FALLBACK_DEFAULT_INTERVAL_KEY)
         self.RADAR_OPTIONS = settings.get("radar_options_dict", DEFAULT_RADAR_OPTIONS.copy())
         self.current_radar_url = settings.get("radar_url", FALLBACK_DEFAULT_RADAR_URL)
@@ -717,6 +852,7 @@ class WeatherAlertApp(QMainWindow):
         self.current_log_sort_order = settings.get("log_sort_order", FALLBACK_LOG_SORT_ORDER)
         self.current_mute_audio_checked = settings.get("mute_audio", FALLBACK_MUTE_AUDIO_CHECKED)
         self.current_enable_sounds = settings.get("enable_sounds", FALLBACK_ENABLE_SOUNDS)
+        self.current_enable_desktop_notifications = settings.get("enable_desktop_notifications", FALLBACK_ENABLE_DESKTOP_NOTIFICATIONS)
 
         self._last_valid_radar_text = self._get_display_name_for_url(self.current_radar_url) or \
                                       (list(self.RADAR_OPTIONS.keys())[0] if self.RADAR_OPTIONS else "")
@@ -724,7 +860,8 @@ class WeatherAlertApp(QMainWindow):
     def _apply_fallback_settings(self, reason_message: str):
         self.log_to_gui(reason_message, level="WARNING")
         self.current_repeater_info = FALLBACK_INITIAL_REPEATER_INFO
-        self.current_location_id = FALLBACK_DEFAULT_LOCATION_ID
+        self.locations = FALLBACK_DEFAULT_LOCATIONS
+        self.current_location_id = self.locations[0]["id"]
         self.current_interval_key = FALLBACK_DEFAULT_INTERVAL_KEY
         self.RADAR_OPTIONS = DEFAULT_RADAR_OPTIONS.copy()
         self.current_radar_url = FALLBACK_DEFAULT_RADAR_URL
@@ -738,12 +875,13 @@ class WeatherAlertApp(QMainWindow):
         self.current_log_sort_order = FALLBACK_LOG_SORT_ORDER
         self.current_mute_audio_checked = FALLBACK_MUTE_AUDIO_CHECKED
         self.current_enable_sounds = FALLBACK_ENABLE_SOUNDS
+        self.current_enable_desktop_notifications = FALLBACK_ENABLE_DESKTOP_NOTIFICATIONS
 
     @Slot()
     def _save_settings(self):
         settings = {
             "repeater_info": self.current_repeater_info,
-            "location_id": self.current_location_id,
+            "locations": self.locations,
             "check_interval_key": self.current_interval_key,
             "radar_options_dict": self.RADAR_OPTIONS,
             "radar_url": self.current_radar_url,
@@ -751,6 +889,7 @@ class WeatherAlertApp(QMainWindow):
             "auto_refresh_content": self.auto_refresh_action.isChecked(),
             "mute_audio": self.mute_action.isChecked(),
             "enable_sounds": self.enable_sounds_action.isChecked(),
+            "enable_desktop_notifications": self.desktop_notification_action.isChecked(),
             "dark_mode_enabled": self.dark_mode_action.isChecked(),
             "show_log": self.show_log_action.isChecked(),
             "show_alerts_area": self.show_alerts_area_action.isChecked(),
@@ -945,17 +1084,11 @@ class WeatherAlertApp(QMainWindow):
         location_icon_label.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon).pixmap(16, 16))
         top_status_layout.addWidget(location_icon_label)
 
-        self.top_location_edit = QLineEdit()
-        self.top_location_edit.setPlaceholderText("Zip/Airport ID")
-        self.top_location_edit.setFixedWidth(100)
-        self.top_location_edit.setToolTip("Enter US Zip Code or NWS Airport ID (e.g., KSTL)")
-        top_status_layout.addWidget(self.top_location_edit)
+        self.location_combo = QComboBox()
+        self.location_combo.setToolTip("Select a location to view")
+        self.location_combo.currentIndexChanged.connect(self._on_location_selected)
+        top_status_layout.addWidget(self.location_combo)
 
-        self.location_apply_button = QPushButton("Apply")
-        self.location_apply_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DialogApplyButton))
-        self.location_apply_button.setToolTip("Apply location change")
-        self.location_apply_button.clicked.connect(self._on_top_location_apply_clicked)
-        top_status_layout.addWidget(self.location_apply_button)
         top_status_layout.addSpacing(20)
 
         interval_icon_label = QLabel()
@@ -1053,6 +1186,9 @@ class WeatherAlertApp(QMainWindow):
         self.enable_sounds_action = QAction("Enable Alert Sounds", self, checkable=True)
         self.enable_sounds_action.toggled.connect(self._on_enable_sounds_toggled)
         actions_menu.addAction(self.enable_sounds_action)
+        self.desktop_notification_action = QAction("Enable Desktop Notifications", self, checkable=True)
+        self.desktop_notification_action.toggled.connect(self._on_desktop_notification_toggled)
+        actions_menu.addAction(self.desktop_notification_action)
         actions_menu.addSeparator()
         self.speak_reset_action = QAction("&Speak Repeater Info and Reset Timer", self)
         self.speak_reset_action.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
@@ -1070,14 +1206,20 @@ class WeatherAlertApp(QMainWindow):
         about_action.triggered.connect(self._show_about_dialog)
         help_menu.addAction(about_action)
 
-    def _update_location_data(self):
-        self.update_status(f"Fetching data for {self.current_location_id}...")
+    def _update_location_data(self, location_id):
+        self.update_status(f"Fetching data for {self.get_location_name_by_id(location_id)}...")
         self._clear_and_set_loading_states()
 
-        worker = Worker(self._fetch_all_data_for_location, self.current_location_id)
+        worker = Worker(self._fetch_all_data_for_location, location_id)
         worker.signals.result.connect(self._on_location_data_loaded)
         worker.signals.error.connect(self._on_data_load_error)
         self.thread_pool.start(worker)
+
+    def get_location_name_by_id(self, location_id):
+        for loc in self.locations:
+            if loc["id"] == location_id:
+                return loc["name"]
+        return "Unknown"
 
     def _fetch_all_data_for_location(self, location_id: str) -> Dict[str, Any]:
         coords = self.api_client.get_coordinates_for_location(location_id)
@@ -1104,6 +1246,7 @@ class WeatherAlertApp(QMainWindow):
                 raise ApiError(f"Failed to fetch daily forecast data from {forecast_urls['daily']}.")
 
         return {
+            "location_id": location_id,
             "coords": coords,
             "alerts": alerts,
             "hourly_forecast": hourly_forecast,
@@ -1116,16 +1259,17 @@ class WeatherAlertApp(QMainWindow):
         self.network_status_indicator.setStyleSheet("color: green; font-weight: bold;")
         self.current_coords = result["coords"]
         alerts = result["alerts"]
+        location_id = result["location_id"]
 
-        self.log_to_gui(f"Successfully fetched data for {self.current_location_id} at {self.current_coords}",
+        self.log_to_gui(f"Successfully fetched data for {self.get_location_name_by_id(location_id)} at {self.current_coords}",
                         level="INFO")
-        self._update_alerts_display_area(alerts)
+        self._update_alerts_display_area(alerts, location_id)
         self._update_hourly_forecast_display(result["hourly_forecast"])
         self._update_daily_forecast_display(result["daily_forecast"])
-        self.update_status(f"Data for {self.current_location_id} updated.")
+        self.update_status(f"Data for {self.get_location_name_by_id(location_id)} updated.")
 
         if self.announce_alerts_action.isChecked():
-            self._process_and_speak_alerts(alerts)
+            self._process_and_speak_alerts(alerts, location_id)
 
     @Slot(Exception)
     def _on_data_load_error(self, e: Exception):
@@ -1134,7 +1278,7 @@ class WeatherAlertApp(QMainWindow):
         self.log_to_gui(str(e), level="ERROR")
         self.update_status(f"Error: {e}")
         self.current_coords = None
-        self._update_alerts_display_area([])
+        self._update_alerts_display_area([], self.current_location_id)
         self._update_hourly_forecast_display(None)
         self._update_daily_forecast_display(None)
 
@@ -1146,10 +1290,10 @@ class WeatherAlertApp(QMainWindow):
         self._clear_layout(self.daily_forecast_layout)
         self.daily_forecast_layout.addWidget(QLabel("Loading..."), 0, 0)
 
-    def _update_alerts_display_area(self, alerts: List[Any]):
+    def _update_alerts_display_area(self, alerts: List[Any], location_id: str):
         self.alerts_display_area.clear()
         if not alerts:
-            self.alerts_display_area.addItem(f"No active alerts for {self.current_location_id}.")
+            self.alerts_display_area.addItem(f"No active alerts for {self.get_location_name_by_id(location_id)}.")
             return
 
         for alert in alerts:
@@ -1163,7 +1307,7 @@ class WeatherAlertApp(QMainWindow):
                 {
                     'time': time.strftime('%Y-%m-%d %H:%M'),
                     'type': title.split(' ')[0],
-                    'location': self.current_location_id,
+                    'location': self.get_location_name_by_id(location_id),
                     'summary': summary
                 }
             )
@@ -1172,6 +1316,8 @@ class WeatherAlertApp(QMainWindow):
             if is_new:
                 item.setBackground(QColor("#ffcccc"))  # Light red for new alerts
                 self._play_alert_sound(title.lower())
+                if self.desktop_notification_action.isChecked():
+                    self._show_desktop_notification(f"{self.get_location_name_by_id(location_id)}: {title}", summary)
 
             # Color coding by alert type
             title_lower = title.lower()
@@ -1192,6 +1338,45 @@ class WeatherAlertApp(QMainWindow):
         if 'warning' in alert_text or 'watch' in alert_text or 'advisory' in alert_text:
             QApplication.beep()
 
+    def _show_desktop_notification(self, title: str, message: str):
+        """Displays a desktop notification."""
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            self.tray_icon.showMessage(title, message, self.windowIcon(), 10000)
+
+    def _get_weather_icon(self, short_forecast: str) -> QPixmap:
+        """Returns a weather icon based on the short forecast string."""
+        icons_path = os.path.join(self._get_resources_path(), ICONS_FOLDER_NAME)
+        forecast_lower = short_forecast.lower()
+        
+        icon_map = {
+            "sunny": "sunny.png",
+            "clear": "sunny.png",
+            "mostly sunny": "sunny.png",
+            "partly sunny": "partly_cloudy.png",
+            "partly cloudy": "partly_cloudy.png",
+            "mostly cloudy": "cloudy.png",
+            "cloudy": "cloudy.png",
+            "showers": "rain.png",
+            "rain": "rain.png",
+            "thunderstorm": "thunderstorm.png",
+            "snow": "snow.png",
+            "fog": "fog.png",
+            "windy": "windy.png"
+        }
+
+        for keyword, icon_file in icon_map.items():
+            if keyword in forecast_lower:
+                icon_path = os.path.join(icons_path, icon_file)
+                if os.path.exists(icon_path):
+                    return QPixmap(icon_path)
+
+        # Fallback icon
+        fallback_icon_path = os.path.join(icons_path, "unknown.png")
+        if os.path.exists(fallback_icon_path):
+            return QPixmap(fallback_icon_path)
+            
+        return QPixmap()
+
     def _update_hourly_forecast_display(self, forecast_json: Optional[Dict[str, Any]]):
         self._clear_layout(self.hourly_forecast_layout)
         if not forecast_json or 'properties' not in forecast_json or 'periods' not in forecast_json['properties']:
@@ -1199,7 +1384,7 @@ class WeatherAlertApp(QMainWindow):
             return
 
         periods = forecast_json['properties']['periods'][:8]
-        headers = ["Time", "Temp", "Wind", "Precip", "Forecast"]
+        headers = ["Icon", "Time", "Temp", "Feels Like", "Wind", "Precip", "Forecast"]
         for col, header in enumerate(headers):
             self.hourly_forecast_layout.addWidget(QLabel(f"<b>{header}</b>"), 0, col)
 
@@ -1209,6 +1394,13 @@ class WeatherAlertApp(QMainWindow):
                 time_obj = time.strptime(start_time_str.split('T')[1].split('-')[0], "%H:%M:%S")
                 formatted_time = time.strftime("%I %p", time_obj).lstrip('0')
                 temp = f"{p.get('temperature', 'N/A')}°{p.get('temperatureUnit', '')}"
+                
+                # Get feels like temp
+                feels_like = p.get('apparentTemperature', {}).get('value')
+                if feels_like:
+                    feels_like = f"{round(feels_like * 9/5 + 32)}°F"
+                else:
+                    feels_like = "N/A"
 
                 # Enhanced wind display
                 wind_speed = p.get('windSpeed', 'N/A')
@@ -1220,12 +1412,16 @@ class WeatherAlertApp(QMainWindow):
                 precip = f"{precip}%" if precip != '0' else "-"
 
                 short_fc = p.get('shortForecast', 'N/A')
-
-                self.hourly_forecast_layout.addWidget(QLabel(formatted_time), i + 1, 0)
-                self.hourly_forecast_layout.addWidget(QLabel(temp), i + 1, 1)
-                self.hourly_forecast_layout.addWidget(QLabel(wind), i + 1, 2)
-                self.hourly_forecast_layout.addWidget(QLabel(precip), i + 1, 3)
-                self.hourly_forecast_layout.addWidget(QLabel(short_fc), i + 1, 4)
+                
+                icon_label = QLabel()
+                icon_label.setPixmap(self._get_weather_icon(short_fc).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self.hourly_forecast_layout.addWidget(icon_label, i + 1, 0)
+                self.hourly_forecast_layout.addWidget(QLabel(formatted_time), i + 1, 1)
+                self.hourly_forecast_layout.addWidget(QLabel(temp), i + 1, 2)
+                self.hourly_forecast_layout.addWidget(QLabel(feels_like), i + 1, 3)
+                self.hourly_forecast_layout.addWidget(QLabel(wind), i + 1, 4)
+                self.hourly_forecast_layout.addWidget(QLabel(precip), i + 1, 5)
+                self.hourly_forecast_layout.addWidget(QLabel(short_fc), i + 1, 6)
             except Exception as e:
                 self.log_to_gui(f"Error formatting hourly period: {e}", level="WARNING")
 
@@ -1236,7 +1432,7 @@ class WeatherAlertApp(QMainWindow):
             return
 
         periods = forecast_json['properties']['periods'][:10]
-        headers = ["Period", "Temp", "Forecast"]
+        headers = ["Icon", "Period", "Temp", "Forecast"]
         for col, header in enumerate(headers):
             self.daily_forecast_layout.addWidget(QLabel(f"<b>{header}</b>"), 0, col)
 
@@ -1245,10 +1441,20 @@ class WeatherAlertApp(QMainWindow):
                 name = p.get('name', 'N/A')
                 temp = f"{p.get('temperature', 'N/A')}°{p.get('temperatureUnit', '')}"
                 short_fc = p.get('shortForecast', 'N/A')
+                detailed_fc = p.get('detailedForecast', 'N/A')
 
-                self.daily_forecast_layout.addWidget(QLabel(name), i + 1, 0)
-                self.daily_forecast_layout.addWidget(QLabel(temp), i + 1, 1)
-                self.daily_forecast_layout.addWidget(QLabel(short_fc), i + 1, 2)
+                icon_label = QLabel()
+                icon_label.setPixmap(self._get_weather_icon(short_fc).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self.daily_forecast_layout.addWidget(icon_label, i + 1, 0)
+                
+                name_label = QLabel(name)
+                name_label.setToolTip(detailed_fc)
+                self.daily_forecast_layout.addWidget(name_label, i + 1, 1)
+                self.daily_forecast_layout.addWidget(QLabel(temp), i + 1, 2)
+                
+                short_fc_label = QLabel(short_fc)
+                short_fc_label.setToolTip(detailed_fc)
+                self.daily_forecast_layout.addWidget(short_fc_label, i + 1, 3)
             except Exception as e:
                 self.log_to_gui(f"Error formatting daily period: {e}", level="WARNING")
 
@@ -1262,12 +1468,13 @@ class WeatherAlertApp(QMainWindow):
     def _open_preferences_dialog(self):
         current_prefs = {
             "repeater_info": self.current_repeater_info,
-            "location_id": self.current_location_id,
+            "locations": self.locations,
             "interval_key": self.current_interval_key,
             "announce_alerts": self.announce_alerts_action.isChecked(),
             "auto_refresh_content": self.auto_refresh_action.isChecked(),
             "mute_audio": self.mute_action.isChecked(),
             "enable_sounds": self.enable_sounds_action.isChecked(),
+            "enable_desktop_notifications": self.desktop_notification_action.isChecked(),
             "dark_mode_enabled": self.dark_mode_action.isChecked(),
             "show_log": self.show_log_action.isChecked(),
             "show_alerts_area": self.show_alerts_area_action.isChecked(),
@@ -1280,20 +1487,20 @@ class WeatherAlertApp(QMainWindow):
         if dialog.exec() == QDialog.DialogCode.Accepted:
             new_data = dialog.get_settings_data()
 
-            location_changed = self.current_location_id != new_data["location_id"]
+            locations_changed = self.locations != new_data["locations"]
             interval_changed = self.current_interval_key != new_data["interval_key"]
 
             self.current_repeater_info = new_data["repeater_info"]
-            self.current_location_id = new_data["location_id"]
+            self.locations = new_data["locations"]
             self.current_interval_key = new_data["interval_key"]
 
-            self.top_location_edit.setText(self.current_location_id)
+            self._update_location_dropdown()
             self.top_interval_combo.setCurrentText(self.current_interval_key)
             self._update_top_status_bar_display()
 
-            if location_changed:
-                self.log_to_gui(f"Location ID changed to: {self.current_location_id}", level="INFO")
-                self._update_location_data()
+            if locations_changed:
+                self.log_to_gui(f"Locations updated.", level="INFO")
+                self._on_location_selected(self.location_combo.currentIndex())
 
             if interval_changed:
                 self.current_check_interval_ms = CHECK_INTERVAL_OPTIONS.get(
@@ -1311,6 +1518,9 @@ class WeatherAlertApp(QMainWindow):
 
             if self.enable_sounds_action.isChecked() != new_data["enable_sounds"]:
                 self.enable_sounds_action.setChecked(new_data["enable_sounds"])
+                
+            if self.desktop_notification_action.isChecked() != new_data["enable_desktop_notifications"]:
+                self.desktop_notification_action.setChecked(new_data["enable_desktop_notifications"])
 
             if self.dark_mode_action.isChecked() != new_data["dark_mode_enabled"]:
                 self.dark_mode_action.setChecked(new_data["dark_mode_enabled"])
@@ -1345,14 +1555,15 @@ class WeatherAlertApp(QMainWindow):
         if self.auto_refresh_action.isChecked() and QWebEngineView and self.web_view:
             self.web_view.reload()
 
-        self._update_location_data()
+        for loc in self.locations:
+            self._update_location_data(loc["id"])
 
         self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
         if self.current_check_interval_ms > 0:
             self.main_check_timer.start(self.current_check_interval_ms)
 
     @Slot(object)
-    def _process_and_speak_alerts(self, alerts: List[Any]):
+    def _process_and_speak_alerts(self, alerts: List[Any], location_id: str):
         new_alerts_found = False
         high_priority_keywords = ["tornado", "severe thunderstorm", "flash flood warning"]
 
@@ -1360,25 +1571,25 @@ class WeatherAlertApp(QMainWindow):
             if alert.id not in self.alert_history_manager.seen_alerts:
                 new_alerts_found = True
                 alert_title_lower = alert.title.lower()
-                self.log_to_gui(f"New Alert: {alert.title}", level="IMPORTANT")
+                self.log_to_gui(f"New Alert for {self.get_location_name_by_id(location_id)}: {alert.title}", level="IMPORTANT")
 
                 if any(keyword in alert_title_lower for keyword in high_priority_keywords):
                     self.log_to_gui("High-priority alert detected. Triggering extra notifications.", level="INFO")
                     QApplication.alert(self)
 
-                self._speak_weather_alert(alert.title, alert.summary)
+                self._speak_weather_alert(f"For {self.get_location_name_by_id(location_id)}, {alert.title}", alert.summary)
                 self.alert_history_manager.add_alert(
                     alert.id,
                     {
                         'time': time.strftime('%Y-%m-%d %H:%M'),
                         'type': alert.title.split(' ')[0],
-                        'location': self.current_location_id,
+                        'location': self.get_location_name_by_id(location_id),
                         'summary': alert.summary
                     }
                 )
 
         if not new_alerts_found and alerts:
-            self.log_to_gui(f"No new alerts. Total active: {len(alerts)}.", level="INFO")
+            self.log_to_gui(f"No new alerts for {self.get_location_name_by_id(location_id)}. Total active: {len(alerts)}.", level="INFO")
 
         self._speak_repeater_info()
 
@@ -1461,6 +1672,7 @@ class WeatherAlertApp(QMainWindow):
         self.auto_refresh_action.setChecked(self.current_auto_refresh_content_checked)
         self.mute_action.setChecked(self.current_mute_audio_checked)
         self.enable_sounds_action.setChecked(self.current_enable_sounds)
+        self.desktop_notification_action.setChecked(self.current_enable_desktop_notifications)
         self.dark_mode_action.setChecked(self.current_dark_mode_enabled)
         self.show_log_action.setChecked(self.current_show_log_checked)
         self.show_alerts_area_action.setChecked(self.current_show_alerts_area_checked)
@@ -1470,7 +1682,7 @@ class WeatherAlertApp(QMainWindow):
         self.alerts_group.setVisible(self.current_show_alerts_area_checked)
         self.combined_forecast_widget.setVisible(self.current_show_forecasts_area_checked)
 
-        self.top_location_edit.setText(self.current_location_id)
+        self._update_location_dropdown()
         self.top_interval_combo.setCurrentText(self.current_interval_key)
 
         self._update_top_status_bar_display()
@@ -1482,6 +1694,17 @@ class WeatherAlertApp(QMainWindow):
             self._load_web_view_url(self.current_radar_url)
 
         self.log_to_gui("Settings applied to UI.", level="INFO")
+
+    def _update_location_dropdown(self):
+        self.location_combo.blockSignals(True)
+        self.location_combo.clear()
+        for loc in self.locations:
+            self.location_combo.addItem(loc["name"], loc["id"])
+        
+        current_index = self.location_combo.findData(self.current_location_id)
+        if current_index != -1:
+            self.location_combo.setCurrentIndex(current_index)
+        self.location_combo.blockSignals(False)
 
     def _update_main_timer_state(self):
         is_active = self.announce_alerts_action.isChecked() or self.auto_refresh_action.isChecked()
@@ -1543,6 +1766,10 @@ class WeatherAlertApp(QMainWindow):
         self.current_enable_sounds = checked
         self._save_settings()
 
+    def _on_desktop_notification_toggled(self, checked):
+        self.current_enable_desktop_notifications = checked
+        self._save_settings()
+
     def _on_dark_mode_toggled(self, checked):
         self.current_dark_mode_enabled = checked
         self._apply_color_scheme()
@@ -1575,54 +1802,16 @@ class WeatherAlertApp(QMainWindow):
     def _show_github_help(self):
         QDesktopServices.openUrl(QUrl(GITHUB_HELP_URL))
 
-    @Slot()
-    def _on_top_location_apply_clicked(self):
-        new_location_id = self.top_location_edit.text().strip().upper()
-
-        if not new_location_id:
-            self.log_to_gui("Location ID cannot be empty.", level="WARNING")
-            self.top_location_edit.setText(self.current_location_id)
+    @Slot(int)
+    def _on_location_selected(self, index):
+        if index == -1:
             return
-
-        # If the location is the same, treat it as a manual refresh request.
-        if new_location_id == self.current_location_id:
-            self.log_to_gui(f"Manual refresh triggered for {self.current_location_id}.", level="INFO")
-            self._update_location_data()
-            return
-
-        # Otherwise, proceed with changing the location.
-        self.update_status(f"Fetching data for {new_location_id}...")
-        self._clear_and_set_loading_states()
-
-        old_location_id = self.current_location_id
-
-        worker = Worker(self._fetch_all_data_for_location, new_location_id)
-        worker.signals.result.connect(
-            lambda result: self._handle_location_change_success(result, new_location_id)
-        )
-        worker.signals.error.connect(
-            lambda error: self._handle_location_change_failure(error, old_location_id)
-        )
-
-        self.thread_pool.start(worker)
-
-    def _handle_location_change_success(self, result: Dict[str, Any], new_location_id: str):
-        self.log_to_gui(f"Location successfully changed to {new_location_id}", level="INFO")
-        self.current_location_id = new_location_id
-        self._save_settings()
-        self._on_location_data_loaded(result)
-        self._update_main_timer_state()
-
-    def _handle_location_change_failure(self, error: Exception, old_location_id: str):
-        self.log_to_gui(f"Failed to fetch data for new location: {error}", level="ERROR")
-        QMessageBox.warning(self, "Location Error",
-                            f"Could not fetch data for the new location.\n\n"
-                            f"Reverting to '{old_location_id}'.\n\nError: {error}")
-
-        self.top_location_edit.setText(old_location_id)
-        self.current_location_id = old_location_id
-        self._update_location_data()
-        self._update_main_timer_state()
+        location_id = self.location_combo.itemData(index)
+        if location_id != self.current_location_id:
+            self.current_location_id = location_id
+            self.log_to_gui(f"Selected location: {self.get_current_location_name()}", level="INFO")
+            self._update_location_data(self.current_location_id)
+            self._save_settings()
 
     @Slot(str)
     def _on_top_interval_changed(self, new_interval_key: str):
@@ -1854,7 +2043,7 @@ class WeatherAlertApp(QMainWindow):
                 QMessageBox.information(self, "Restore Successful", "Settings restored. Restarting application...")
                 self._load_settings()
                 self._apply_loaded_settings_to_ui()
-                self._update_location_data()
+                self._update_location_data(self.current_location_id)
             except (IOError, OSError, json.JSONDecodeError) as e:
                 self.log_to_gui(f"Error restoring settings: {e}", level="ERROR")
                 QMessageBox.critical(self, "Restore Error", f"Failed to restore settings:\n{e}")
