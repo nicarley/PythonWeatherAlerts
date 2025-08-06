@@ -1,3 +1,4 @@
+
 import sys
 import requests
 import feedparser
@@ -35,7 +36,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-versionnumber = "25.08.06"
+versionnumber = "25.08.07"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -918,6 +919,7 @@ class WeatherAlertApp(QMainWindow):
         # --- Main Content Area ---
         self.alerts_forecasts_container = QWidget()
         alerts_forecasts_layout = QHBoxLayout(self.alerts_forecasts_container)
+        alerts_forecasts_layout.setContentsMargins(0,0,0,0)
 
         # Alerts Group
         self.alerts_group = QGroupBox("Current Alerts")
@@ -982,17 +984,19 @@ class WeatherAlertApp(QMainWindow):
         combined_forecast_main_layout.addWidget(daily_forecast_sub_group, 1)
 
         alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2)
-        main_layout.addWidget(self.alerts_forecasts_container, 1)
+        
+        # --- Splitter for Main Content and Web View/Log ---
+        self.main_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.main_splitter.addWidget(self.alerts_forecasts_container)
 
-        # --- Splitter for Web View and Log ---
-        self.splitter = QSplitter(Qt.Orientation.Vertical)
         if QWebEngineView:
             self.web_view = QWebEngineView()
-            self.splitter.addWidget(self.web_view)
         else:
             self.web_view = QLabel("WebEngineView not available. Please install 'PySide6-WebEngine'.")
             self.web_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.splitter.addWidget(self.web_view)
+        
+        self.log_and_web_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.log_and_web_splitter.addWidget(self.web_view)
 
         log_widget = QWidget()
         log_layout = QVBoxLayout(log_widget)
@@ -1023,14 +1027,17 @@ class WeatherAlertApp(QMainWindow):
         self.log_area = QTextEdit()
         self.log_area.setReadOnly(True)
         log_layout.addWidget(self.log_area)
-        self.splitter.addWidget(log_widget)
+        self.log_and_web_splitter.addWidget(log_widget)
 
         if self._log_buffer:
-            self.log_area.append("\\n".join(self._log_buffer))
+            self.log_area.append("\n".join(self._log_buffer))
             self._log_buffer.clear()
 
-        self.splitter.setSizes([400, 200])
-        main_layout.addWidget(self.splitter, 3)
+        self.log_and_web_splitter.setSizes([600, 350])
+        self.main_splitter.addWidget(self.log_and_web_splitter)
+        self.main_splitter.setSizes([250, 600])
+
+        main_layout.addWidget(self.main_splitter)
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -1300,7 +1307,7 @@ class WeatherAlertApp(QMainWindow):
         for alert in alerts:
             title = alert.get('title', 'N/A Title')
             summary = alert.get('summary', 'No summary available.')
-            item = QListWidgetItem(f"{title}\\n\\n{summary}")
+            item = QListWidgetItem(f"{title}\n\n{summary}")
 
             # Track in history
             is_new = self.alert_history_manager.add_alert(
@@ -1675,9 +1682,19 @@ class WeatherAlertApp(QMainWindow):
         self.enable_sounds_action.setChecked(self.current_enable_sounds)
         self.desktop_notification_action.setChecked(self.current_enable_desktop_notifications)
         self.dark_mode_action.setChecked(self.current_dark_mode_enabled)
+        
+        # Block signals to prevent toggled slots from firing unnecessarily
+        self.show_log_action.blockSignals(True)
+        self.show_alerts_area_action.blockSignals(True)
+        self.show_forecasts_area_action.blockSignals(True)
+
         self.show_log_action.setChecked(self.current_show_log_checked)
         self.show_alerts_area_action.setChecked(self.current_show_alerts_area_checked)
         self.show_forecasts_area_action.setChecked(self.current_show_forecasts_area_checked)
+
+        self.show_log_action.blockSignals(False)
+        self.show_alerts_area_action.blockSignals(False)
+        self.show_forecasts_area_action.blockSignals(False)
 
         self._update_panel_visibility()
 
@@ -1741,13 +1758,8 @@ class WeatherAlertApp(QMainWindow):
         show_forecasts = self.show_forecasts_area_action.isChecked()
         show_log = self.show_log_action.isChecked()
 
-        self.alerts_group.setVisible(show_alerts)
-        self.combined_forecast_widget.setVisible(show_forecasts)
         self.alerts_forecasts_container.setVisible(show_alerts or show_forecasts)
-
-        # The log is inside the splitter, so we get its container widget.
-        log_widget_container = self.splitter.widget(1)
-        log_widget_container.setVisible(show_log)
+        self.log_and_web_splitter.widget(1).setVisible(show_log)
 
     # --- Action Handlers ---
     def _on_announce_alerts_toggled(self, checked):
@@ -1789,14 +1801,17 @@ class WeatherAlertApp(QMainWindow):
         self._save_settings()
 
     def _on_show_log_toggled(self, checked):
+        self.current_show_log_checked = checked
         self._update_panel_visibility()
         self._save_settings()
 
     def _on_show_alerts_toggled(self, checked):
+        self.current_show_alerts_area_checked = checked
         self._update_panel_visibility()
         self._save_settings()
 
     def _on_show_forecasts_toggled(self, checked):
+        self.current_show_forecasts_area_checked = checked
         self._update_panel_visibility()
         self._save_settings()
 
@@ -1998,7 +2013,7 @@ class WeatherAlertApp(QMainWindow):
         if not current_text:
             return
 
-        lines = current_text.split('\\n')
+        lines = current_text.split('\n')
         if self.current_log_sort_order == "chronological":
             pass
         elif self.current_log_sort_order == "ascending":
@@ -2007,7 +2022,7 @@ class WeatherAlertApp(QMainWindow):
             lines.sort(reverse=True)
 
         self.log_area.clear()
-        self.log_area.append('\\n'.join(lines))
+        self.log_area.append('\n'.join(lines))
 
     @Slot()
     def _sort_log_ascending(self):
@@ -2033,13 +2048,13 @@ class WeatherAlertApp(QMainWindow):
                 if os.path.exists(settings_file):
                     shutil.copy(settings_file, file_name)
                     self.log_to_gui(f"Settings backed up to {file_name}", level="INFO")
-                    QMessageBox.information(self, "Backup Successful", f"Settings backed up to:\\n{file_name}")
+                    QMessageBox.information(self, "Backup Successful", f"Settings backed up to:\n{file_name}")
                 else:
                     self.log_to_gui("No settings file found to backup.", level="WARNING")
                     QMessageBox.warning(self, "Backup Failed", "No settings file found to backup.")
             except (IOError, OSError) as e:
                 self.log_to_gui(f"Error backing up settings: {e}", level="ERROR")
-                QMessageBox.critical(self, "Backup Error", f"Failed to backup settings:\\n{e}")
+                QMessageBox.critical(self, "Backup Error", f"Failed to backup settings:\n{e}")
 
     def _restore_settings(self):
         file_name, _ = QFileDialog.getOpenFileName(
@@ -2059,33 +2074,45 @@ class WeatherAlertApp(QMainWindow):
                 self._update_location_data(self.current_location_id)
             except (IOError, OSError, json.JSONDecodeError) as e:
                 self.log_to_gui(f"Error restoring settings: {e}", level="ERROR")
-                QMessageBox.critical(self, "Restore Error", f"Failed to restore settings:\\n{e}")
+                QMessageBox.critical(self, "Restore Error", f"Failed to restore settings:\n{e}")
 
     def _filter_alerts(self):
         sender = self.sender()
         if sender == self.all_alerts_button:
             for i in range(self.alerts_display_area.count()):
                 self.alerts_display_area.item(i).setHidden(False)
+            self.warning_button.setChecked(False)
+            self.watch_button.setChecked(False)
+            self.advisory_button.setChecked(False)
             return
 
+        # Uncheck "All" if another filter is activated
         if sender.isChecked() and self.all_alerts_button.isChecked():
             self.all_alerts_button.setChecked(False)
 
-        show_warning = self.warning_button.isChecked() or self.all_alerts_button.isChecked()
-        show_watch = self.watch_button.isChecked() or self.all_alerts_button.isChecked()
-        show_advisory = self.advisory_button.isChecked() or self.all_alerts_button.isChecked()
+        # If all filters are unchecked, check "All"
+        if not self.warning_button.isChecked() and not self.watch_button.isChecked() and not self.advisory_button.isChecked():
+            self.all_alerts_button.setChecked(True)
+
+        show_all = self.all_alerts_button.isChecked()
+        show_warning = self.warning_button.isChecked()
+        show_watch = self.watch_button.isChecked()
+        show_advisory = self.advisory_button.isChecked()
 
         for i in range(self.alerts_display_area.count()):
             item = self.alerts_display_area.item(i)
             text = item.text().lower()
 
             show = False
-            if 'warning' in text and show_warning:
+            if show_all:
                 show = True
-            elif 'watch' in text and show_watch:
-                show = True
-            elif 'advisory' in text and show_advisory:
-                show = True
+            else:
+                if 'warning' in text and show_warning:
+                    show = True
+                elif 'watch' in text and show_watch:
+                    show = True
+                elif 'advisory' in text and show_advisory:
+                    show = True
 
             item.setHidden(not show)
 
