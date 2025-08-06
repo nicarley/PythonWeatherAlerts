@@ -9,6 +9,7 @@ import json
 import shutil
 import pandas
 import pgeocode
+import re
 from typing import Optional, Dict, Any, List, Tuple, Callable
 import pickle
 from collections import deque
@@ -25,7 +26,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer, Slot, QUrl, QFile, QTextStream, QObject, Signal, QRunnable, QThreadPool
 from PySide6.QtGui import (
     QTextCursor, QIcon, QColor, QDesktopServices, QPalette, QAction,
-    QActionGroup, QFont, QPixmap
+    QActionGroup, QFont, QPixmap, QFontDatabase
 )
 
 try:
@@ -35,7 +36,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-versionnumber = "25.08.09"
+versionnumber = "25.08.11"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -75,7 +76,6 @@ WEATHER_URL_SUFFIX = "&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2
 
 SETTINGS_FILE_NAME = "settings.txt"
 RESOURCES_FOLDER_NAME = "resources"
-ICONS_FOLDER_NAME = "icons"
 LIGHT_STYLESHEET_FILE_NAME = "modern.qss"
 DARK_STYLESHEET_FILE_NAME = "dark_modern.qss"
 ALERT_HISTORY_FILE = "alert_history.dat"
@@ -86,8 +86,9 @@ ADD_CURRENT_SOURCE_TEXT = "Add Current View as Source..."
 
 MAX_HISTORY_ITEMS = 100
 
+
 # --- Logging Configuration ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 IMPORTANT_LEVEL_NUM = logging.WARNING - 5
 logging.addLevelName(IMPORTANT_LEVEL_NUM, "IMPORTANT")
 
@@ -825,8 +826,6 @@ class WeatherAlertApp(QMainWindow):
         base_path = os.path.dirname(os.path.abspath(__file__))
         resources_path = os.path.join(base_path, RESOURCES_FOLDER_NAME)
         os.makedirs(resources_path, exist_ok=True)
-        icons_path = os.path.join(resources_path, ICONS_FOLDER_NAME)
-        os.makedirs(icons_path, exist_ok=True)
         return resources_path
 
     def _load_settings(self):
@@ -915,33 +914,24 @@ class WeatherAlertApp(QMainWindow):
         # --- Menu Bar ---
         self._create_menu_bar()
 
-        # --- Main Splitter --- 
-        self.main_splitter = QSplitter(Qt.Orientation.Vertical)
-        main_layout.addWidget(self.main_splitter)
-
-        # --- Top Container (Alerts & Forecasts) ---
+        # --- Main Content Area (Alerts & Forecasts) ---
         self.alerts_forecasts_container = QWidget()
         alerts_forecasts_layout = QHBoxLayout(self.alerts_forecasts_container)
         alerts_forecasts_layout.setContentsMargins(0,0,0,0)
+        main_layout.addWidget(self.alerts_forecasts_container, 1) # Stretch factor 1
 
         # Alerts Group
         self.alerts_group = QGroupBox("Current Alerts")
         alerts_layout = QVBoxLayout(self.alerts_group)
-
-        # Add filter buttons
         filter_layout = QHBoxLayout()
         self.all_alerts_button = QPushButton("All", checkable=True, checked=True)
         self.warning_button = QPushButton("Warnings", checkable=True)
         self.watch_button = QPushButton("Watches", checkable=True)
         self.advisory_button = QPushButton("Advisories", checkable=True)
-
-        for btn in [self.all_alerts_button, self.warning_button,
-                    self.watch_button, self.advisory_button]:
+        for btn in [self.all_alerts_button, self.warning_button, self.watch_button, self.advisory_button]:
             btn.clicked.connect(self._filter_alerts)
             filter_layout.addWidget(btn)
-
         alerts_layout.addLayout(filter_layout)
-
         self.alerts_display_area = QListWidget()
         self.alerts_display_area.setObjectName("AlertsDisplayArea")
         self.alerts_display_area.setWordWrap(True)
@@ -953,8 +943,6 @@ class WeatherAlertApp(QMainWindow):
         self.combined_forecast_widget = QGroupBox("Weather Forecast")
         combined_forecast_main_layout = QHBoxLayout(self.combined_forecast_widget)
         combined_forecast_main_layout.setContentsMargins(5, 5, 5, 5)
-
-        # Hourly Forecast Sub-Group
         hourly_forecast_sub_group = QGroupBox("8-Hour Forecast")
         hourly_forecast_sub_group_layout = QVBoxLayout(hourly_forecast_sub_group)
         hourly_forecast_sub_group_layout.setContentsMargins(5, 5, 5, 5)
@@ -962,15 +950,9 @@ class WeatherAlertApp(QMainWindow):
         self.hourly_forecast_layout = QGridLayout(self.hourly_forecast_widget)
         self.hourly_forecast_layout.setContentsMargins(5, 5, 5, 5)
         self.hourly_forecast_layout.setSpacing(5)
-
-        hourly_font = QFont()
-        hourly_font.setPointSize(9)
-        self.hourly_forecast_widget.setFont(hourly_font)
-
+        hourly_font = QFont(); hourly_font.setPointSize(9); self.hourly_forecast_widget.setFont(hourly_font)
         hourly_forecast_sub_group_layout.addWidget(self.hourly_forecast_widget)
         combined_forecast_main_layout.addWidget(hourly_forecast_sub_group, 1)
-
-        # Daily Forecast Sub-Group
         daily_forecast_sub_group = QGroupBox("5-Day Forecast")
         daily_forecast_sub_group_layout = QVBoxLayout(daily_forecast_sub_group)
         daily_forecast_sub_group_layout.setContentsMargins(5, 5, 5, 5)
@@ -978,19 +960,15 @@ class WeatherAlertApp(QMainWindow):
         self.daily_forecast_layout = QGridLayout(self.daily_forecast_widget)
         self.daily_forecast_layout.setContentsMargins(5, 5, 5, 5)
         self.daily_forecast_layout.setSpacing(5)
-
-        daily_font = QFont()
-        daily_font.setPointSize(9)
-        self.daily_forecast_widget.setFont(daily_font)
-
+        daily_font = QFont(); daily_font.setPointSize(9); self.daily_forecast_widget.setFont(daily_font)
         daily_forecast_sub_group_layout.addWidget(self.daily_forecast_widget)
         combined_forecast_main_layout.addWidget(daily_forecast_sub_group, 1)
-
         alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2)
-        self.main_splitter.addWidget(self.alerts_forecasts_container)
 
         # --- Bottom Splitter (Web View & Log) ---
         self.bottom_splitter = QSplitter(Qt.Orientation.Vertical)
+        main_layout.addWidget(self.bottom_splitter, 3) # Stretch factor 3
+
         if QWebEngineView:
             self.web_view = QWebEngineView()
             self.bottom_splitter.addWidget(self.web_view)
@@ -999,53 +977,32 @@ class WeatherAlertApp(QMainWindow):
             self.web_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.bottom_splitter.addWidget(self.web_view)
 
-        log_widget = QWidget()
-        log_layout = QVBoxLayout(log_widget)
+        self.log_widget = QWidget()
+        log_layout = QVBoxLayout(self.log_widget)
         log_layout.setContentsMargins(0, 0, 0, 0)
         log_toolbar = QHBoxLayout()
         log_toolbar.addWidget(QLabel("<b>Application Log</b>"))
         log_toolbar.addStretch()
-
         style = self.style()
-        sort_asc_button = QPushButton("Sort Asc")
-        sort_asc_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ArrowUp))
-        sort_asc_button.setToolTip("Sort log ascending (A-Z)")
-        sort_asc_button.clicked.connect(self._sort_log_ascending)
-        log_toolbar.addWidget(sort_asc_button)
-
-        sort_desc_button = QPushButton("Sort Desc")
-        sort_desc_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ArrowDown))
-        sort_desc_button.setToolTip("Sort log descending (Z-A)")
-        sort_desc_button.clicked.connect(self._sort_log_descending)
-        log_toolbar.addWidget(sort_desc_button)
-
-        clear_log_button = QPushButton("Clear Log")
-        clear_log_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DialogResetButton))
-        clear_log_button.clicked.connect(lambda: self.log_area.clear())
-        log_toolbar.addWidget(clear_log_button)
-
+        sort_asc_button = QPushButton("Sort Asc"); sort_asc_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ArrowUp)); sort_asc_button.setToolTip("Sort log ascending (A-Z)"); sort_asc_button.clicked.connect(self._sort_log_ascending); log_toolbar.addWidget(sort_asc_button)
+        sort_desc_button = QPushButton("Sort Desc"); sort_desc_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ArrowDown)); sort_desc_button.setToolTip("Sort log descending (Z-A)"); sort_desc_button.clicked.connect(self._sort_log_descending); log_toolbar.addWidget(sort_desc_button)
+        clear_log_button = QPushButton("Clear Log"); clear_log_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DialogResetButton)); clear_log_button.clicked.connect(lambda: self.log_area.clear()); log_toolbar.addWidget(clear_log_button)
         log_layout.addLayout(log_toolbar)
-        self.log_area = QTextEdit()
-        self.log_area.setReadOnly(True)
-        log_layout.addWidget(self.log_area)
-        self.bottom_splitter.addWidget(log_widget)
+        self.log_area = QTextEdit(); self.log_area.setReadOnly(True); log_layout.addWidget(self.log_area)
+        self.bottom_splitter.addWidget(self.log_widget)
 
         if self._log_buffer:
-            self.log_area.append("\n".join(self._log_buffer))
+            self.log_area.append("\\n".join(self._log_buffer))
             self._log_buffer.clear()
 
         self.bottom_splitter.setSizes([400, 200])
-        self.main_splitter.addWidget(self.bottom_splitter)
-        self.main_splitter.setSizes([250, 600])
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-
         self.network_status_indicator = QLabel("● Network OK")
         self.network_status_indicator.setStyleSheet("color: green; font-weight: bold;")
         self.status_bar.addPermanentWidget(self.network_status_indicator)
 
-        # Initialize system tray
         self._init_system_tray()
 
     def _init_system_tray(self):
@@ -1306,7 +1263,7 @@ class WeatherAlertApp(QMainWindow):
         for alert in alerts:
             title = alert.get('title', 'N/A Title')
             summary = alert.get('summary', 'No summary available.')
-            item = QListWidgetItem(f"{title}\n\n{summary}")
+            item = QListWidgetItem(f"{title}\\n\\n{summary}")
 
             # Track in history
             is_new = self.alert_history_manager.add_alert(
@@ -1350,40 +1307,6 @@ class WeatherAlertApp(QMainWindow):
         if QSystemTrayIcon.isSystemTrayAvailable():
             self.tray_icon.showMessage(title, message, self.windowIcon(), 10000)
 
-    def _get_weather_icon(self, short_forecast: str) -> QPixmap:
-        """Returns a weather icon based on the short forecast string."""
-        icons_path = os.path.join(self._get_resources_path(), ICONS_FOLDER_NAME)
-        forecast_lower = short_forecast.lower()
-        
-        icon_map = {
-            "sunny": "sunny.png",
-            "clear": "sunny.png",
-            "mostly sunny": "sunny.png",
-            "partly sunny": "partly_cloudy.png",
-            "partly cloudy": "partly_cloudy.png",
-            "mostly cloudy": "cloudy.png",
-            "cloudy": "cloudy.png",
-            "showers": "rain.png",
-            "rain": "rain.png",
-            "thunderstorm": "thunderstorm.png",
-            "snow": "snow.png",
-            "fog": "fog.png",
-            "windy": "windy.png"
-        }
-
-        for keyword, icon_file in icon_map.items():
-            if keyword in forecast_lower:
-                icon_path = os.path.join(icons_path, icon_file)
-                if os.path.exists(icon_path):
-                    return QPixmap(icon_path)
-
-        # Fallback icon
-        fallback_icon_path = os.path.join(icons_path, "unknown.png")
-        if os.path.exists(fallback_icon_path):
-            return QPixmap(fallback_icon_path)
-            
-        return QPixmap()
-
     def _update_hourly_forecast_display(self, forecast_json: Optional[Dict[str, Any]]):
         self._clear_layout(self.hourly_forecast_layout)
         if not forecast_json or 'properties' not in forecast_json or 'periods' not in forecast_json['properties']:
@@ -1391,7 +1314,7 @@ class WeatherAlertApp(QMainWindow):
             return
 
         periods = forecast_json['properties']['periods'][:8]
-        headers = ["Icon", "Time", "Temp", "Feels Like", "Wind", "Precip", "Forecast"]
+        headers = ["Time", "Temp", "Feels Like", "Wind", "Precip", "Forecast"]
         for col, header in enumerate(headers):
             self.hourly_forecast_layout.addWidget(QLabel(f"<b>{header}</b>"), 0, col)
 
@@ -1419,16 +1342,13 @@ class WeatherAlertApp(QMainWindow):
                 precip = f"{precip}%" if precip != '0' else "-"
 
                 short_fc = p.get('shortForecast', 'N/A')
-                
-                icon_label = QLabel()
-                icon_label.setPixmap(self._get_weather_icon(short_fc).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                self.hourly_forecast_layout.addWidget(icon_label, i + 1, 0)
-                self.hourly_forecast_layout.addWidget(QLabel(formatted_time), i + 1, 1)
-                self.hourly_forecast_layout.addWidget(QLabel(temp), i + 1, 2)
-                self.hourly_forecast_layout.addWidget(QLabel(feels_like), i + 1, 3)
-                self.hourly_forecast_layout.addWidget(QLabel(wind), i + 1, 4)
-                self.hourly_forecast_layout.addWidget(QLabel(precip), i + 1, 5)
-                self.hourly_forecast_layout.addWidget(QLabel(short_fc), i + 1, 6)
+
+                self.hourly_forecast_layout.addWidget(QLabel(formatted_time), i + 1, 0)
+                self.hourly_forecast_layout.addWidget(QLabel(temp), i + 1, 1)
+                self.hourly_forecast_layout.addWidget(QLabel(feels_like), i + 1, 2)
+                self.hourly_forecast_layout.addWidget(QLabel(wind), i + 1, 3)
+                self.hourly_forecast_layout.addWidget(QLabel(precip), i + 1, 4)
+                self.hourly_forecast_layout.addWidget(QLabel(short_fc), i + 1, 5)
             except Exception as e:
                 self.log_to_gui(f"Error formatting hourly period: {e}", level="WARNING")
 
@@ -1439,7 +1359,7 @@ class WeatherAlertApp(QMainWindow):
             return
 
         periods = forecast_json['properties']['periods'][:10]
-        headers = ["Icon", "Period", "Temp", "Forecast"]
+        headers = ["Period", "Temp", "Forecast"]
         for col, header in enumerate(headers):
             self.daily_forecast_layout.addWidget(QLabel(f"<b>{header}</b>"), 0, col)
 
@@ -1450,18 +1370,14 @@ class WeatherAlertApp(QMainWindow):
                 short_fc = p.get('shortForecast', 'N/A')
                 detailed_fc = p.get('detailedForecast', 'N/A')
 
-                icon_label = QLabel()
-                icon_label.setPixmap(self._get_weather_icon(short_fc).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-                self.daily_forecast_layout.addWidget(icon_label, i + 1, 0)
-                
                 name_label = QLabel(name)
                 name_label.setToolTip(detailed_fc)
-                self.daily_forecast_layout.addWidget(name_label, i + 1, 1)
-                self.daily_forecast_layout.addWidget(QLabel(temp), i + 1, 2)
+                self.daily_forecast_layout.addWidget(name_label, i + 1, 0)
+                self.daily_forecast_layout.addWidget(QLabel(temp), i + 1, 1)
                 
                 short_fc_label = QLabel(short_fc)
                 short_fc_label.setToolTip(detailed_fc)
-                self.daily_forecast_layout.addWidget(short_fc_label, i + 1, 3)
+                self.daily_forecast_layout.addWidget(short_fc_label, i + 1, 2)
             except Exception as e:
                 self.log_to_gui(f"Error formatting daily period: {e}", level="WARNING")
 
@@ -1589,7 +1505,7 @@ class WeatherAlertApp(QMainWindow):
                     alert.id,
                     {
                         'time': time.strftime('%Y-%m-%d %H:%M'),
-                        'type': alert.title.split(' ')[0],
+                        'type': title.split(' ')[0],
                         'location': self.get_location_name_by_id(location_id),
                         'summary': alert.summary
                     }
@@ -1757,8 +1673,10 @@ class WeatherAlertApp(QMainWindow):
         show_forecasts = self.show_forecasts_area_action.isChecked()
         show_log = self.show_log_action.isChecked()
 
+        self.alerts_group.setVisible(show_alerts)
+        self.combined_forecast_widget.setVisible(show_forecasts)
         self.alerts_forecasts_container.setVisible(show_alerts or show_forecasts)
-        self.bottom_splitter.widget(1).setVisible(show_log)
+        self.log_widget.setVisible(show_log)
 
     # --- Action Handlers ---
     def _on_announce_alerts_toggled(self, checked):
@@ -2012,7 +1930,7 @@ class WeatherAlertApp(QMainWindow):
         if not current_text:
             return
 
-        lines = current_text.split('\n')
+        lines = current_text.split('\\n')
         if self.current_log_sort_order == "chronological":
             pass
         elif self.current_log_sort_order == "ascending":
@@ -2021,7 +1939,7 @@ class WeatherAlertApp(QMainWindow):
             lines.sort(reverse=True)
 
         self.log_area.clear()
-        self.log_area.append('\n'.join(lines))
+        self.log_area.append('\\n'.join(lines))
 
     @Slot()
     def _sort_log_ascending(self):
@@ -2047,13 +1965,13 @@ class WeatherAlertApp(QMainWindow):
                 if os.path.exists(settings_file):
                     shutil.copy(settings_file, file_name)
                     self.log_to_gui(f"Settings backed up to {file_name}", level="INFO")
-                    QMessageBox.information(self, "Backup Successful", f"Settings backed up to:\n{file_name}")
+                    QMessageBox.information(self, "Backup Successful", f"Settings backed up to:\\n{file_name}")
                 else:
                     self.log_to_gui("No settings file found to backup.", level="WARNING")
                     QMessageBox.warning(self, "Backup Failed", "No settings file found to backup.")
             except (IOError, OSError) as e:
                 self.log_to_gui(f"Error backing up settings: {e}", level="ERROR")
-                QMessageBox.critical(self, "Backup Error", f"Failed to backup settings:\n{e}")
+                QMessageBox.critical(self, "Backup Error", f"Failed to backup settings:\\n{e}")
 
     def _restore_settings(self):
         file_name, _ = QFileDialog.getOpenFileName(
@@ -2073,7 +1991,7 @@ class WeatherAlertApp(QMainWindow):
                 self._update_location_data(self.current_location_id)
             except (IOError, OSError, json.JSONDecodeError) as e:
                 self.log_to_gui(f"Error restoring settings: {e}", level="ERROR")
-                QMessageBox.critical(self, "Restore Error", f"Failed to restore settings:\n{e}")
+                QMessageBox.critical(self, "Restore Error", f"Failed to restore settings:\\n{e}")
 
     def _filter_alerts(self):
         sender = self.sender()
