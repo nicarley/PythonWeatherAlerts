@@ -35,7 +35,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-versionnumber = "25.08.07"
+versionnumber = "25.08.09"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -915,7 +915,11 @@ class WeatherAlertApp(QMainWindow):
         # --- Menu Bar ---
         self._create_menu_bar()
 
-        # --- Main Content Area ---
+        # --- Main Splitter --- 
+        self.main_splitter = QSplitter(Qt.Orientation.Vertical)
+        main_layout.addWidget(self.main_splitter)
+
+        # --- Top Container (Alerts & Forecasts) ---
         self.alerts_forecasts_container = QWidget()
         alerts_forecasts_layout = QHBoxLayout(self.alerts_forecasts_container)
         alerts_forecasts_layout.setContentsMargins(0,0,0,0)
@@ -983,19 +987,17 @@ class WeatherAlertApp(QMainWindow):
         combined_forecast_main_layout.addWidget(daily_forecast_sub_group, 1)
 
         alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2)
-        
-        # --- Splitter for Main Content and Web View/Log ---
-        self.main_splitter = QSplitter(Qt.Orientation.Vertical)
         self.main_splitter.addWidget(self.alerts_forecasts_container)
 
+        # --- Bottom Splitter (Web View & Log) ---
+        self.bottom_splitter = QSplitter(Qt.Orientation.Vertical)
         if QWebEngineView:
             self.web_view = QWebEngineView()
+            self.bottom_splitter.addWidget(self.web_view)
         else:
             self.web_view = QLabel("WebEngineView not available. Please install 'PySide6-WebEngine'.")
             self.web_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        self.log_and_web_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.log_and_web_splitter.addWidget(self.web_view)
+            self.bottom_splitter.addWidget(self.web_view)
 
         log_widget = QWidget()
         log_layout = QVBoxLayout(log_widget)
@@ -1026,17 +1028,15 @@ class WeatherAlertApp(QMainWindow):
         self.log_area = QTextEdit()
         self.log_area.setReadOnly(True)
         log_layout.addWidget(self.log_area)
-        self.log_and_web_splitter.addWidget(log_widget)
+        self.bottom_splitter.addWidget(log_widget)
 
         if self._log_buffer:
             self.log_area.append("\n".join(self._log_buffer))
             self._log_buffer.clear()
 
-        self.log_and_web_splitter.setSizes([600, 350])
-        self.main_splitter.addWidget(self.log_and_web_splitter)
+        self.bottom_splitter.setSizes([400, 200])
+        self.main_splitter.addWidget(self.bottom_splitter)
         self.main_splitter.setSizes([250, 600])
-
-        main_layout.addWidget(self.main_splitter)
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -1682,7 +1682,7 @@ class WeatherAlertApp(QMainWindow):
         self.desktop_notification_action.setChecked(self.current_enable_desktop_notifications)
         self.dark_mode_action.setChecked(self.current_dark_mode_enabled)
         
-        # Block signals to prevent toggled slots from firing unnecessarily
+        # Block signals to prevent toggled slots from firing during setup
         self.show_log_action.blockSignals(True)
         self.show_alerts_area_action.blockSignals(True)
         self.show_forecasts_area_action.blockSignals(True)
@@ -1757,10 +1757,8 @@ class WeatherAlertApp(QMainWindow):
         show_forecasts = self.show_forecasts_area_action.isChecked()
         show_log = self.show_log_action.isChecked()
 
-        self.alerts_group.setVisible(show_alerts)
-        self.combined_forecast_widget.setVisible(show_forecasts)
         self.alerts_forecasts_container.setVisible(show_alerts or show_forecasts)
-        self.log_and_web_splitter.widget(1).setVisible(show_log)
+        self.bottom_splitter.widget(1).setVisible(show_log)
 
     # --- Action Handlers ---
     def _on_announce_alerts_toggled(self, checked):
@@ -2079,43 +2077,46 @@ class WeatherAlertApp(QMainWindow):
 
     def _filter_alerts(self):
         sender = self.sender()
-        if sender == self.all_alerts_button:
-            for i in range(self.alerts_display_area.count()):
-                self.alerts_display_area.item(i).setHidden(False)
+        
+        # Exclusive "All" button
+        if sender == self.all_alerts_button and self.all_alerts_button.isChecked():
             self.warning_button.setChecked(False)
             self.watch_button.setChecked(False)
             self.advisory_button.setChecked(False)
-            return
-
-        # Uncheck "All" if another filter is activated
-        if sender.isChecked() and self.all_alerts_button.isChecked():
+        # If another button is clicked, uncheck "All".
+        elif sender != self.all_alerts_button and self.all_alerts_button.isChecked():
             self.all_alerts_button.setChecked(False)
 
-        # If all filters are unchecked, check "All"
-        if not self.warning_button.isChecked() and not self.watch_button.isChecked() and not self.advisory_button.isChecked():
+        # If all specific filters are unchecked, re-check "All".
+        if not self.warning_button.isChecked() and \
+           not self.watch_button.isChecked() and \
+           not self.advisory_button.isChecked():
             self.all_alerts_button.setChecked(True)
 
         show_all = self.all_alerts_button.isChecked()
-        show_warning = self.warning_button.isChecked()
-        show_watch = self.watch_button.isChecked()
-        show_advisory = self.advisory_button.isChecked()
+        show_warnings = self.warning_button.isChecked()
+        show_watches = self.watch_button.isChecked()
+        show_advisories = self.advisory_button.isChecked()
 
         for i in range(self.alerts_display_area.count()):
             item = self.alerts_display_area.item(i)
             text = item.text().lower()
 
-            show = False
-            if show_all:
-                show = True
-            else:
-                if 'warning' in text and show_warning:
-                    show = True
-                elif 'watch' in text and show_watch:
-                    show = True
-                elif 'advisory' in text and show_advisory:
-                    show = True
+            # Logic to determine if the item should be visible
+            is_warning = 'warning' in text
+            is_watch = 'watch' in text
+            is_advisory = 'advisory' in text
+            
+            # Always show items that are not specific alert types (e.g., "No active alerts...")
+            is_generic_message = not (is_warning or is_watch or is_advisory)
 
-            item.setHidden(not show)
+            if show_all or is_generic_message:
+                item.setHidden(False)
+            else:
+                show = (is_warning and show_warnings) or \
+                       (is_watch and show_watches) or \
+                       (is_advisory and show_advisories)
+                item.setHidden(not show)
 
 
 # --- Application Entry Point ---
