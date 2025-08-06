@@ -1,4 +1,3 @@
-
 import sys
 import requests
 import feedparser
@@ -1758,6 +1757,8 @@ class WeatherAlertApp(QMainWindow):
         show_forecasts = self.show_forecasts_area_action.isChecked()
         show_log = self.show_log_action.isChecked()
 
+        self.alerts_group.setVisible(show_alerts)
+        self.combined_forecast_widget.setVisible(show_forecasts)
         self.alerts_forecasts_container.setVisible(show_alerts or show_forecasts)
         self.log_and_web_splitter.widget(1).setVisible(show_log)
 
