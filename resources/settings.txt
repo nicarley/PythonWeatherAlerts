@@ -2,11 +2,11 @@
     "repeater_info": "",
     "locations": [
         {
-            "name": "Salem",
+            "name": "Salem, IL",
             "id": "62881"
         },
         {
-            "name": "Tavernier, FL.",
+            "name": "Tavernier, Fl",
             "id": "33037"
         }
     ],

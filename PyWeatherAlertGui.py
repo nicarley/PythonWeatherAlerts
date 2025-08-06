@@ -35,7 +35,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-versionnumber = "25.07.26"
+versionnumber = "25.08.06"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -916,7 +916,8 @@ class WeatherAlertApp(QMainWindow):
         self._create_menu_bar()
 
         # --- Main Content Area ---
-        alerts_forecasts_layout = QHBoxLayout()
+        self.alerts_forecasts_container = QWidget()
+        alerts_forecasts_layout = QHBoxLayout(self.alerts_forecasts_container)
 
         # Alerts Group
         self.alerts_group = QGroupBox("Current Alerts")
@@ -981,7 +982,7 @@ class WeatherAlertApp(QMainWindow):
         combined_forecast_main_layout.addWidget(daily_forecast_sub_group, 1)
 
         alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2)
-        main_layout.addLayout(alerts_forecasts_layout, 1)
+        main_layout.addWidget(self.alerts_forecasts_container, 1)
 
         # --- Splitter for Web View and Log ---
         self.splitter = QSplitter(Qt.Orientation.Vertical)
@@ -1025,7 +1026,7 @@ class WeatherAlertApp(QMainWindow):
         self.splitter.addWidget(log_widget)
 
         if self._log_buffer:
-            self.log_area.append("\n".join(self._log_buffer))
+            self.log_area.append("\\n".join(self._log_buffer))
             self._log_buffer.clear()
 
         self.splitter.setSizes([400, 200])
@@ -1299,7 +1300,7 @@ class WeatherAlertApp(QMainWindow):
         for alert in alerts:
             title = alert.get('title', 'N/A Title')
             summary = alert.get('summary', 'No summary available.')
-            item = QListWidgetItem(f"{title}\n\n{summary}")
+            item = QListWidgetItem(f"{title}\\n\\n{summary}")
 
             # Track in history
             is_new = self.alert_history_manager.add_alert(
@@ -1678,9 +1679,7 @@ class WeatherAlertApp(QMainWindow):
         self.show_alerts_area_action.setChecked(self.current_show_alerts_area_checked)
         self.show_forecasts_area_action.setChecked(self.current_show_forecasts_area_checked)
 
-        self.splitter.widget(1).setVisible(self.current_show_log_checked)
-        self.alerts_group.setVisible(self.current_show_alerts_area_checked)
-        self.combined_forecast_widget.setVisible(self.current_show_forecasts_area_checked)
+        self._update_panel_visibility()
 
         self._update_location_dropdown()
         self.top_interval_combo.setCurrentText(self.current_interval_key)
@@ -1736,6 +1735,20 @@ class WeatherAlertApp(QMainWindow):
             minutes, seconds = divmod(self.remaining_time_seconds, 60)
             self.top_countdown_label.setText(f"Next Check: {minutes:02d}:{seconds:02d}")
 
+    def _update_panel_visibility(self):
+        """Centralized function to control visibility of main UI panels."""
+        show_alerts = self.show_alerts_area_action.isChecked()
+        show_forecasts = self.show_forecasts_area_action.isChecked()
+        show_log = self.show_log_action.isChecked()
+
+        self.alerts_group.setVisible(show_alerts)
+        self.combined_forecast_widget.setVisible(show_forecasts)
+        self.alerts_forecasts_container.setVisible(show_alerts or show_forecasts)
+
+        # The log is inside the splitter, so we get its container widget.
+        log_widget_container = self.splitter.widget(1)
+        log_widget_container.setVisible(show_log)
+
     # --- Action Handlers ---
     def _on_announce_alerts_toggled(self, checked):
         self.current_announce_alerts_checked = checked
@@ -1776,15 +1789,15 @@ class WeatherAlertApp(QMainWindow):
         self._save_settings()
 
     def _on_show_log_toggled(self, checked):
-        self.splitter.widget(1).setVisible(checked)
+        self._update_panel_visibility()
         self._save_settings()
 
     def _on_show_alerts_toggled(self, checked):
-        self.alerts_group.setVisible(checked)
+        self._update_panel_visibility()
         self._save_settings()
 
     def _on_show_forecasts_toggled(self, checked):
-        self.combined_forecast_widget.setVisible(checked)
+        self._update_panel_visibility()
         self._save_settings()
 
     def _on_speak_and_reset_button_press(self):
@@ -1985,7 +1998,7 @@ class WeatherAlertApp(QMainWindow):
         if not current_text:
             return
 
-        lines = current_text.split('\n')
+        lines = current_text.split('\\n')
         if self.current_log_sort_order == "chronological":
             pass
         elif self.current_log_sort_order == "ascending":
@@ -1994,7 +2007,7 @@ class WeatherAlertApp(QMainWindow):
             lines.sort(reverse=True)
 
         self.log_area.clear()
-        self.log_area.append('\n'.join(lines))
+        self.log_area.append('\\n'.join(lines))
 
     @Slot()
     def _sort_log_ascending(self):
@@ -2020,13 +2033,13 @@ class WeatherAlertApp(QMainWindow):
                 if os.path.exists(settings_file):
                     shutil.copy(settings_file, file_name)
                     self.log_to_gui(f"Settings backed up to {file_name}", level="INFO")
-                    QMessageBox.information(self, "Backup Successful", f"Settings backed up to:\n{file_name}")
+                    QMessageBox.information(self, "Backup Successful", f"Settings backed up to:\\n{file_name}")
                 else:
                     self.log_to_gui("No settings file found to backup.", level="WARNING")
                     QMessageBox.warning(self, "Backup Failed", "No settings file found to backup.")
             except (IOError, OSError) as e:
                 self.log_to_gui(f"Error backing up settings: {e}", level="ERROR")
-                QMessageBox.critical(self, "Backup Error", f"Failed to backup settings:\n{e}")
+                QMessageBox.critical(self, "Backup Error", f"Failed to backup settings:\\n{e}")
 
     def _restore_settings(self):
         file_name, _ = QFileDialog.getOpenFileName(
@@ -2046,7 +2059,7 @@ class WeatherAlertApp(QMainWindow):
                 self._update_location_data(self.current_location_id)
             except (IOError, OSError, json.JSONDecodeError) as e:
                 self.log_to_gui(f"Error restoring settings: {e}", level="ERROR")
-                QMessageBox.critical(self, "Restore Error", f"Failed to restore settings:\n{e}")
+                QMessageBox.critical(self, "Restore Error", f"Failed to restore settings:\\n{e}")
 
     def _filter_alerts(self):
         sender = self.sender()
