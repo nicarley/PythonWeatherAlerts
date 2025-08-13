@@ -36,7 +36,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-versionnumber = "25.08.11"
+versionnumber = "25.08.13"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -384,6 +384,14 @@ class ManageLocationsDialog(QDialog):
         button_layout.addWidget(edit_button)
         button_layout.addWidget(remove_button)
         button_layout.addStretch()
+
+        move_up_button = QPushButton("Move Up")
+        move_up_button.clicked.connect(self.move_up_location)
+        move_down_button = QPushButton("Move Down")
+        move_down_button.clicked.connect(self.move_down_location)
+
+        button_layout.addWidget(move_up_button)
+        button_layout.addWidget(move_down_button)
         layout.addLayout(button_layout)
 
         dialog_buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -438,6 +446,20 @@ class ManageLocationsDialog(QDialog):
         if reply == QMessageBox.StandardButton.Yes:
             self.locations.pop(current_row)
             self.list_widget.takeItem(current_row)
+
+    def move_up_location(self):
+        current_row = self.list_widget.currentRow()
+        if current_row > 0:
+            self.locations.insert(current_row - 1, self.locations.pop(current_row))
+            self.list_widget.insertItem(current_row - 1, self.list_widget.takeItem(current_row))
+            self.list_widget.setCurrentRow(current_row - 1)
+
+    def move_down_location(self):
+        current_row = self.list_widget.currentRow()
+        if current_row < len(self.locations) - 1:
+            self.locations.insert(current_row + 1, self.locations.pop(current_row))
+            self.list_widget.insertItem(current_row + 1, self.list_widget.takeItem(current_row))
+            self.list_widget.setCurrentRow(current_row + 1)
 
     def get_locations(self) -> List[Dict[str, str]]:
         return self.locations

@@ -6,6 +6,30 @@
             "id": "62881"
         },
         {
+            "name": "Chicago, IL",
+            "id": "60007"
+        },
+        {
+            "name": "Folly Beach, Sc",
+            "id": "29412"
+        },
+        {
+            "name": "Maui, Hi",
+            "id": "96761"
+        },
+        {
+            "name": "Mesa, Az",
+            "id": "85201"
+        },
+        {
+            "name": "Moultrie, Ga",
+            "id": "31768"
+        },
+        {
+            "name": "Seoul, SK",
+            "id": "01000"
+        },
+        {
             "name": "Tavernier, Fl",
             "id": "33037"
         }
