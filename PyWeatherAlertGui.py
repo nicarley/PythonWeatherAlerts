@@ -36,7 +36,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-versionnumber = "25.08.13"
+versionnumber = "25.08.14"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -617,13 +617,63 @@ class ManageSourcesDialog(QDialog):
         return dict(self.sources_list)
 
 
+class AlertDetailsDialog(QDialog):
+    def __init__(self, alert_data: Dict[str, str], parent: Optional[QWidget] = None):
+        super().__init__(parent)
+        self.setWindowTitle("Alert Details")
+        self.setMinimumWidth(500)
+
+        layout = QVBoxLayout(self)
+
+        title_label = QLabel(f"<b>{alert_data.get('title', 'N/A')}</b>")
+        title_label.setWordWrap(True)
+        layout.addWidget(title_label)
+
+        layout.addSpacing(10)
+
+        form_layout = QFormLayout()
+        form_layout.addRow("Time:", QLabel(alert_data.get('time', 'N/A')))
+        form_layout.addRow("Location:", QLabel(alert_data.get('location', 'N/A')))
+        form_layout.addRow("Type:", QLabel(alert_data.get('type', 'N/A')))
+        layout.addLayout(form_layout)
+
+        layout.addSpacing(10)
+
+        summary_group = QGroupBox("Summary")
+        summary_layout = QVBoxLayout(summary_group)
+        summary_text = QTextEdit()
+        summary_text.setReadOnly(True)
+        summary_text.setText(alert_data.get('summary', 'No summary available.'))
+        summary_layout.addWidget(summary_text)
+        layout.addWidget(summary_group)
+        
+        layout.addSpacing(10)
+
+        link_label = QLabel()
+        link = alert_data.get('link')
+        if link:
+            link_label.setText(f'<a href="{link}">Open original alert in browser</a>')
+            link_label.setOpenExternalLinks(True)
+        else:
+            link_label.setText("No web link available.")
+        link_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(link_label)
+
+
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
+        button_box.accepted.connect(self.accept)
+        layout.addWidget(button_box, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        self.setLayout(layout)
+
+
 class AlertHistoryDialog(QDialog):
-    def __init__(self, history_data: List[dict], alert_manager: 'AlertHistoryManager', parent: Optional[QWidget] = None):
+    def __init__(self, alert_manager: 'AlertHistoryManager', parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle("Alert History")
         self.setMinimumSize(700, 450)
-        self.history_data = history_data
         self.alert_manager = alert_manager
+        history_data = self.alert_manager.get_recent_alerts(MAX_HISTORY_ITEMS)
 
         layout = QVBoxLayout(self)
         self.table = QTableWidget()
@@ -634,8 +684,15 @@ class AlertHistoryDialog(QDialog):
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
 
-        for alert in self.history_data:
-            self._add_alert_to_table(alert)
+        for alert in history_data:
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+            time_item = QTableWidgetItem(alert.get('time', ''))
+            time_item.setData(Qt.ItemDataRole.UserRole, alert)
+            self.table.setItem(row, 0, time_item)
+            self.table.setItem(row, 1, QTableWidgetItem(alert.get('type', '')))
+            self.table.setItem(row, 2, QTableWidgetItem(alert.get('location', '')))
+            self.table.setItem(row, 3, QTableWidgetItem(alert.get('summary', '')))
 
         button_layout = QHBoxLayout()
         read_more_button = QPushButton("Read More...")
@@ -643,7 +700,15 @@ class AlertHistoryDialog(QDialog):
         delete_button = QPushButton("Delete")
         delete_button.clicked.connect(self._delete_alert)
         clear_button = QPushButton("Clear All History")
-        clear_button.clicked.connect(self._clear_history)
+        
+        def clear_history_action():
+            reply = QMessageBox.question(self, "Confirm Clear", "Are you sure you want to clear the entire alert history? This cannot be undone.")
+            if reply == QMessageBox.StandardButton.Yes:
+                self.alert_manager.clear_history()
+                self.table.setRowCount(0)
+                logging.info("Cleared all alert history.")
+        
+        clear_button.clicked.connect(clear_history_action)
 
         button_layout.addWidget(read_more_button)
         button_layout.addWidget(delete_button)
@@ -654,29 +719,18 @@ class AlertHistoryDialog(QDialog):
         layout.addLayout(button_layout)
         self.setLayout(layout)
 
-    def _add_alert_to_table(self, alert: dict):
-        row = self.table.rowCount()
-        self.table.insertRow(row)
-        
-        time_item = QTableWidgetItem(alert.get('time', ''))
-        time_item.setData(Qt.ItemDataRole.UserRole, alert)
-
-        self.table.setItem(row, 0, time_item)
-        self.table.setItem(row, 1, QTableWidgetItem(alert.get('type', '')))
-        self.table.setItem(row, 2, QTableWidgetItem(alert.get('location', '')))
-        self.table.setItem(row, 3, QTableWidgetItem(alert.get('summary', '')))
-
     def _read_more(self):
         selected_items = self.table.selectedItems()
         if not selected_items:
             QMessageBox.information(self, "No Selection", "Please select an alert to read more.")
             return
         
-        alert_data = selected_items[0].data(Qt.ItemDataRole.UserRole)
-        if alert_data and 'link' in alert_data:
-            QDesktopServices.openUrl(QUrl(alert_data['link']))
+        alert_data = self.table.item(self.table.currentRow(), 0).data(Qt.ItemDataRole.UserRole)
+        if alert_data:
+            dialog = AlertDetailsDialog(alert_data, self)
+            dialog.exec()
         else:
-            QMessageBox.warning(self, "No Link", "No web link is available for this alert.")
+            QMessageBox.warning(self, "Error", "Could not retrieve alert details.")
 
     def _delete_alert(self):
         selected_items = self.table.selectedItems()
@@ -697,13 +751,6 @@ class AlertHistoryDialog(QDialog):
             self.alert_manager.remove_alert(alert_id)
             self.table.removeRow(current_row)
             logging.info(f"Deleted alert {alert_id} from history.")
-
-    def _clear_history(self):
-        reply = QMessageBox.question(self, "Confirm Clear", "Are you sure you want to clear the entire alert history? This cannot be undone.")
-        if reply == QMessageBox.StandardButton.Yes:
-            self.alert_manager.clear_history()
-            self.table.setRowCount(0)
-            logging.info("Cleared all alert history.")
 
 
 class SettingsDialog(QDialog):
@@ -1839,8 +1886,7 @@ class WeatherAlertApp(QMainWindow):
         AboutDialog(self).exec()
 
     def _show_alert_history(self):
-        history_data = self.alert_history_manager.get_recent_alerts(MAX_HISTORY_ITEMS)
-        dialog = AlertHistoryDialog(history_data, self.alert_history_manager, self)
+        dialog = AlertHistoryDialog(self.alert_history_manager, self)
         dialog.exec()
 
     def _show_github_help(self):
