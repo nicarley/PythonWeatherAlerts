@@ -144,8 +144,25 @@ class AlertHistoryManager:
             return True
         return False
 
-    def get_recent_alerts(self, count=5) -> list:
+    def remove_alert(self, alert_id: str):
+        """Removes an alert from the history."""
+        if alert_id in self.seen_alerts:
+            self.seen_alerts.remove(alert_id)
+        
+        self.alert_history = deque(
+            [alert for alert in self.alert_history if alert.get('id') != alert_id],
+            maxlen=MAX_HISTORY_ITEMS
+        )
+        self.save_history()
+
+    def get_recent_alerts(self, count=MAX_HISTORY_ITEMS) -> list:
         return list(self.alert_history)[:count]
+
+    def clear_history(self):
+        """Clears all alert history."""
+        self.seen_alerts.clear()
+        self.alert_history.clear()
+        self.save_history()
 
 
 class Worker(QRunnable):
@@ -601,38 +618,92 @@ class ManageSourcesDialog(QDialog):
 
 
 class AlertHistoryDialog(QDialog):
-    def __init__(self, history_data: List[dict], parent: Optional[QWidget] = None):
+    def __init__(self, history_data: List[dict], alert_manager: 'AlertHistoryManager', parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle("Alert History")
-        self.setMinimumSize(600, 400)
+        self.setMinimumSize(700, 450)
+        self.history_data = history_data
+        self.alert_manager = alert_manager
 
-        layout = QVBoxLayout()
+        layout = QVBoxLayout(self)
         self.table = QTableWidget()
         self.table.setColumnCount(4)
         self.table.setHorizontalHeaderLabels(["Time", "Type", "Location", "Summary"])
         self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
 
-        for alert in history_data:
+        for alert in self.history_data:
             self._add_alert_to_table(alert)
 
-        clear_button = QPushButton("Clear History")
+        button_layout = QHBoxLayout()
+        read_more_button = QPushButton("Read More...")
+        read_more_button.clicked.connect(self._read_more)
+        delete_button = QPushButton("Delete")
+        delete_button.clicked.connect(self._delete_alert)
+        clear_button = QPushButton("Clear All History")
         clear_button.clicked.connect(self._clear_history)
 
+        button_layout.addWidget(read_more_button)
+        button_layout.addWidget(delete_button)
+        button_layout.addStretch()
+        button_layout.addWidget(clear_button)
+
         layout.addWidget(self.table)
-        layout.addWidget(clear_button)
+        layout.addLayout(button_layout)
         self.setLayout(layout)
 
     def _add_alert_to_table(self, alert: dict):
         row = self.table.rowCount()
         self.table.insertRow(row)
-        self.table.setItem(row, 0, QTableWidgetItem(alert.get('time', '')))
+        
+        time_item = QTableWidgetItem(alert.get('time', ''))
+        time_item.setData(Qt.ItemDataRole.UserRole, alert)
+
+        self.table.setItem(row, 0, time_item)
         self.table.setItem(row, 1, QTableWidgetItem(alert.get('type', '')))
         self.table.setItem(row, 2, QTableWidgetItem(alert.get('location', '')))
         self.table.setItem(row, 3, QTableWidgetItem(alert.get('summary', '')))
 
+    def _read_more(self):
+        selected_items = self.table.selectedItems()
+        if not selected_items:
+            QMessageBox.information(self, "No Selection", "Please select an alert to read more.")
+            return
+        
+        alert_data = selected_items[0].data(Qt.ItemDataRole.UserRole)
+        if alert_data and 'link' in alert_data:
+            QDesktopServices.openUrl(QUrl(alert_data['link']))
+        else:
+            QMessageBox.warning(self, "No Link", "No web link is available for this alert.")
+
+    def _delete_alert(self):
+        selected_items = self.table.selectedItems()
+        if not selected_items:
+            QMessageBox.information(self, "No Selection", "Please select an alert to delete.")
+            return
+
+        current_row = self.table.row(selected_items[0])
+        alert_data = self.table.item(current_row, 0).data(Qt.ItemDataRole.UserRole)
+        alert_id = alert_data.get('id')
+
+        if not alert_id:
+            QMessageBox.warning(self, "Error", "Could not identify the alert to delete.")
+            return
+
+        reply = QMessageBox.question(self, "Confirm Deletion", f"Are you sure you want to delete this alert from the history?\n\n- {alert_data.get('title', 'N/A')}")
+        if reply == QMessageBox.StandardButton.Yes:
+            self.alert_manager.remove_alert(alert_id)
+            self.table.removeRow(current_row)
+            logging.info(f"Deleted alert {alert_id} from history.")
+
     def _clear_history(self):
-        self.table.setRowCount(0)
+        reply = QMessageBox.question(self, "Confirm Clear", "Are you sure you want to clear the entire alert history? This cannot be undone.")
+        if reply == QMessageBox.StandardButton.Yes:
+            self.alert_manager.clear_history()
+            self.table.setRowCount(0)
+            logging.info("Cleared all alert history.")
 
 
 class SettingsDialog(QDialog):
@@ -1014,7 +1085,7 @@ class WeatherAlertApp(QMainWindow):
         self.bottom_splitter.addWidget(self.log_widget)
 
         if self._log_buffer:
-            self.log_area.append("\\n".join(self._log_buffer))
+            self.log_area.append("\n".join(self._log_buffer))
             self._log_buffer.clear()
 
         self.bottom_splitter.setSizes([400, 200])
@@ -1285,16 +1356,19 @@ class WeatherAlertApp(QMainWindow):
         for alert in alerts:
             title = alert.get('title', 'N/A Title')
             summary = alert.get('summary', 'No summary available.')
-            item = QListWidgetItem(f"{title}\\n\\n{summary}")
+            item = QListWidgetItem(f"{title}\n\n{summary}")
 
             # Track in history
             is_new = self.alert_history_manager.add_alert(
                 alert.id,
                 {
+                    'id': alert.id,
+                    'link': alert.link,
                     'time': time.strftime('%Y-%m-%d %H:%M'),
                     'type': title.split(' ')[0],
                     'location': self.get_location_name_by_id(location_id),
-                    'summary': summary
+                    'summary': summary,
+                    'title': title
                 }
             )
 
@@ -1526,10 +1600,13 @@ class WeatherAlertApp(QMainWindow):
                 self.alert_history_manager.add_alert(
                     alert.id,
                     {
+                        'id': alert.id,
+                        'link': alert.link,
                         'time': time.strftime('%Y-%m-%d %H:%M'),
-                        'type': title.split(' ')[0],
+                        'type': alert.title.split(' ')[0],
                         'location': self.get_location_name_by_id(location_id),
-                        'summary': alert.summary
+                        'summary': alert.summary,
+                        'title': alert.title
                     }
                 )
 
@@ -1762,8 +1839,8 @@ class WeatherAlertApp(QMainWindow):
         AboutDialog(self).exec()
 
     def _show_alert_history(self):
-        history_data = self.alert_history_manager.get_recent_alerts(20)
-        dialog = AlertHistoryDialog(history_data, self)
+        history_data = self.alert_history_manager.get_recent_alerts(MAX_HISTORY_ITEMS)
+        dialog = AlertHistoryDialog(history_data, self.alert_history_manager, self)
         dialog.exec()
 
     def _show_github_help(self):
@@ -1952,7 +2029,7 @@ class WeatherAlertApp(QMainWindow):
         if not current_text:
             return
 
-        lines = current_text.split('\\n')
+        lines = current_text.split('\n')
         if self.current_log_sort_order == "chronological":
             pass
         elif self.current_log_sort_order == "ascending":
@@ -1961,7 +2038,7 @@ class WeatherAlertApp(QMainWindow):
             lines.sort(reverse=True)
 
         self.log_area.clear()
-        self.log_area.append('\\n'.join(lines))
+        self.log_area.append('\n'.join(lines))
 
     @Slot()
     def _sort_log_ascending(self):
@@ -1987,13 +2064,13 @@ class WeatherAlertApp(QMainWindow):
                 if os.path.exists(settings_file):
                     shutil.copy(settings_file, file_name)
                     self.log_to_gui(f"Settings backed up to {file_name}", level="INFO")
-                    QMessageBox.information(self, "Backup Successful", f"Settings backed up to:\\n{file_name}")
+                    QMessageBox.information(self, "Backup Successful", f"Settings backed up to:\n{file_name}")
                 else:
                     self.log_to_gui("No settings file found to backup.", level="WARNING")
                     QMessageBox.warning(self, "Backup Failed", "No settings file found to backup.")
             except (IOError, OSError) as e:
                 self.log_to_gui(f"Error backing up settings: {e}", level="ERROR")
-                QMessageBox.critical(self, "Backup Error", f"Failed to backup settings:\\n{e}")
+                QMessageBox.critical(self, "Backup Error", f"Failed to backup settings:\n{e}")
 
     def _restore_settings(self):
         file_name, _ = QFileDialog.getOpenFileName(
@@ -2013,7 +2090,7 @@ class WeatherAlertApp(QMainWindow):
                 self._update_location_data(self.current_location_id)
             except (IOError, OSError, json.JSONDecodeError) as e:
                 self.log_to_gui(f"Error restoring settings: {e}", level="ERROR")
-                QMessageBox.critical(self, "Restore Error", f"Failed to restore settings:\\n{e}")
+                QMessageBox.critical(self, "Restore Error", f"Failed to restore settings:\n{e}")
 
     def _filter_alerts(self):
         sender = self.sender()
