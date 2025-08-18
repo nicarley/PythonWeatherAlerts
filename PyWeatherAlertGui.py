@@ -36,7 +36,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-versionnumber = "25.08.13"
+versionnumber = "25.08.17"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -746,7 +746,7 @@ class AlertHistoryDialog(QDialog):
             QMessageBox.warning(self, "Error", "Could not identify the alert to delete.")
             return
 
-        reply = QMessageBox.question(self, "Confirm Deletion", f"Are you sure you want to delete this alert from the history?\n\n- {alert_data.get('title', 'N/A')}")
+        reply = QMessageBox.question(self, "Confirm Deletion", f"Are you sure you want to delete this alert from the history?\\n\\n- {alert_data.get('title', 'N/A')}")
         if reply == QMessageBox.StandardButton.Yes:
             self.alert_manager.remove_alert(alert_id)
             self.table.removeRow(current_row)
@@ -1132,7 +1132,7 @@ class WeatherAlertApp(QMainWindow):
         self.bottom_splitter.addWidget(self.log_widget)
 
         if self._log_buffer:
-            self.log_area.append("\n".join(self._log_buffer))
+            self.log_area.append("\\n".join(self._log_buffer))
             self._log_buffer.clear()
 
         self.bottom_splitter.setSizes([400, 200])
@@ -1403,7 +1403,7 @@ class WeatherAlertApp(QMainWindow):
         for alert in alerts:
             title = alert.get('title', 'N/A Title')
             summary = alert.get('summary', 'No summary available.')
-            item = QListWidgetItem(f"{title}\n\n{summary}")
+            item = QListWidgetItem(f"{title}\\n\\n{summary}")
 
             # Track in history
             is_new = self.alert_history_manager.add_alert(
@@ -1621,8 +1621,7 @@ class WeatherAlertApp(QMainWindow):
         if self.auto_refresh_action.isChecked() and QWebEngineView and self.web_view:
             self.web_view.reload()
 
-        for loc in self.locations:
-            self._update_location_data(loc["id"])
+        self._update_location_data(self.current_location_id)
 
         self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
         if self.current_check_interval_ms > 0:
@@ -2075,7 +2074,7 @@ class WeatherAlertApp(QMainWindow):
         if not current_text:
             return
 
-        lines = current_text.split('\n')
+        lines = current_text.split('\\n')
         if self.current_log_sort_order == "chronological":
             pass
         elif self.current_log_sort_order == "ascending":
@@ -2084,7 +2083,7 @@ class WeatherAlertApp(QMainWindow):
             lines.sort(reverse=True)
 
         self.log_area.clear()
-        self.log_area.append('\n'.join(lines))
+        self.log_area.append('\\n'.join(lines))
 
     @Slot()
     def _sort_log_ascending(self):
@@ -2110,13 +2109,13 @@ class WeatherAlertApp(QMainWindow):
                 if os.path.exists(settings_file):
                     shutil.copy(settings_file, file_name)
                     self.log_to_gui(f"Settings backed up to {file_name}", level="INFO")
-                    QMessageBox.information(self, "Backup Successful", f"Settings backed up to:\n{file_name}")
+                    QMessageBox.information(self, "Backup Successful", f"Settings backed up to:\\n{file_name}")
                 else:
                     self.log_to_gui("No settings file found to backup.", level="WARNING")
                     QMessageBox.warning(self, "Backup Failed", "No settings file found to backup.")
             except (IOError, OSError) as e:
                 self.log_to_gui(f"Error backing up settings: {e}", level="ERROR")
-                QMessageBox.critical(self, "Backup Error", f"Failed to backup settings:\n{e}")
+                QMessageBox.critical(self, "Backup Error", f"Failed to backup settings:\\n{e}")
 
     def _restore_settings(self):
         file_name, _ = QFileDialog.getOpenFileName(
@@ -2136,7 +2135,7 @@ class WeatherAlertApp(QMainWindow):
                 self._update_location_data(self.current_location_id)
             except (IOError, OSError, json.JSONDecodeError) as e:
                 self.log_to_gui(f"Error restoring settings: {e}", level="ERROR")
-                QMessageBox.critical(self, "Restore Error", f"Failed to restore settings:\n{e}")
+                QMessageBox.critical(self, "Restore Error", f"Failed to restore settings:\\n{e}")
 
     def _filter_alerts(self):
         sender = self.sender()
