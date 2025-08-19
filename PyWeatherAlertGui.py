@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
     QSpacerItem, QSizePolicy, QFileDialog, QFrame, QMenu, QStyle, QTableWidget,
     QTableWidgetItem, QHeaderView, QSystemTrayIcon, QTabWidget
 )
-from PySide6.QtCore import Qt, QTimer, Slot, QUrl, QFile, QTextStream, QObject, Signal, QRunnable, QThreadPool
+from PySide6.QtCore import Qt, QTimer, Slot, QUrl, QFile, QTextStream, QObject, Signal, QRunnable, QThreadPool, QStandardPaths
 from PySide6.QtGui import (
     QTextCursor, QIcon, QColor, QDesktopServices, QPalette, QAction,
     QActionGroup, QFont, QPixmap, QFontDatabase
@@ -884,9 +884,9 @@ class WeatherAlertApp(QMainWindow):
         self._log_buffer: List[str] = []
 
         self.api_client = NwsApiClient(f'PyWeatherAlertGui/{versionnumber} (github.com/nicarley/PythonWeatherAlerts)')
-        self.settings_manager = SettingsManager(os.path.join(self._get_resources_path(), SETTINGS_FILE_NAME))
+        self.settings_manager = SettingsManager(os.path.join(self._get_user_data_path(), SETTINGS_FILE_NAME))
         self.alert_history_manager = AlertHistoryManager(
-            os.path.join(self._get_resources_path(), ALERT_HISTORY_FILE))
+            os.path.join(self._get_user_data_path(), ALERT_HISTORY_FILE))
         self.thread_pool = QThreadPool()
         self.log_to_gui(f"Multithreading with up to {self.thread_pool.maxThreadCount()} threads.", level="DEBUG")
 
@@ -963,11 +963,26 @@ class WeatherAlertApp(QMainWindow):
         self.setWindowIcon(icon)
 
     def _get_resources_path(self) -> str:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-        resources_path = os.path.join(base_path, RESOURCES_FOLDER_NAME)
-        os.makedirs(resources_path, exist_ok=True)
-        return resources_path
+        """Gets the path to bundled, read-only resources like icons and stylesheets."""
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            # Running in a PyInstaller bundle.
+            base_path = sys._MEIPASS
+        else:
+            # Running in a normal Python environment
+            base_path = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(base_path, RESOURCES_FOLDER_NAME)
 
+    def _get_user_data_path(self) -> str:
+        """Gets a writable path for user data (settings, history)."""
+        app_name = "PythonWeatherAlerts"
+        # Use Qt's standard paths for cross-platform compatibility
+        # On macOS, this is ~/Library/Application Support/
+        path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppLocalDataLocation)
+        if app_name not in path:
+            path = os.path.join(path, app_name)
+        os.makedirs(path, exist_ok=True)
+        return path
+        
     def _load_settings(self):
         settings = self.settings_manager.load()
         if not settings:
@@ -2106,7 +2121,7 @@ class WeatherAlertApp(QMainWindow):
         )
         if file_name:
             try:
-                settings_file = os.path.join(self._get_resources_path(), SETTINGS_FILE_NAME)
+                settings_file = os.path.join(self._get_user_data_path(), SETTINGS_FILE_NAME)
                 if os.path.exists(settings_file):
                     shutil.copy(settings_file, file_name)
                     self.log_to_gui(f"Settings backed up to {file_name}", level="INFO")
@@ -2126,7 +2141,7 @@ class WeatherAlertApp(QMainWindow):
             try:
                 with open(file_name, 'r') as f:
                     settings = json.load(f)
-                settings_file = os.path.join(self._get_resources_path(), SETTINGS_FILE_NAME)
+                settings_file = os.path.join
                 with open(settings_file, 'w') as f:
                     json.dump(settings, f, indent=4)
                 self.log_to_gui(f"Settings restored from {file_name}", level="INFO")
