@@ -74,7 +74,7 @@ NWS_POINTS_API_URL_TEMPLATE = "https://api.weather.gov/points/{latitude},{longit
 WEATHER_URL_PREFIX = "https://api.weather.gov/alerts/active.atom?point="
 WEATHER_URL_SUFFIX = "&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2CSevere%2CModerate%2CMinor&urgency=Immediate%2CFuture%2CExpected"
 
-SETTINGS_FILE_NAME = "settings.txt"
+SETTINGS_FILE_NAME = "settings.json"
 RESOURCES_FOLDER_NAME = "resources"
 LIGHT_STYLESHEET_FILE_NAME = "modern.qss"
 DARK_STYLESHEET_FILE_NAME = "dark_modern.qss"
@@ -202,6 +202,17 @@ class SettingsManager:
 
     def __init__(self, file_path: str):
         self.file_path = file_path
+        self._migrate_settings_if_needed()
+
+    def _migrate_settings_if_needed(self):
+        """Renames old settings.txt to settings.json if it exists."""
+        old_settings_path = self.file_path.replace('.json', '.txt')
+        if os.path.exists(old_settings_path) and not os.path.exists(self.file_path):
+            try:
+                os.rename(old_settings_path, self.file_path)
+                logging.info(f"Migrated settings file from {old_settings_path} to {self.file_path}")
+            except OSError as e:
+                logging.error(f"Failed to migrate settings file: {e}")
 
     def load(self) -> Dict[str, Any]:
         """Loads settings from the JSON file."""
@@ -789,7 +800,7 @@ class SettingsDialog(QDialog):
         behavior_tab = QWidget()
         behavior_form_layout = QFormLayout(behavior_tab)
 
-        self.announce_alerts_check = QCheckBox("Announce Alerts and Start Timer")
+        self.announce_alerts_check = QCheckBox("Enable Timed Announcements")
         self.announce_alerts_check.setChecked(
             self.current_settings.get("announce_alerts", FALLBACK_ANNOUNCE_ALERTS_CHECKED))
         behavior_form_layout.addRow(self.announce_alerts_check)
@@ -1293,7 +1304,8 @@ class WeatherAlertApp(QMainWindow):
 
         # Actions Menu
         actions_menu = menu_bar.addMenu("&Actions")
-        self.announce_alerts_action = QAction("&Announce Alerts and Start Timer", self, checkable=True)
+        self.announce_alerts_action = QAction("Enable Timed Announcements", self, checkable=True)
+        self.announce_alerts_action.setToolTip("When checked, periodically announces repeater info or new alerts at the set interval.")
         self.announce_alerts_action.toggled.connect(self._on_announce_alerts_toggled)
         actions_menu.addAction(self.announce_alerts_action)
         self.auto_refresh_action = QAction("Auto-&Refresh Content", self, checkable=True)
@@ -1308,11 +1320,6 @@ class WeatherAlertApp(QMainWindow):
         self.desktop_notification_action = QAction("Enable Desktop Notifications", self, checkable=True)
         self.desktop_notification_action.toggled.connect(self._on_desktop_notification_toggled)
         actions_menu.addAction(self.desktop_notification_action)
-        actions_menu.addSeparator()
-        self.speak_reset_action = QAction("&Speak Repeater Info and Reset Timer", self)
-        self.speak_reset_action.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MediaPlay))
-        self.speak_reset_action.triggered.connect(self._on_speak_and_reset_button_press)
-        actions_menu.addAction(self.speak_reset_action)
 
         # Help Menu
         help_menu = menu_bar.addMenu("&Help")
@@ -1382,13 +1389,21 @@ class WeatherAlertApp(QMainWindow):
 
         self.log_to_gui(f"Successfully fetched data for {self.get_location_name_by_id(location_id)} at {self.current_coords}",
                         level="INFO")
+
+        # Identify new alerts before they are added to the history by the display update
+        new_alert_titles = [
+            alert.get('title', 'N/A Title') for alert in alerts
+            if alert.id not in self.alert_history_manager.seen_alerts
+        ]
+
+        # Update GUI (this will also add new alerts to history)
         self._update_alerts_display_area(alerts, location_id)
         self._update_hourly_forecast_display(result["hourly_forecast"])
         self._update_daily_forecast_display(result["daily_forecast"])
         self.update_status(f"Data for {self.get_location_name_by_id(location_id)} updated.")
 
-        if self.announce_alerts_action.isChecked():
-            self._process_and_speak_alerts(alerts, location_id)
+        # Handle the audio announcements with the list of new alerts
+        self._handle_timed_announcements(new_alert_titles, location_id)
 
     @Slot(Exception)
     def _on_data_load_error(self, e: Exception):
@@ -1415,6 +1430,7 @@ class WeatherAlertApp(QMainWindow):
             self.alerts_display_area.addItem(f"No active alerts for {self.get_location_name_by_id(location_id)}.")
             return
 
+        high_priority_keywords = ["tornado", "severe thunderstorm", "flash flood warning"]
         for alert in alerts:
             title = alert.get('title', 'N/A Title')
             summary = alert.get('summary', 'No summary available.')
@@ -1440,6 +1456,11 @@ class WeatherAlertApp(QMainWindow):
                 self._play_alert_sound(title.lower())
                 if self.desktop_notification_action.isChecked():
                     self._show_desktop_notification(f"{self.get_location_name_by_id(location_id)}: {title}", summary)
+                
+                alert_title_lower = title.lower()
+                if any(keyword in alert_title_lower for keyword in high_priority_keywords):
+                    self.log_to_gui("High-priority alert detected. Triggering extra notifications.", level="INFO")
+                    QApplication.alert(self)
 
             # Color coding by alert type
             title_lower = title.lower()
@@ -1636,46 +1657,13 @@ class WeatherAlertApp(QMainWindow):
         if self.auto_refresh_action.isChecked() and QWebEngineView and self.web_view:
             self.web_view.reload()
 
-        for loc in self.locations:
-            self._update_location_data(loc["id"])
+        # Only check the currently selected location, not all of them.
+        if self.current_location_id:
+            self._update_location_data(self.current_location_id)
 
         self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
         if self.current_check_interval_ms > 0:
             self.main_check_timer.start(self.current_check_interval_ms)
-
-    @Slot(object)
-    def _process_and_speak_alerts(self, alerts: List[Any], location_id: str):
-        new_alerts_found = False
-        high_priority_keywords = ["tornado", "severe thunderstorm", "flash flood warning"]
-
-        for alert in alerts:
-            if alert.id not in self.alert_history_manager.seen_alerts:
-                new_alerts_found = True
-                alert_title_lower = alert.title.lower()
-                self.log_to_gui(f"New Alert for {self.get_location_name_by_id(location_id)}: {alert.title}", level="IMPORTANT")
-
-                if any(keyword in alert_title_lower for keyword in high_priority_keywords):
-                    self.log_to_gui("High-priority alert detected. Triggering extra notifications.", level="INFO")
-                    QApplication.alert(self)
-
-                self._speak_weather_alert(f"For {self.get_location_name_by_id(location_id)}, {alert.title}", alert.summary)
-                self.alert_history_manager.add_alert(
-                    alert.id,
-                    {
-                        'id': alert.id,
-                        'link': alert.link,
-                        'time': time.strftime('%Y-%m-%d %H:%M'),
-                        'type': alert.title.split(' ')[0],
-                        'location': self.get_location_name_by_id(location_id),
-                        'summary': alert.summary,
-                        'title': alert.title
-                    }
-                )
-
-        if not new_alerts_found and alerts:
-            self.log_to_gui(f"No new alerts for {self.get_location_name_by_id(location_id)}. Total active: {len(alerts)}.", level="INFO")
-
-        self._speak_repeater_info()
 
     def log_to_gui(self, message: str, level: str = "INFO"):
         formatted_message = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [{level.upper()}] {message}"
@@ -1720,14 +1708,6 @@ class WeatherAlertApp(QMainWindow):
                             level="ERROR")
             return self._DummyEngine()
 
-    def _speak_weather_alert(self, alert_title: str, alert_summary: str):
-        msg = f"Weather Alert: {alert_title}. {alert_summary}"
-        self._speak_message_internal(msg)
-
-    def _speak_repeater_info(self):
-        if self.current_repeater_info:
-            self._speak_message_internal(self.current_repeater_info)
-
     def _speak_message_internal(self, text: str):
         if self.mute_action.isChecked():
             self.log_to_gui(f"Audio muted. Would have spoken: {text}", level="DEBUG")
@@ -1741,6 +1721,21 @@ class WeatherAlertApp(QMainWindow):
             self.tts_engine.runAndWait()
         except Exception as e:
             self.log_to_gui(f"TTS error: {e}", level="ERROR")
+
+    def _handle_timed_announcements(self, new_alert_titles: List[str], location_id: str):
+        """Handles the logic for all timed audio announcements."""
+        if self.mute_action.isChecked():
+            return  # Global mute is on
+
+        if not self.announce_alerts_action.isChecked():
+            return # Timed announcements are disabled
+
+        if self.current_repeater_info:
+            self._speak_message_internal(self.current_repeater_info)
+        elif new_alert_titles:
+            alert_text = ". ".join(new_alert_titles)
+            full_message = f"New weather alerts for {self.get_location_name_by_id(location_id)}. {alert_text}"
+            self._speak_message_internal(full_message)
 
     # --- UI Update and State Management Methods ---
     def _update_current_time_display(self):
@@ -1892,10 +1887,6 @@ class WeatherAlertApp(QMainWindow):
         self.current_show_forecasts_area_checked = checked
         self._update_panel_visibility()
         self._save_settings()
-
-    def _on_speak_and_reset_button_press(self):
-        self._speak_repeater_info()
-        self._update_main_timer_state()
 
     def _show_about_dialog(self):
         AboutDialog(self).exec()
@@ -2141,7 +2132,7 @@ class WeatherAlertApp(QMainWindow):
             try:
                 with open(file_name, 'r') as f:
                     settings = json.load(f)
-                settings_file = os.path.join
+                settings_file = os.path.join(self._get_user_data_path(), SETTINGS_FILE_NAME)
                 with open(settings_file, 'w') as f:
                     json.dump(settings, f, indent=4)
                 self.log_to_gui(f"Settings restored from {file_name}", level="INFO")
