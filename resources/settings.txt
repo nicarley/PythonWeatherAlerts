@@ -34,7 +34,7 @@
             "id": "33037"
         }
     ],
-    "check_interval_key": "1 Hour",
+    "check_interval_key": "1 Minute",
     "radar_options_dict": {
         "Apple Maps for Salem, IL": "https://maps.apple.com/search?map=hybrid&center=38.625824165947606%2C-88.95355326337172&span=0.047247173705066814%2C0.08257056924117023",
         "Broadcastify.com: Salem Fire and Surrounding Fire, Police & EMS": "https://www.broadcastify.com/webPlayer/33915",
