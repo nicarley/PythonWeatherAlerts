@@ -1,0 +1,1 @@
+pyinstaller --noconfirm --noconsole --windowed --icon ../resources/icon.icns --name "Weather Alert Monitor"  ../PyWeatherAlertGui.py
