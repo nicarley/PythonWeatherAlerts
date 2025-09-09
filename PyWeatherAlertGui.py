@@ -36,7 +36,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-versionnumber = "25.08.19"
+versionnumber = "25.09.10"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -76,8 +76,6 @@ WEATHER_URL_SUFFIX = "&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2
 
 SETTINGS_FILE_NAME = "settings.json"
 RESOURCES_FOLDER_NAME = "resources"
-LIGHT_STYLESHEET_FILE_NAME = "modern.qss"
-DARK_STYLESHEET_FILE_NAME = "dark_modern.qss"
 ALERT_HISTORY_FILE = "alert_history.dat"
 
 ADD_NEW_SOURCE_TEXT = "Add New Source..."
@@ -85,6 +83,848 @@ MANAGE_SOURCES_TEXT = "Manage Sources..."
 ADD_CURRENT_SOURCE_TEXT = "Add Current View as Source..."
 
 MAX_HISTORY_ITEMS = 100
+
+# --- Stylesheet Content ---
+LIGHT_STYLESHEET = '''
+/*
+ * Polished Light Modern Theme
+ *
+ * A refined and complete light theme with a consistent and professional look.
+ * It includes support for more widgets, proper focus/disabled states,
+ * and improved visual feedback.
+ *
+ * Color Palette:
+ * - Primary Background:   #f0f0f0 (Light Gray)
+ * - Secondary Background: #ffffff (White for GroupBoxes, Inputs)
+ * - View Background:      #ffffff (TextEdit, ListWidget)
+ * - Primary Text:         #212121 (Dark Gray)
+ * - Muted Text:           #555555
+ * - Border Color:         #cccccc
+ * - Stronger Border:      #bbbbbb
+ * - Primary Accent:       #3498db (Primary Blue)
+ * - Secondary Accent:     #2980b9 (Darker Blue for Hover/Titles)
+ * - Disabled Background:  #e9e9e9
+ * - Disabled Text:        #a0a0a0
+ * - High Temp:            #c0392b (Soft Red)
+ * - Low Temp:             #2980b9 (Soft Blue)
+ */
+
+/* --- Global Styles --- */
+QWidget {
+    background-color: #f0f0f0;
+    color: #212121;
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    font-size: 10pt;
+    border: none;
+}
+
+QToolTip {
+    background-color: #ffffff;
+    color: #212121;
+    border: 1px solid #cccccc;
+    padding: 5px;
+    border-radius: 4px;
+}
+
+/* --- Labels & Text --- */
+QLabel {
+    background-color: transparent;
+    color: #333333;
+}
+
+QLabel:disabled {
+    color: #a0a0a0;
+}
+
+/* --- GroupBox --- */
+QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 6px;
+    margin-top: 1em; /* Make space for title */
+    font-weight: bold;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top center;
+    padding: 0 10px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    color: #2980b9;
+}
+
+/* --- Text/List Views --- */
+QTextEdit, QListWidget {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 4px;
+    selection-background-color: #3498db;
+    selection-color: #ffffff;
+}
+
+QTextEdit:focus, QListWidget:focus {
+    border: 1px solid #3498db;
+}
+
+QListWidget::item {
+    padding: 5px;
+    border-radius: 3px;
+}
+
+QListWidget::item:alternate {
+    background-color: #f7f7f7;
+}
+
+QListWidget::item:hover {
+    background-color: #e9e9e9;
+}
+
+QListWidget::item:selected {
+    background-color: #3498db;
+    color: #ffffff;
+}
+
+/* --- Input Fields --- */
+QLineEdit, QComboBox {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 5px;
+    min-height: 20px;
+    selection-background-color: #3498db;
+    selection-color: #ffffff;
+}
+
+QLineEdit:hover, QComboBox:hover {
+    border-color: #bbbbbb;
+}
+
+QLineEdit:focus, QComboBox:focus {
+    border-color: #3498db;
+}
+
+QLineEdit:disabled, QComboBox:disabled {
+    background-color: #e9e9e9;
+    color: #a0a0a0;
+    border-color: #dcdcdc;
+}
+
+/* --- ComboBox Specifics --- */
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left-width: 1px;
+    border-left-color: #cccccc;
+    border-left-style: solid;
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+QComboBox::drop-down:hover {
+    background-color: #e9e9e9;
+}
+
+QComboBox::down-arrow {
+    /* Consider using a local SVG for sharpness */
+    image: url(resources/down_arrow_light.png);
+    width: 12px;
+    height: 12px;
+}
+
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    selection-background-color: #3498db;
+    color: #212121;
+    padding: 2px;
+}
+
+/* --- Buttons --- */
+QPushButton {
+    background-color: #3498db;
+    color: white;
+    border: 1px solid #3498db;
+    border-radius: 4px;
+    padding: 6px 12px;
+    min-width: 80px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #2980b9;
+    border-color: #2980b9;
+}
+
+QPushButton:pressed {
+    background-color: #1f618d;
+}
+
+QPushButton:focus {
+    border-color: #2980b9;
+    outline: 2px solid #a8d8f8; /* A light blue glow for focus */
+}
+
+QPushButton:disabled {
+    background-color: #e9e9e9;
+    color: #a0a0a0;
+    border-color: #dcdcdc;
+}
+
+/* --- CheckBox & RadioButton --- */
+QCheckBox, QRadioButton {
+    background-color: transparent;
+    spacing: 5px;
+}
+
+QCheckBox:disabled, QRadioButton:disabled {
+    color: #a0a0a0;
+}
+
+QCheckBox::indicator, QRadioButton::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #bbbbbb;
+    border-radius: 3px;
+    background-color: #ffffff;
+}
+
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {
+    border-color: #a0a0a0;
+}
+
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {
+    background-color: #e9e9e9;
+    border-color: #dcdcdc;
+}
+
+QRadioButton::indicator {
+    border-radius: 9px; /* Make it round */
+}
+
+QCheckBox::indicator:checked {
+    background-color: #3498db;
+    border-color: #3498db;
+    /* A simple checkmark can be made with a local SVG for best results */
+    /* image: url(resources/check_mark_light.svg); */
+}
+
+QRadioButton::indicator:checked {
+    background-color: #ffffff;
+    border: 2px solid #3498db;
+}
+
+QRadioButton::indicator:checked::after {
+    content: '';
+    display: block;
+    position: relative;
+    top: 2px;
+    left: 2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background-color: #3498db;
+}
+
+/* --- Menu, Status, and Tool Bars --- */
+QMenuBar {
+    background-color: #e9e9e9;
+    color: #212121;
+}
+
+QMenuBar::item {
+    background: transparent;
+    padding: 4px 8px;
+}
+
+QMenuBar::item:selected { /* Hover */
+    background-color: #dcdcdc;
+}
+
+QMenuBar::item:pressed {
+    background-color: #3498db;
+    color: #ffffff;
+}
+
+QMenu {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
+    padding: 5px;
+}
+
+QMenu::item {
+    padding: 5px 25px 5px 20px;
+    border-radius: 4px;
+}
+
+QMenu::item:disabled {
+    color: #a0a0a0;
+}
+
+QMenu::item:selected {
+    background-color: #3498db;
+    color: #ffffff;
+}
+
+QMenu::separator {
+    height: 1px;
+    background: #e0e0e0;
+    margin: 5px 0;
+}
+
+QStatusBar {
+    background-color: #e0e0e0;
+    color: #555555;
+}
+
+/* --- ScrollBars --- */
+QScrollBar:vertical {
+    border: none;
+    background: #e9e9e9;
+    width: 12px;
+    margin: 15px 0 15px 0;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:vertical {
+    background: #bbbbbb;
+    min-height: 20px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #a0a0a0;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+    height: 15px;
+}
+
+QScrollBar:horizontal {
+    border: none;
+    background: #e9e9e9;
+    height: 12px;
+    margin: 0 15px 0 15px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #bbbbbb;
+    min-width: 20px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #a0a0a0;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    border: none;
+    background: none;
+    width: 15px;
+}
+
+/* --- Tabs --- */
+QTabWidget::pane {
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 8px;
+}
+
+QTabBar::tab {
+    background: #e9e9e9;
+    border: 1px solid #cccccc;
+    border-bottom: none;
+    padding: 8px 16px;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    color: #555555;
+}
+
+QTabBar::tab:hover {
+    background: #f0f0f0;
+}
+
+QTabBar::tab:selected {
+    background: #ffffff;
+    color: #212121;
+    font-weight: bold;
+}
+
+/* --- Table / Tree Headers --- */
+QHeaderView::section {
+    background-color: #e9e9e9;
+    padding: 4px;
+    border: 1px solid #dcdcdc;
+    font-weight: bold;
+}
+
+/* --- Custom Widget Styles --- */
+/* These are preserved from your original file */
+
+#DailyForecastWidget {
+    background-color: #fafafa;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    margin: 4px 0;
+}
+
+#DailyForecastWidget:hover {
+    background-color: #f0f5fa;
+    border-color: #c0d0e0;
+}
+
+#DailyForecastWidget QLabel#highTemp {
+    font-weight: bold;
+    color: #c0392b; /* Soft Red */
+}
+
+#DailyForecastWidget QLabel#lowTemp {
+    color: #2980b9; /* Soft Blue */
+}
+
+AlertWidget {
+    border-radius: 5px;
+    padding: 10px;
+    margin: 5px 0;
+    border: 1px solid transparent;
+}
+
+AlertWidget[severity="warning"] {
+    background-color: #fff3cd;
+    border-left: 5px solid #ffc107;
+    color: #856404;
+}
+
+AlertWidget[severity="watch"] {
+    background-color: #d1ecf1;
+    border-left: 5px solid #17a2b8;
+    color: #0c5460;
+}
+
+AlertWidget[severity="advisory"] {
+    background-color: #e2e3e5;
+    border-left: 5px solid #6c757d;
+    color: #383d41;
+}
+
+AlertWidget QLabel {
+    color: inherit;
+    background-color: transparent;
+}
+'''
+
+DARK_STYLESHEET = '''
+/*
+ * Polished Dark Modern Theme for PyWeatherAlert
+ *
+ * A refined and more complete version of the dark modern theme, with added
+ * support for more widgets, focus/disabled states, and improved visual feedback.
+ *
+ * Color Palette:
+ * - Primary Background:   #2d2d2d
+ * - Secondary Background: #353535 (Groupboxes, etc.)
+ * - Tertiary Background:  #3c3c3c (Inputs, Menus)
+ * - View Background:      #252525 (TextEdit, ListWidget)
+ * - Primary Text:         #f0f0f0
+ * - Muted Text:           #a0a0a0
+ * - Border Color:         #4a4a4a
+ * - Stronger Border:      #555555
+ * - Primary Accent:       #007acc (Blue for selection/highlight)
+ * - Secondary Accent:     #00aaff (Lighter blue for titles/focus)
+ * - Disabled Background:  #3a3a3a
+ * - Disabled Text:        #888888
+ */
+
+/* --- Global Styles --- */
+QWidget {
+    background-color: #2d2d2d;
+    color: #f0f0f0;
+    font-family: "Segoe UI", "Helvetica Neue", "Arial", sans-serif;
+    font-size: 10pt;
+    border: none;
+}
+
+QToolTip {
+    background-color: #252525;
+    color: #f0f0f0;
+    border: 1px solid #4a4a4a;
+    padding: 5px;
+    border-radius: 4px;
+    opacity: 230; /* Make it slightly transparent */
+}
+
+/* --- Labels & Text --- */
+QLabel {
+    background-color: transparent;
+}
+
+QLabel#titleLabel { /* Example of a specific label for titles */
+    font-size: 14pt;
+    font-weight: bold;
+    color: #00aaff;
+}
+
+QLabel:disabled {
+    color: #888888;
+}
+
+/* --- GroupBox --- */
+QGroupBox {
+    background-color: #353535;
+    border: 1px solid #4a4a4a;
+    border-radius: 6px;
+    margin-top: 1em; /* Make space for title */
+    font-weight: bold;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top center;
+    padding: 0 10px;
+    background-color: #353535;
+    border-radius: 4px;
+    color: #00aaff;
+}
+
+/* --- Text/List Views --- */
+QTextEdit, QListView, QTreeView, QTableView {
+    background-color: #252525;
+    border: 1px solid #4a4a4a;
+    border-radius: 4px;
+    padding: 4px;
+    color: #e0e0e0;
+}
+
+QTextEdit:focus, QListView:focus, QTreeView:focus, QTableView:focus {
+    border: 1px solid #007acc;
+}
+
+QListView::item:alternate {
+    background-color: #2a2a2a;
+}
+
+QListView::item:hover, QTreeView::item:hover {
+    background-color: #3c3c3c;
+}
+
+QListView::item:selected, QTreeView::item:selected {
+    background-color: #007acc;
+    color: #ffffff;
+}
+
+/* --- Input Fields --- */
+QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QDateEdit, QTimeEdit {
+    background-color: #3c3c3c;
+    border: 1px solid #555555;
+    border-radius: 4px;
+    padding: 5px;
+    min-height: 20px;
+}
+
+QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover, QDateEdit:hover, QTimeEdit:hover {
+    border-color: #6a6a6a;
+}
+
+QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QDateEdit:focus, QTimeEdit:focus {
+    border-color: #007acc;
+}
+
+QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QDateEdit:disabled, QTimeEdit:disabled {
+    background-color: #3a3a3a;
+    color: #888888;
+    border-color: #4a4a4a;
+}
+
+/* --- ComboBox Specifics --- */
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 20px;
+    border-left-width: 1px;
+    border-left-color: #555555;
+    border-left-style: solid;
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+}
+
+QComboBox::drop-down:hover {
+    background-color: #555555;
+}
+
+QComboBox::down-arrow {
+    /* A sharp, scalable SVG arrow is better than a PNG */
+    image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="%23f0f0f0" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>');
+}
+
+QComboBox QAbstractItemView {
+    background-color: #3c3c3c;
+    border: 1px solid #555555;
+    selection-background-color: #007acc;
+    color: #f0f0f0;
+    padding: 4px;
+}
+
+/* --- Buttons --- */
+QPushButton {
+    background-color: #555555;
+    color: #f0f0f0;
+    border: 1px solid #666666;
+    border-radius: 4px;
+    padding: 6px 12px;
+    min-width: 80px;
+    font-weight: bold;
+}
+
+QPushButton:hover {
+    background-color: #6a6a6a;
+    border-color: #777777;
+}
+
+QPushButton:pressed {
+    background-color: #4a4a4a;
+}
+
+QPushButton:checked {
+    background-color: #007acc;
+    border-color: #005c99;
+}
+
+QPushButton:focus {
+    border: 1px solid #00aaff;
+    outline: none; /* Disable the default focus outline */
+}
+
+QPushButton:disabled {
+    background-color: #3a3a3a;
+    color: #888888;
+    border-color: #4a4a4a;
+}
+
+/* --- CheckBox & RadioButton --- */
+QCheckBox, QRadioButton {
+    background-color: transparent;
+    spacing: 8px;
+}
+
+QCheckBox:disabled, QRadioButton:disabled {
+    color: #888888;
+}
+
+QCheckBox::indicator, QRadioButton::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #555555;
+    border-radius: 3px;
+    background-color: #3c3c3c;
+}
+
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {
+    border-color: #6a6a6a;
+}
+
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {
+    background-color: #3a3a3a;
+    border-color: #4a4a4a;
+}
+
+QRadioButton::indicator {
+    border-radius: 9px; /* Make it round */
+}
+
+QCheckBox::indicator:checked {
+    background-color: #007acc;
+    border-color: #007acc;
+    /* Using an embedded SVG for a sharp checkmark */
+    image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="white" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>');
+}
+
+QRadioButton::indicator:checked {
+    border: 2px solid #007acc;
+    /* Create the inner dot using a radial gradient */
+    background-color: qradialgradient(
+        cx: 0.5, cy: 0.5, fx: 0.5, fy: 0.5, radius: 0.3,
+        stop: 0 #00aaff, stop: 1 #3c3c3c
+    );
+}
+
+/* --- Menu, Status, and Tool Bars --- */
+QMenuBar {
+    background-color: #3c3c3c;
+    color: #f0f0f0;
+}
+
+QMenuBar::item {
+    background: transparent;
+    padding: 4px 10px;
+}
+
+QMenuBar::item:selected { /* Hover */
+    background-color: #555555;
+}
+
+QMenuBar::item:pressed {
+    background-color: #007acc;
+}
+
+QMenu {
+    background-color: #3c3c3c;
+    border: 1px solid #555555;
+    padding: 5px;
+}
+
+QMenu::item {
+    padding: 5px 25px 5px 25px;
+    border-radius: 4px;
+}
+
+QMenu::item:disabled {
+    color: #888888;
+}
+
+QMenu::item:selected {
+    background-color: #007acc;
+}
+
+QMenu::separator {
+    height: 1px;
+    background: #555555;
+    margin: 5px 0;
+}
+
+QStatusBar {
+    background-color: #3c3c3c;
+    color: #f0f0f0;
+}
+
+/* --- ScrollBars --- */
+QScrollBar:vertical {
+    border: none;
+    background: #2d2d2d;
+    width: 12px;
+    margin: 15px 0 15px 0;
+}
+
+QScrollBar::handle:vertical {
+    background: #555555;
+    min-height: 20px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #6a6a6a;
+}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    border: none;
+    background: none;
+    height: 15px;
+}
+
+QScrollBar:horizontal {
+    border: none;
+    background: #2d2d2d;
+    height: 12px;
+    margin: 0 15px 0 15px;
+}
+
+QScrollBar::handle:horizontal {
+    background: #555555;
+    min-width: 20px;
+    border-radius: 6px;
+}
+
+QScrollBar::handle:horizontal:hover {
+    background: #6a6a6a;
+}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    border: none;
+    background: none;
+    width: 15px;
+}
+
+/* --- Sliders --- */
+QSlider::groove:horizontal {
+    border: 1px solid #4a4a4a;
+    height: 4px;
+    background: #3c3c3c;
+    margin: 2px 0;
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    background: #00aaff;
+    border: 1px solid #00aaff;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0;
+    border-radius: 9px;
+}
+
+QSlider::groove:vertical {
+    border: 1px solid #4a4a4a;
+    width: 4px;
+    background: #3c3c3c;
+    margin: 0 2px;
+    border-radius: 2px;
+}
+
+QSlider::handle:vertical {
+    background: #00aaff;
+    border: 1px solid #00aaff;
+    height: 16px;
+    width: 16px;
+    margin: 0 -8px;
+    border-radius: 9px;
+}
+
+/* --- Tab Widget --- */
+QTabWidget::pane {
+    border: 1px solid #4a4a4a;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+}
+
+QTabBar::tab {
+    background: #353535;
+    border: 1px solid #4a4a4a;
+    border-bottom: none;
+    padding: 8px 16px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    margin-right: 2px;
+}
+
+QTabBar::tab:hover {
+    background: #4a4a4a;
+}
+
+QTabBar::tab:selected {
+    background: #2d2d2d;
+    border-color: #4a4a4a;
+    margin-bottom: -1px; /* Pull tab down to connect with pane */
+}
+
+/* --- Progress Bar --- */
+QProgressBar {
+    border: 1px solid #4a4a4a;
+    border-radius: 4px;
+    text-align: center;
+    color: #f0f0f0;
+    background-color: #3c3c3c;
+}
+
+QProgressBar::chunk {
+    background-color: #007acc;
+    border-radius: 3px;
+    margin: 1px;
+}
+'''
 
 
 # --- Logging Configuration ---
@@ -166,10 +1006,10 @@ class AlertHistoryManager:
 
 
 class Worker(QRunnable):
-    """
+    '''
     Worker thread for executing long-running tasks without blocking the UI.
     Inherits from QRunnable to be used with QThreadPool.
-    """
+    '''
 
     def __init__(self, fn: Callable, *args, **kwargs):
         super().__init__()
@@ -249,9 +1089,9 @@ class NwsApiClient:
         self.pgeocode_client = pgeocode.Nominatim('us')
 
     def get_coordinates_for_location(self, location_id: str) -> Optional[Tuple[float, float]]:
-        """
+        '''
         Tries to get coordinates for a given location input (zip or station ID).
-        """
+        '''
         if not location_id: return None
         processed_input = location_id.strip().upper()
 
@@ -1002,7 +1842,10 @@ class WeatherAlertApp(QMainWindow):
 
         self.current_repeater_info = settings.get("repeater_info", FALLBACK_INITIAL_REPEATER_INFO)
         self.locations = settings.get("locations", FALLBACK_DEFAULT_LOCATIONS)
-        self.current_location_id = self.locations[0]["id"]
+        if self.locations:
+            self.current_location_id = self.locations[0].get("id")
+        else:
+            self.current_location_id = None
         self.current_interval_key = settings.get("check_interval_key", FALLBACK_DEFAULT_INTERVAL_KEY)
         self.RADAR_OPTIONS = settings.get("radar_options_dict", DEFAULT_RADAR_OPTIONS.copy())
         self.current_radar_url = settings.get("radar_url", FALLBACK_DEFAULT_RADAR_URL)
@@ -1493,7 +2336,7 @@ class WeatherAlertApp(QMainWindow):
             return
 
         periods = forecast_json['properties']['periods'][:8]
-        headers = ["Time", "Temp", "Feels Like", "Wind", "Precip", "Forecast"]
+        headers = ["Time", "Temp", "Feels Like", "Wind", "Precip", "Humidity", "Dewpoint", "Forecast"]
         for col, header in enumerate(headers):
             self.hourly_forecast_layout.addWidget(QLabel(f"<b>{header}</b>"), 0, col)
 
@@ -1505,9 +2348,9 @@ class WeatherAlertApp(QMainWindow):
                 temp = f"{p.get('temperature', 'N/A')}°{p.get('temperatureUnit', '')}"
                 
                 # Get feels like temp
-                feels_like = p.get('apparentTemperature', {}).get('value')
-                if feels_like:
-                    feels_like = f"{round(feels_like * 9/5 + 32)}°F"
+                feels_like_value = p.get('apparentTemperature', {}).get('value')
+                if feels_like_value is not None:
+                    feels_like = f"{round(feels_like_value * 9/5 + 32)}°F"
                 else:
                     feels_like = "N/A"
 
@@ -1518,7 +2361,16 @@ class WeatherAlertApp(QMainWindow):
 
                 # Precipitation chance
                 precip = p.get('probabilityOfPrecipitation', {}).get('value', '0')
-                precip = f"{precip}%" if precip != '0' else "-"
+                precip = f"{precip}%" if precip is not None else "-"
+
+                humidity = p.get('relativeHumidity', {}).get('value')
+                humidity = f"{humidity}%" if humidity is not None else "N/A"
+                
+                dewpoint_c = p.get('dewpoint', {}).get('value')
+                if dewpoint_c is not None:
+                    dewpoint_f = f"{round(dewpoint_c * 9/5 + 32)}°F"
+                else:
+                    dewpoint_f = "N/A"
 
                 short_fc = p.get('shortForecast', 'N/A')
 
@@ -1527,7 +2379,9 @@ class WeatherAlertApp(QMainWindow):
                 self.hourly_forecast_layout.addWidget(QLabel(feels_like), i + 1, 2)
                 self.hourly_forecast_layout.addWidget(QLabel(wind), i + 1, 3)
                 self.hourly_forecast_layout.addWidget(QLabel(precip), i + 1, 4)
-                self.hourly_forecast_layout.addWidget(QLabel(short_fc), i + 1, 5)
+                self.hourly_forecast_layout.addWidget(QLabel(humidity), i + 1, 5)
+                self.hourly_forecast_layout.addWidget(QLabel(dewpoint_f), i + 1, 6)
+                self.hourly_forecast_layout.addWidget(QLabel(short_fc), i + 1, 7)
             except Exception as e:
                 self.log_to_gui(f"Error formatting hourly period: {e}", level="WARNING")
 
@@ -2055,26 +2909,9 @@ class WeatherAlertApp(QMainWindow):
         return None
 
     def _apply_color_scheme(self):
-        stylesheet_file = DARK_STYLESHEET_FILE_NAME if self.current_dark_mode_enabled else LIGHT_STYLESHEET_FILE_NAME
-        stylesheet_path = os.path.join(self._get_resources_path(), stylesheet_file)
-        try:
-            with open(stylesheet_path, 'r') as f:
-                stylesheet = f.read()
-            self.setStyleSheet(stylesheet)
-            self.log_to_gui(f"Applied {'dark' if self.current_dark_mode_enabled else 'light'} theme.", level="INFO")
-        except (IOError, OSError) as e:
-            self.log_to_gui(f"Error loading stylesheet {stylesheet_path}: {e}", level="WARNING")
-            fallback_stylesheet = """
-                QWidget { background-color: #ffffff; color: #000000; }
-                QTextEdit, QListWidget { background-color: #f0f0f0; }
-                QPushButton { background-color: #e0e0e0; border: 1px solid #aaaaaa; }
-            """ if not self.current_dark_mode_enabled else """
-                QWidget { background-color: #2e2e2e; color: #ffffff; }
-                QTextEdit, QListWidget { background-color: #3a3a3a; }
-                QPushButton { background-color: #4a4a4a; border: 1px solid #666666; }
-            """
-            self.setStyleSheet(fallback_stylesheet)
-            self.log_to_gui("Applied fallback stylesheet.", level="INFO")
+        stylesheet = DARK_STYLESHEET if self.current_dark_mode_enabled else LIGHT_STYLESHEET
+        self.setStyleSheet(stylesheet)
+        self.log_to_gui(f"Applied {'dark' if self.current_dark_mode_enabled else 'light'} theme.", level="INFO")
 
     def _apply_log_sort(self):
         current_text = self.log_area.toPlainText()
@@ -2130,19 +2967,27 @@ class WeatherAlertApp(QMainWindow):
         )
         if file_name:
             try:
+                # First, validate the file is a proper JSON
                 with open(file_name, 'r') as f:
-                    settings = json.load(f)
+                    settings_to_restore = json.load(f)
+
+                # If valid, proceed with writing it
                 settings_file = os.path.join(self._get_user_data_path(), SETTINGS_FILE_NAME)
-                with open(settings_file, 'w') as f:
-                    json.dump(settings, f, indent=4)
+                self.settings_manager.save(settings_to_restore)
+
                 self.log_to_gui(f"Settings restored from {file_name}", level="INFO")
-                QMessageBox.information(self, "Restore Successful", "Settings restored. Restarting application...")
+                QMessageBox.information(self, "Restore Successful", 
+                                        "Settings have been restored. The application will now apply the new settings.")
+                
+                # Reload and reapply everything
                 self._load_settings()
                 self._apply_loaded_settings_to_ui()
-                self._update_location_data(self.current_location_id)
+                if self.current_location_id:
+                    self._update_location_data(self.current_location_id)
+
             except (IOError, OSError, json.JSONDecodeError) as e:
                 self.log_to_gui(f"Error restoring settings: {e}", level="ERROR")
-                QMessageBox.critical(self, "Restore Error", f"Failed to restore settings:\n{e}")
+                QMessageBox.critical(self, "Restore Error", f"Failed to restore settings from the selected file.\n\nError: {e}")
 
     def _filter_alerts(self):
         sender = self.sender()
