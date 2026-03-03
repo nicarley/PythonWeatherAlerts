@@ -36,7 +36,7 @@ except ImportError:
     logging.warning("PySide6.QtWebEngineWidgets not found. Web view will be disabled.")
 
 # --- Application Version ---
-versionnumber = "25.09.10"
+versionnumber = "22.03.03"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -2349,10 +2349,17 @@ class WeatherAlertApp(QMainWindow):
                 
                 # Get feels like temp
                 feels_like_value = p.get('apparentTemperature', {}).get('value')
+                if feels_like_value is None:
+                    feels_like_value = p.get('heatIndex', {}).get('value')
+                if feels_like_value is None:
+                    feels_like_value = p.get('windChill', {}).get('value')
+
                 if feels_like_value is not None:
+                    # All these values are in Celsius from the API
                     feels_like = f"{round(feels_like_value * 9/5 + 32)}°F"
                 else:
-                    feels_like = "N/A"
+                    # If no 'feels like' value is present, it's the same as the temperature
+                    feels_like = temp
 
                 # Enhanced wind display
                 wind_speed = p.get('windSpeed', 'N/A')
