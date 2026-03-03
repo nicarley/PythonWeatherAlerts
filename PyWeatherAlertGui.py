@@ -1618,7 +1618,7 @@ class SettingsDialog(QDialog):
         form_layout = QFormLayout(general_tab)
 
         self.repeater_entry = QLineEdit(self.current_settings.get("repeater_info", FALLBACK_INITIAL_REPEATER_INFO))
-        form_layout.addRow("Repeater Announcement:", self.repeater_entry)
+        form_layout.addRow("Announcement:", self.repeater_entry)
 
         self.interval_combobox = QComboBox()
         self.interval_combobox.addItems(CHECK_INTERVAL_OPTIONS.keys())
@@ -2046,7 +2046,7 @@ class WeatherAlertApp(QMainWindow):
         top_status_layout.setContentsMargins(5, 3, 5, 3)
 
         style = self.style()
-        self.top_repeater_label = QLabel("Repeater: N/A")
+        self.top_repeater_label = QLabel("Announcement: N/A")
         self.top_countdown_label = QLabel("Next Check: --:--")
         self.current_time_label = QLabel("Current Time: --:--:--")
 
@@ -2127,6 +2127,7 @@ class WeatherAlertApp(QMainWindow):
         view_menu = menu_bar.addMenu("&View")
         self.web_sources_menu = view_menu.addMenu("&Web Sources")
         self.web_sources_menu.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
+        self.web_sources_menu.aboutToShow.connect(self._update_web_sources_menu)
         view_menu.addSeparator()
         self.show_log_action = QAction("Show &Log Panel", self, checkable=True)
         self.show_log_action.toggled.connect(self._on_show_log_toggled)
@@ -2632,7 +2633,7 @@ class WeatherAlertApp(QMainWindow):
 
     def _update_top_status_bar_display(self):
         if hasattr(self, 'top_repeater_label'):
-            self.top_repeater_label.setText(f"Repeater: {self.current_repeater_info or 'N/A'}")
+            self.top_repeater_label.setText(f"Announcement: {self.current_repeater_info or 'N/A'}")
 
     def _apply_loaded_settings_to_ui(self):
         self.announce_alerts_action.setChecked(self.current_announce_alerts_checked)
