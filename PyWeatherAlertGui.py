@@ -1923,6 +1923,7 @@ class WeatherAlertApp(QMainWindow):
 
         # --- Menu Bar ---
         self._create_menu_bar()
+        self.web_source_quick_select_button.setMenu(self.web_sources_menu)
 
         # --- Main Content Area (Alerts & Forecasts) ---
         self.alerts_forecasts_container = QWidget()
@@ -2081,7 +2082,6 @@ class WeatherAlertApp(QMainWindow):
         self.web_source_quick_select_button = QPushButton("Web Source")
         self.web_source_quick_select_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
         self.web_source_quick_select_button.setToolTip("Quick select web source")
-        self.web_source_quick_select_button.clicked.connect(self._show_web_source_quick_select_menu)
         top_status_layout.addWidget(self.web_source_quick_select_button)
 
         self.mute_button = QPushButton("Mute")
@@ -2842,17 +2842,6 @@ class WeatherAlertApp(QMainWindow):
         add_action.triggered.connect(self._add_new_web_source)
         manage_action = self.web_sources_menu.addAction(MANAGE_SOURCES_TEXT)
         manage_action.triggered.connect(self._manage_web_sources)
-
-    def _show_web_source_quick_select_menu(self):
-        menu = QMenu(self)
-        for name, url in self.RADAR_OPTIONS.items():
-            action = menu.addAction(name)
-            action.setData(url)
-
-        chosen_action = menu.exec(
-            self.web_source_quick_select_button.mapToGlobal(self.web_source_quick_select_button.rect().bottomLeft()))
-        if chosen_action:
-            self._on_radar_source_selected(True, action_to_use=chosen_action)
 
     def _on_radar_source_selected(self, checked, action_to_use=None):
         if not checked: return
