@@ -1,7 +1,0 @@
-requests
-feedparser
-pyttsx3
-pandas
-pgeocode
-PySide6
-PySide6-WebEngine
