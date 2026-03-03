@@ -1914,7 +1914,8 @@ class WeatherAlertApp(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setSpacing(10)
+        main_layout.setSpacing(15) # Increased spacing
+        main_layout.setContentsMargins(15, 15, 15, 15) # Added margins
 
         # --- Top Status Bar ---
         top_status_layout = self._create_top_status_bar()
@@ -1927,6 +1928,7 @@ class WeatherAlertApp(QMainWindow):
         self.alerts_forecasts_container = QWidget()
         alerts_forecasts_layout = QHBoxLayout(self.alerts_forecasts_container)
         alerts_forecasts_layout.setContentsMargins(0,0,0,0)
+        alerts_forecasts_layout.setSpacing(15) # Increased spacing
         main_layout.addWidget(self.alerts_forecasts_container, 1) # Stretch factor 1
 
         # Alerts Group
@@ -1951,7 +1953,8 @@ class WeatherAlertApp(QMainWindow):
         # Combined Forecasts Group
         self.combined_forecast_widget = QGroupBox("Weather Forecast")
         combined_forecast_main_layout = QHBoxLayout(self.combined_forecast_widget)
-        combined_forecast_main_layout.setContentsMargins(5, 5, 5, 5)
+        combined_forecast_main_layout.setContentsMargins(10, 10, 10, 10) # Increased margins
+        combined_forecast_main_layout.setSpacing(10) # Increased spacing
         hourly_forecast_sub_group = QGroupBox("8-Hour Forecast")
         hourly_forecast_sub_group_layout = QVBoxLayout(hourly_forecast_sub_group)
         hourly_forecast_sub_group_layout.setContentsMargins(5, 5, 5, 5)
@@ -2175,6 +2178,28 @@ class WeatherAlertApp(QMainWindow):
         about_action.triggered.connect(self._show_about_dialog)
         help_menu.addAction(about_action)
 
+    def get_weather_emoji(self, forecast_text: str) -> str:
+        """Returns an emoji based on the forecast text."""
+        text = forecast_text.lower()
+        if 'sunny' in text or 'clear' in text:
+            return "☀️"
+        elif 'partly cloudy' in text:
+            return "⛅"
+        elif 'cloudy' in text or 'overcast' in text:
+            return "☁️"
+        elif 'rain' in text or 'shower' in text:
+            return "🌧️"
+        elif 'thunderstorm' in text or 't-storm' in text:
+            return "⛈️"
+        elif 'snow' in text or 'flurries' in text:
+            return "❄️"
+        elif 'fog' in text or 'mist' in text:
+            return "🌫️"
+        elif 'wind' in text or 'breezy' in text:
+            return "💨"
+        else:
+            return "🌡️"
+
     def _update_location_data(self, location_id):
         self.update_status(f"Fetching data for {self.get_location_name_by_id(location_id)}...")
         self._clear_and_set_loading_states()
@@ -2380,6 +2405,7 @@ class WeatherAlertApp(QMainWindow):
                     dewpoint_f = "N/A"
 
                 short_fc = p.get('shortForecast', 'N/A')
+                emoji = self.get_weather_emoji(short_fc)
 
                 self.hourly_forecast_layout.addWidget(QLabel(formatted_time), i + 1, 0)
                 self.hourly_forecast_layout.addWidget(QLabel(temp), i + 1, 1)
@@ -2388,7 +2414,7 @@ class WeatherAlertApp(QMainWindow):
                 self.hourly_forecast_layout.addWidget(QLabel(precip), i + 1, 4)
                 self.hourly_forecast_layout.addWidget(QLabel(humidity), i + 1, 5)
                 self.hourly_forecast_layout.addWidget(QLabel(dewpoint_f), i + 1, 6)
-                self.hourly_forecast_layout.addWidget(QLabel(short_fc), i + 1, 7)
+                self.hourly_forecast_layout.addWidget(QLabel(f"{emoji} {short_fc}"), i + 1, 7)
             except Exception as e:
                 self.log_to_gui(f"Error formatting hourly period: {e}", level="WARNING")
 
@@ -2409,13 +2435,14 @@ class WeatherAlertApp(QMainWindow):
                 temp = f"{p.get('temperature', 'N/A')}°{p.get('temperatureUnit', '')}"
                 short_fc = p.get('shortForecast', 'N/A')
                 detailed_fc = p.get('detailedForecast', 'N/A')
+                emoji = self.get_weather_emoji(short_fc)
 
                 name_label = QLabel(name)
                 name_label.setToolTip(detailed_fc)
                 self.daily_forecast_layout.addWidget(name_label, i + 1, 0)
                 self.daily_forecast_layout.addWidget(QLabel(temp), i + 1, 1)
                 
-                short_fc_label = QLabel(short_fc)
+                short_fc_label = QLabel(f"{emoji} {short_fc}")
                 short_fc_label.setToolTip(detailed_fc)
                 self.daily_forecast_layout.addWidget(short_fc_label, i + 1, 2)
             except Exception as e:
