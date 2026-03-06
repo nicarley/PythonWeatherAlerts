@@ -1,6 +1,6 @@
 # PyWeatherAlert - Weather Alert Monitor
 
-PyWeatherAlertGui is a Python desktop application built with PySide6 that monitors weather alerts from the National Weather Service (NWS) for a specified location (US zip code). It provides visual and (optional) audio notifications for new alerts, displays current alerts, shows station forecasts, and allows users to view web-based weather radar or other web sources.
+PyWeatherAlertGui is a Python desktop application built with PySide6 that monitors weather alerts from the National Weather Service (NWS) for user-defined locations. It provides visual and (optional) audio notifications for new alerts, displays current alerts, shows station forecasts, and allows users to view weather radar or other web sources.
 There is a graphical user interface, and a simple python script that allows you to put your HAM or GMRS Call sign in and nearest NWS location ID (zip) and it will trigger the alert system inside the app.
 <a href="https://github.com/nicarley/PythonWeatherAlerts/blob/master/resources/pyweather.png?raw=true">
 <img src="https://github.com/nicarley/PythonWeatherAlerts/blob/master/resources/pyweather.png?raw=true" width="800px" />
@@ -9,7 +9,13 @@ There is a graphical user interface, and a simple python script that allows you 
 ## More info on PyWeatherAlertGUI:
 ## Features
 
--   **NWS Alert Monitoring**: Periodically checks for new weather alerts (warnings, watches, advisories) for a user-defined location (US zip code or airport ID). Alerts are filtered by severity, certainty, and urgency.
+-   **NWS Alert Monitoring**: Periodically checks for new weather alerts (warnings, watches, advisories) for user-defined locations. Alerts are filtered by severity, certainty, and urgency.
+-   **Enhanced Location Inputs**: Supports ZIP, airport/station ID, `lat,lon`, county/zone IDs, and basic `City,ST` lookups.
+-   **Per-Location Rules & Routing**: Each location can define severity thresholds, alert type filters, quiet hours, and routing overrides for sounds/desktop/webhook notifications.
+-   **Alert Lifecycle Tracking**: Detects and highlights alert lifecycle changes (new, updated, expired, cancelled) with change summaries.
+-   **Map-First Alert View**: Added an embedded map tab showing active alert polygons.
+-   **Notification Channels**: Optional outbound notifications for new alerts via generic webhook, Discord webhook, and Slack webhook.
+-   **Lifecycle Panel**: A dedicated lifecycle list in the main UI highlights new, updated, expired, and cancelled alerts.
 -   **Audio Announcements**:
     -   Optionally announces new weather alerts using text-to-speech (TTS).
     -   Optionally announces a custom repeater message after each check cycle.
@@ -25,10 +31,11 @@ There is a graphical user interface, and a simple python script that allows you 
 -   **Configurable Settings via Preferences Dialog**:
     -   **A comprehensive dialog** allows configuration of all key application settings:
         -   Set Repeater Announcement text.
-        -   Define the Location ID (US Zip Code or Airport ID) for weather data.
+        -   Manage locations and per-location alert rules.
         -   Choose the check interval for new alerts and content refresh (e.g., 1 minute, 15 minutes, 1 hour).
         -   Toggle "Announce Alerts & Start Timer".
         -   Toggle "Auto-Refresh Web Content".
+        -   Configure outbound channels (Generic Webhook, Discord Webhook, Slack Webhook).
         -   Toggle "Enable Dark Mode".
         -   Toggle visibility of Log Panel, Alerts Area, and Forecasts Area.
 -   **Menu-Driven Interface**:
@@ -41,8 +48,16 @@ There is a graphical user interface, and a simple python script that allows you 
     -   **Help Menu**: Access the application's help page on GitHub directly.
 -   **Dark Mode**: Option to switch between a light and dark theme for the application interface.
 -   **Settings Management**:
-    -   All user configurations are saved to a `settings.txt` file in JSON format within a `resources` subdirectory.
+    -   User configurations are saved to `settings.json` in the app's writable user-data directory.
     -   Backup and Restore functionality for the settings file.
+-   **Resilience Improvements**:
+    -   HTTP retry/backoff and short-lived caching for location/forecast requests.
+    -   Last-known-data fallback when APIs are temporarily unavailable.
+-   **Data Storage Upgrade**:
+    -   Alert history is stored in JSON (`alert_history.json`) with automatic migration from legacy pickle history files (`.dat`/`.pickle`).
+-   **Project Structure and Quality**:
+    -   Core logic is split into modular services under `weather_alert/` (API, settings, history, rules, webhook).
+    -   Unit tests are included under `tests/` with a GitHub Actions CI workflow.
 -   **Logging**: Provides an in-app log panel for status messages, errors, and debug information.
 -   **Styling**:
     -   Supports custom stylesheets (`modern.qss` for light mode, `dark_modern.qss` for dark mode).
@@ -58,3 +73,4 @@ You can typically install these Python libraries using pip:
 -   **pyttsx3**: For text-to-speech functionality.
 -   **pgeocode**: For converting US zip codes to geographic coordinates (works offline).
 -   **pandas**: A dependency of `pgeocode`.
+-   **pytest** (optional): For running the unit tests in `tests/`.
