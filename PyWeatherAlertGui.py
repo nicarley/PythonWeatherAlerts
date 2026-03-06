@@ -2107,6 +2107,7 @@ class WeatherAlertApp(QMainWindow):
         style = self.style()
         self.top_repeater_label = QLabel("Announcement: N/A")
         self.top_countdown_label = QLabel("Next Check: --:--")
+        self.last_announcement_label = QLabel("Last Announcement: --")
         self.current_time_label = QLabel("Current Time: --:--:--")
 
         volume_icon_label = QLabel()
@@ -2151,6 +2152,8 @@ class WeatherAlertApp(QMainWindow):
 
         top_status_layout.addStretch(1)
         top_status_layout.addWidget(self.top_countdown_label)
+        top_status_layout.addSpacing(15)
+        top_status_layout.addWidget(self.last_announcement_label)
         top_status_layout.addSpacing(15)
         top_status_layout.addWidget(self.current_time_label)
 
@@ -2905,8 +2908,12 @@ class WeatherAlertApp(QMainWindow):
             alert_text = ". ".join(new_alert_titles)
             full_message = f"New weather alerts for {self.get_location_name_by_id(location_id)}. {alert_text}"
             self._speak_message_internal(full_message)
+            if hasattr(self, "last_announcement_label"):
+                self.last_announcement_label.setText(f"Last Announcement: {time.strftime('%I:%M:%S %p')}")
         elif self.current_repeater_info:
             self._speak_message_internal(self.current_repeater_info)
+            if hasattr(self, "last_announcement_label"):
+                self.last_announcement_label.setText(f"Last Announcement: {time.strftime('%I:%M:%S %p')}")
 
     # --- UI Update and State Management Methods ---
     def _update_current_time_display(self):
