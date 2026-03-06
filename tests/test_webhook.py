@@ -35,3 +35,12 @@ def test_dispatch_notification_channels_posts_to_enabled_targets():
     assert result["discord"] is True
     assert result["slack"] is True
     assert len(session.calls) == 3
+
+
+def test_dispatch_notification_channels_include_errors_shape():
+    session = _Session()
+    channels = {"generic": {"enabled": True, "url": "https://hooks.example.com/generic"}}
+    payload = {"title": "Test"}
+    result = dispatch_notification_channels(session, channels, payload, include_errors=True)
+    assert result["generic"]["success"] is True
+    assert result["generic"]["error"] == ""

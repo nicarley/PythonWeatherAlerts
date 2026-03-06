@@ -1,5 +1,9 @@
 from .api import ApiError, NwsApiClient
 from .history import AlertHistoryManager
+from .health import DeliveryHealthTracker
+from .dedup import AlertDeduplicator
+from .proximity import distance_point_to_geometry_miles, rank_alerts_by_proximity
+from .escalation import evaluate_escalation
 from .settings import SettingsManager
 from .rules import (
     SEVERITY_ORDER,

@@ -12,13 +12,19 @@ There is a graphical user interface, and a simple python script that allows you 
 -   **NWS Alert Monitoring**: Periodically checks for new weather alerts (warnings, watches, advisories) for user-defined locations. Alerts are filtered by severity, certainty, and urgency.
 -   **Enhanced Location Inputs**: Supports ZIP, airport/station ID, `lat,lon`, county/zone IDs, and basic `City,ST` lookups.
 -   **Per-Location Rules & Routing**: Each location can define severity thresholds, alert type filters, quiet hours, and routing overrides for sounds/desktop/webhook notifications.
+-   **Escalation Engine**: Per-location escalation rules can override quiet hours for urgent alerts, repeat escalated announcements, and force all configured outbound channels.
+-   **Proximity-Aware Alert Ranking**: Alerts are scored/ranked by distance from the selected location using alert geometry so nearby threats are shown first.
+-   **De-duplication & Suppression Windows**: Similar/repeated alert updates are threaded and notification delivery is suppressed during a configurable cooldown window.
 -   **Alert Lifecycle Tracking**: Detects and highlights alert lifecycle changes (new, updated, expired, cancelled) with change summaries.
 -   **Map-First Alert View**: Added an embedded map tab showing active alert polygons.
 -   **Notification Channels**: Optional outbound notifications for new alerts via generic webhook, Discord webhook, and Slack webhook.
+-   **Notification Delivery Health**: Includes a delivery health dashboard (attempts, success/failure rate, last error) plus a one-click "Send Test Notifications" action.
 -   **Lifecycle Panel**: A dedicated lifecycle list in the main UI highlights new, updated, expired, and cancelled alerts.
+-   **Lifecycle Timeline View**: A dedicated timeline dialog shows issued/updated/expired/cancelled events with compact change summaries.
 -   **Audio Announcements**:
     -   Optionally announces new weather alerts using text-to-speech (TTS).
     -   Optionally announces a custom repeater message after each check cycle.
+    -   Supports day/night/escalated audio behavior (voice rate and alert-beep intensity).
 -   **Visual Information**:
     -   Displays current active alerts.
     -   Shows **8-hour and 5-day** station forecasts for the specified location.
@@ -44,7 +50,8 @@ There is a graphical user interface, and a simple python script that allows you 
         -   **Web Sources Submenu**: Select from configured web sources, **open the current web view in an external browser**, **add the current web view as a new source**, add new sources, and manage (add, edit, delete, reorder) existing sources.
         -   Toggle visibility of Log Panel, Alerts Area, Forecasts Area.
         -   Enable/disable Dark Mode.
-    -   **Actions Menu**: Toggle "Announce Alerts & Start Timer," "Auto-Refresh Content," and manually trigger "Speak Repeater Info & Reset Timer."
+    -   **Actions Menu**: Toggle timed announcements and content refresh, open the delivery health dashboard, and send test notifications.
+    -   **History Menu**: View alert history, view lifecycle timeline, and export incident reports.
     -   **Help Menu**: Access the application's help page on GitHub directly.
 -   **Dark Mode**: Option to switch between a light and dark theme for the application interface.
 -   **Settings Management**:
@@ -53,10 +60,13 @@ There is a graphical user interface, and a simple python script that allows you 
 -   **Resilience Improvements**:
     -   HTTP retry/backoff and short-lived caching for location/forecast requests.
     -   Last-known-data fallback when APIs are temporarily unavailable.
+    -   Offline state includes cached-data staleness age for better situational awareness.
+-   **Incident Export**:
+    -   Export current incident context to JSON, CSV, and PDF summary files.
 -   **Data Storage Upgrade**:
     -   Alert history is stored in JSON (`alert_history.json`) with automatic migration from legacy pickle history files (`.dat`/`.pickle`).
 -   **Project Structure and Quality**:
-    -   Core logic is split into modular services under `weather_alert/` (API, settings, history, rules, webhook).
+    -   Core logic is split into modular services under `weather_alert/` (API, settings, history, rules, webhook, proximity, escalation, dedup, health, exporter).
     -   Unit tests are included under `tests/` with a GitHub Actions CI workflow.
 -   **Logging**: Provides an in-app log panel for status messages, errors, and debug information.
 -   **Styling**:

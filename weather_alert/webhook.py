@@ -1,19 +1,19 @@
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import requests
 
 
-def _post_json(session: requests.Session, url: str, payload: Dict[str, Any], timeout: int = 8) -> bool:
+def _post_json(session: requests.Session, url: str, payload: Dict[str, Any], timeout: int = 8) -> Tuple[bool, str]:
     if not url:
-        return False
+        return False, "missing url"
     try:
         response = session.post(url, json=payload, timeout=timeout)
         response.raise_for_status()
-        return True
+        return True, ""
     except requests.RequestException as e:
         logging.error("Notification delivery failed for %s: %s", url, e)
-        return False
+        return False, str(e)
 
 
 def _discord_payload(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -49,24 +49,29 @@ def dispatch_notification_channels(
     channels: Dict[str, Dict[str, Any]],
     payload: Dict[str, Any],
     timeout: int = 8,
-) -> Dict[str, bool]:
-    results: Dict[str, bool] = {}
+    include_errors: bool = False,
+) -> Dict[str, Any]:
+    results: Dict[str, Any] = {}
 
     generic_cfg = channels.get("generic", {})
     if generic_cfg.get("enabled") and generic_cfg.get("url"):
-        results["generic"] = _post_json(session, generic_cfg["url"], payload, timeout)
+        ok, err = _post_json(session, generic_cfg["url"], payload, timeout)
+        results["generic"] = {"success": ok, "error": err} if include_errors else ok
 
     discord_cfg = channels.get("discord", {})
     if discord_cfg.get("enabled") and discord_cfg.get("url"):
-        results["discord"] = _post_json(session, discord_cfg["url"], _discord_payload(payload), timeout)
+        ok, err = _post_json(session, discord_cfg["url"], _discord_payload(payload), timeout)
+        results["discord"] = {"success": ok, "error": err} if include_errors else ok
 
     slack_cfg = channels.get("slack", {})
     if slack_cfg.get("enabled") and slack_cfg.get("url"):
-        results["slack"] = _post_json(session, slack_cfg["url"], _slack_payload(payload), timeout)
+        ok, err = _post_json(session, slack_cfg["url"], _slack_payload(payload), timeout)
+        results["slack"] = {"success": ok, "error": err} if include_errors else ok
 
     return results
 
 
 def post_webhook_notification(session: requests.Session, webhook_url: str, payload: Dict[str, Any], timeout: int = 8) -> bool:
     # Backward-compatible wrapper for existing generic webhook behavior.
-    return _post_json(session, webhook_url, payload, timeout)
+    ok, _ = _post_json(session, webhook_url, payload, timeout)
+    return ok

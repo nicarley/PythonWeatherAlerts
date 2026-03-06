@@ -14,6 +14,7 @@ class AlertHistoryManager:
         self.max_history_items = max_history_items
         self.seen_alerts = set()
         self.alert_history: Deque[Dict[str, Any]] = deque(maxlen=max_history_items)
+        self.lifecycle_timeline: Deque[Dict[str, Any]] = deque(maxlen=max_history_items * 10)
         self._load_history()
 
     def _legacy_pickle_candidates(self) -> List[str]:
@@ -35,6 +36,7 @@ class AlertHistoryManager:
                 self.seen_alerts = set(data.get("seen_alerts", []))
                 history = data.get("history", [])
                 self.alert_history = deque(history, maxlen=self.max_history_items)
+                self.lifecycle_timeline = deque(data.get("lifecycle", []), maxlen=self.max_history_items * 10)
                 logging.info("Migrated alert history from legacy pickle: %s", legacy_path)
                 self.save_history()
                 return True
@@ -49,6 +51,7 @@ class AlertHistoryManager:
                     data = json.load(f)
                 self.seen_alerts = set(data.get("seen_alerts", []))
                 self.alert_history = deque(data.get("history", []), maxlen=self.max_history_items)
+                self.lifecycle_timeline = deque(data.get("lifecycle", []), maxlen=self.max_history_items * 10)
                 return
             self._load_legacy_pickle()
         except Exception as e:
@@ -62,6 +65,7 @@ class AlertHistoryManager:
                     {
                         "seen_alerts": sorted(list(self.seen_alerts)),
                         "history": list(self.alert_history),
+                        "lifecycle": list(self.lifecycle_timeline),
                     },
                     f,
                     indent=2,
@@ -88,7 +92,17 @@ class AlertHistoryManager:
     def get_recent_alerts(self, count: int = 100) -> List[Dict[str, Any]]:
         return list(self.alert_history)[:count]
 
+    def add_lifecycle_event(self, event: Dict[str, Any]) -> None:
+        self.lifecycle_timeline.appendleft(event)
+
+    def get_recent_lifecycle(self, count: int = 250, location_id: str = "") -> List[Dict[str, Any]]:
+        items = list(self.lifecycle_timeline)
+        if location_id:
+            items = [item for item in items if item.get("location_id") == location_id]
+        return items[:count]
+
     def clear_history(self) -> None:
         self.seen_alerts.clear()
         self.alert_history.clear()
+        self.lifecycle_timeline.clear()
         self.save_history()

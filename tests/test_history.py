@@ -16,6 +16,18 @@ def test_history_add_and_persist(tmp_path):
     assert items[0]["id"] == "abc"
 
 
+def test_history_lifecycle_persist(tmp_path):
+    history_path = tmp_path / "alert_history.json"
+    manager = AlertHistoryManager(str(history_path), max_history_items=10)
+    manager.add_lifecycle_event({"location_id": "62881", "lifecycle": "issued", "title": "Test"})
+    manager.save_history()
+
+    manager2 = AlertHistoryManager(str(history_path), max_history_items=10)
+    timeline = manager2.get_recent_lifecycle(location_id="62881")
+    assert len(timeline) == 1
+    assert timeline[0]["lifecycle"] == "issued"
+
+
 def test_history_migrates_from_pickle(tmp_path):
     json_path = tmp_path / "alert_history.json"
     legacy_path = tmp_path / "alert_history.dat"

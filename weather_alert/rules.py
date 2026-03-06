@@ -13,6 +13,20 @@ def default_location_rules() -> Dict[str, Any]:
         "desktop_notifications": None,
         "play_sounds": None,
         "webhook_enabled": False,
+        "suppression_cooldown_seconds": 900,
+        "escalation": {
+            "enabled": True,
+            "min_severity": "Severe",
+            "radius_miles": 40,
+            "repeat_minutes": 5,
+            "force_all_channels": True,
+            "keywords": ["tornado warning", "flash flood warning", "severe thunderstorm warning"],
+        },
+        "audio_profiles": {
+            "day": {"start": "07:00", "end": "22:00", "voice_rate": 200, "beep_count": 1},
+            "night": {"start": "22:00", "end": "07:00", "voice_rate": 170, "beep_count": 1},
+            "escalated": {"voice_rate": 215, "beep_count": 3},
+        },
     }
 
 
@@ -57,7 +71,7 @@ def _is_quiet_hours(now: datetime, start: str, end: str) -> bool:
     return now_mins >= start_mins or now_mins < end_mins
 
 
-def evaluate_location_rule(alert: Dict[str, Any], rules: Dict[str, Any], now: datetime) -> Tuple[bool, str]:
+def evaluate_location_rule(alert: Dict[str, Any], rules: Dict[str, Any], now: datetime, ignore_quiet_hours: bool = False) -> Tuple[bool, str]:
     min_severity = rules.get("min_severity", "Minor")
     current_severity = alert.get("severity", "Unknown")
     if SEVERITY_ORDER.get(current_severity, 0) < SEVERITY_ORDER.get(min_severity, 1):
@@ -69,7 +83,7 @@ def evaluate_location_rule(alert: Dict[str, Any], rules: Dict[str, Any], now: da
         return False, f"type {alert_type} not enabled"
 
     quiet_cfg = rules.get("quiet_hours", {})
-    if quiet_cfg.get("enabled"):
+    if quiet_cfg.get("enabled") and not ignore_quiet_hours:
         start = quiet_cfg.get("start", "22:00")
         end = quiet_cfg.get("end", "07:00")
         if _is_quiet_hours(now, start, end):
