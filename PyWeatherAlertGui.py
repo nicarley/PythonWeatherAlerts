@@ -74,6 +74,12 @@ FALLBACK_DISCORD_WEBHOOK_URL = ""
 FALLBACK_ENABLE_DISCORD_NOTIFICATIONS = False
 FALLBACK_SLACK_WEBHOOK_URL = ""
 FALLBACK_ENABLE_SLACK_NOTIFICATIONS = False
+FALLBACK_ANNOUNCE_TIME_TOP = False
+FALLBACK_ANNOUNCE_TIME_15 = False
+FALLBACK_ANNOUNCE_TIME_30 = False
+FALLBACK_ANNOUNCE_TEMP_TOP = False
+FALLBACK_ANNOUNCE_TEMP_15 = False
+FALLBACK_ANNOUNCE_TEMP_30 = False
 
 CHECK_INTERVAL_OPTIONS = {
     "1 Minute": 1 * 60 * 1000, "5 Minutes": 5 * 60 * 1000,
@@ -1614,6 +1620,40 @@ class SettingsDialog(QDialog):
             self.current_settings.get("announce_alerts", FALLBACK_ANNOUNCE_ALERTS_CHECKED))
         behavior_form_layout.addRow(self.announce_alerts_check)
 
+        behavior_form_layout.addRow(QLabel("<b>Scheduled Time Announcements</b>"))
+        self.announce_time_top_check = QCheckBox("Announce Time at :00")
+        self.announce_time_top_check.setChecked(
+            self.current_settings.get("announce_time_top", FALLBACK_ANNOUNCE_TIME_TOP)
+        )
+        self.announce_time_15_check = QCheckBox("Announce Time at :15")
+        self.announce_time_15_check.setChecked(
+            self.current_settings.get("announce_time_15", FALLBACK_ANNOUNCE_TIME_15)
+        )
+        self.announce_time_30_check = QCheckBox("Announce Time at :30")
+        self.announce_time_30_check.setChecked(
+            self.current_settings.get("announce_time_30", FALLBACK_ANNOUNCE_TIME_30)
+        )
+        behavior_form_layout.addRow(self.announce_time_top_check)
+        behavior_form_layout.addRow(self.announce_time_15_check)
+        behavior_form_layout.addRow(self.announce_time_30_check)
+
+        behavior_form_layout.addRow(QLabel("<b>Scheduled Temperature Announcements</b>"))
+        self.announce_temp_top_check = QCheckBox("Announce Temp at :00")
+        self.announce_temp_top_check.setChecked(
+            self.current_settings.get("announce_temp_top", FALLBACK_ANNOUNCE_TEMP_TOP)
+        )
+        self.announce_temp_15_check = QCheckBox("Announce Temp at :15")
+        self.announce_temp_15_check.setChecked(
+            self.current_settings.get("announce_temp_15", FALLBACK_ANNOUNCE_TEMP_15)
+        )
+        self.announce_temp_30_check = QCheckBox("Announce Temp at :30")
+        self.announce_temp_30_check.setChecked(
+            self.current_settings.get("announce_temp_30", FALLBACK_ANNOUNCE_TEMP_30)
+        )
+        behavior_form_layout.addRow(self.announce_temp_top_check)
+        behavior_form_layout.addRow(self.announce_temp_15_check)
+        behavior_form_layout.addRow(self.announce_temp_30_check)
+
         self.auto_refresh_check = QCheckBox("Auto-Refresh Web Content")
         self.auto_refresh_check.setChecked(
             self.current_settings.get("auto_refresh_content", FALLBACK_AUTO_REFRESH_CONTENT_CHECKED))
@@ -1720,6 +1760,12 @@ class SettingsDialog(QDialog):
             "locations": self.current_settings.get("locations", FALLBACK_DEFAULT_LOCATIONS),
             "interval_key": self.interval_combobox.currentText(),
             "announce_alerts": self.announce_alerts_check.isChecked(),
+            "announce_time_top": self.announce_time_top_check.isChecked(),
+            "announce_time_15": self.announce_time_15_check.isChecked(),
+            "announce_time_30": self.announce_time_30_check.isChecked(),
+            "announce_temp_top": self.announce_temp_top_check.isChecked(),
+            "announce_temp_15": self.announce_temp_15_check.isChecked(),
+            "announce_temp_30": self.announce_temp_30_check.isChecked(),
             "auto_refresh_content": self.auto_refresh_check.isChecked(),
             "mute_audio": self.mute_audio_check.isChecked(),
             "enable_sounds": self.notification_sound_check.isChecked(),
@@ -1782,6 +1828,15 @@ class WeatherAlertApp(QMainWindow):
         self.current_enable_discord_notifications = FALLBACK_ENABLE_DISCORD_NOTIFICATIONS
         self.current_slack_webhook_url = FALLBACK_SLACK_WEBHOOK_URL
         self.current_enable_slack_notifications = FALLBACK_ENABLE_SLACK_NOTIFICATIONS
+        self.current_announce_time_top = FALLBACK_ANNOUNCE_TIME_TOP
+        self.current_announce_time_15 = FALLBACK_ANNOUNCE_TIME_15
+        self.current_announce_time_30 = FALLBACK_ANNOUNCE_TIME_30
+        self.current_announce_temp_top = FALLBACK_ANNOUNCE_TEMP_TOP
+        self.current_announce_temp_15 = FALLBACK_ANNOUNCE_TEMP_15
+        self.current_announce_temp_30 = FALLBACK_ANNOUNCE_TEMP_30
+        self.latest_temperature_reading: Optional[str] = None
+        self._last_time_announcement_minute_key: Optional[str] = None
+        self._last_temp_announcement_minute_key: Optional[str] = None
 
         self._load_settings()
         self._set_window_icon()
@@ -1802,6 +1857,8 @@ class WeatherAlertApp(QMainWindow):
         self._pending_location_id: Optional[str] = None
         self.clock_timer = QTimer(self)
         self.clock_timer.timeout.connect(self._update_current_time_display)
+        self.scheduled_announcement_timer = QTimer(self)
+        self.scheduled_announcement_timer.timeout.connect(self._check_scheduled_time_and_temperature_announcements)
 
         self._init_ui()
         self._apply_loaded_settings_to_ui()
@@ -1812,6 +1869,7 @@ class WeatherAlertApp(QMainWindow):
 
         # Start the clock timer
         self.clock_timer.start(1000)
+        self.scheduled_announcement_timer.start(15000)
         self._update_current_time_display()
 
     def get_current_location_name(self):
@@ -1892,6 +1950,12 @@ class WeatherAlertApp(QMainWindow):
         self.current_enable_discord_notifications = settings.get("enable_discord_notifications", FALLBACK_ENABLE_DISCORD_NOTIFICATIONS)
         self.current_slack_webhook_url = settings.get("slack_webhook_url", FALLBACK_SLACK_WEBHOOK_URL)
         self.current_enable_slack_notifications = settings.get("enable_slack_notifications", FALLBACK_ENABLE_SLACK_NOTIFICATIONS)
+        self.current_announce_time_top = settings.get("announce_time_top", FALLBACK_ANNOUNCE_TIME_TOP)
+        self.current_announce_time_15 = settings.get("announce_time_15", FALLBACK_ANNOUNCE_TIME_15)
+        self.current_announce_time_30 = settings.get("announce_time_30", FALLBACK_ANNOUNCE_TIME_30)
+        self.current_announce_temp_top = settings.get("announce_temp_top", FALLBACK_ANNOUNCE_TEMP_TOP)
+        self.current_announce_temp_15 = settings.get("announce_temp_15", FALLBACK_ANNOUNCE_TEMP_15)
+        self.current_announce_temp_30 = settings.get("announce_temp_30", FALLBACK_ANNOUNCE_TEMP_30)
 
         self._last_valid_radar_text = self._get_display_name_for_url(self.current_radar_url) or \
                                       (list(self.RADAR_OPTIONS.keys())[0] if self.RADAR_OPTIONS else "")
@@ -1921,6 +1985,12 @@ class WeatherAlertApp(QMainWindow):
         self.current_enable_discord_notifications = FALLBACK_ENABLE_DISCORD_NOTIFICATIONS
         self.current_slack_webhook_url = FALLBACK_SLACK_WEBHOOK_URL
         self.current_enable_slack_notifications = FALLBACK_ENABLE_SLACK_NOTIFICATIONS
+        self.current_announce_time_top = FALLBACK_ANNOUNCE_TIME_TOP
+        self.current_announce_time_15 = FALLBACK_ANNOUNCE_TIME_15
+        self.current_announce_time_30 = FALLBACK_ANNOUNCE_TIME_30
+        self.current_announce_temp_top = FALLBACK_ANNOUNCE_TEMP_TOP
+        self.current_announce_temp_15 = FALLBACK_ANNOUNCE_TEMP_15
+        self.current_announce_temp_30 = FALLBACK_ANNOUNCE_TEMP_30
 
     @Slot()
     def _save_settings(self):
@@ -1931,6 +2001,12 @@ class WeatherAlertApp(QMainWindow):
             "radar_options_dict": self.RADAR_OPTIONS,
             "radar_url": self.current_radar_url,
             "announce_alerts": self.announce_alerts_action.isChecked(),
+            "announce_time_top": self.current_announce_time_top,
+            "announce_time_15": self.current_announce_time_15,
+            "announce_time_30": self.current_announce_time_30,
+            "announce_temp_top": self.current_announce_temp_top,
+            "announce_temp_15": self.current_announce_temp_15,
+            "announce_temp_30": self.current_announce_temp_30,
             "auto_refresh_content": self.auto_refresh_action.isChecked(),
             "mute_audio": self.mute_action.isChecked(),
             "enable_sounds": self.enable_sounds_action.isChecked(),
@@ -2626,10 +2702,17 @@ class WeatherAlertApp(QMainWindow):
     def _update_hourly_forecast_display(self, forecast_json: Optional[Dict[str, Any]]):
         self._clear_layout(self.hourly_forecast_layout)
         if not forecast_json or 'properties' not in forecast_json or 'periods' not in forecast_json['properties']:
+            self.latest_temperature_reading = None
             self.hourly_forecast_layout.addWidget(QLabel("8-Hour forecast data unavailable."), 0, 0)
             return
 
         periods = forecast_json['properties']['periods'][:8]
+        if periods:
+            first_temp = periods[0].get('temperature', 'N/A')
+            first_unit = periods[0].get('temperatureUnit', '')
+            self.latest_temperature_reading = f"{first_temp} degrees {first_unit}" if first_unit else str(first_temp)
+        else:
+            self.latest_temperature_reading = None
         headers = ["Time", "Temp", "Feels Like", "Wind", "Precip", "Humidity", "Dewpoint", "Forecast"]
         for col, header in enumerate(headers):
             self.hourly_forecast_layout.addWidget(QLabel(f"<b>{header}</b>"), 0, col)
@@ -2730,6 +2813,12 @@ class WeatherAlertApp(QMainWindow):
             "locations": self.locations,
             "interval_key": self.current_interval_key,
             "announce_alerts": self.announce_alerts_action.isChecked(),
+            "announce_time_top": self.current_announce_time_top,
+            "announce_time_15": self.current_announce_time_15,
+            "announce_time_30": self.current_announce_time_30,
+            "announce_temp_top": self.current_announce_temp_top,
+            "announce_temp_15": self.current_announce_temp_15,
+            "announce_temp_30": self.current_announce_temp_30,
             "auto_refresh_content": self.auto_refresh_action.isChecked(),
             "mute_audio": self.mute_action.isChecked(),
             "enable_sounds": self.enable_sounds_action.isChecked(),
@@ -2758,6 +2847,12 @@ class WeatherAlertApp(QMainWindow):
             self.current_repeater_info = new_data["repeater_info"]
             self.locations = [normalize_location_entry(loc) for loc in new_data["locations"]]
             self.current_interval_key = new_data["interval_key"]
+            self.current_announce_time_top = new_data["announce_time_top"]
+            self.current_announce_time_15 = new_data["announce_time_15"]
+            self.current_announce_time_30 = new_data["announce_time_30"]
+            self.current_announce_temp_top = new_data["announce_temp_top"]
+            self.current_announce_temp_15 = new_data["announce_temp_15"]
+            self.current_announce_temp_30 = new_data["announce_temp_30"]
             self.current_enable_webhook_notifications = new_data["enable_webhook_notifications"]
             self.current_webhook_url = new_data["webhook_url"]
             self.current_enable_discord_notifications = new_data["enable_discord_notifications"]
@@ -2896,6 +2991,56 @@ class WeatherAlertApp(QMainWindow):
         except Exception as e:
             self.log_to_gui(f"TTS error: {e}", level="ERROR")
 
+    def _set_last_announcement_label(self):
+        if hasattr(self, "last_announcement_label"):
+            self.last_announcement_label.setText(f"Last Announcement: {time.strftime('%I:%M:%S %p')}")
+
+    def _selected_time_marks(self, announce_time: bool) -> set:
+        marks = set()
+        if announce_time:
+            if self.current_announce_time_top:
+                marks.add(0)
+            if self.current_announce_time_15:
+                marks.add(15)
+            if self.current_announce_time_30:
+                marks.add(30)
+        else:
+            if self.current_announce_temp_top:
+                marks.add(0)
+            if self.current_announce_temp_15:
+                marks.add(15)
+            if self.current_announce_temp_30:
+                marks.add(30)
+        return marks
+
+    def _check_scheduled_time_and_temperature_announcements(self):
+        if self.mute_action.isChecked() or not self.announce_alerts_action.isChecked():
+            return
+
+        now = datetime.now()
+        minute_key = now.strftime("%Y%m%d%H%M")
+        current_minute = now.minute
+
+        phrases: List[str] = []
+        time_marks = self._selected_time_marks(announce_time=True)
+        if current_minute in time_marks and self._last_time_announcement_minute_key != minute_key:
+            phrases.append(f"The time is {now.strftime('%I:%M %p')}.")
+            self._last_time_announcement_minute_key = minute_key
+
+        temp_marks = self._selected_time_marks(announce_time=False)
+        if current_minute in temp_marks and self._last_temp_announcement_minute_key != minute_key:
+            if self.latest_temperature_reading:
+                phrases.append(
+                    f"The temperature for {self.get_current_location_name()} is {self.latest_temperature_reading}."
+                )
+            else:
+                self.log_to_gui("Scheduled temperature announcement skipped (temperature data unavailable).", level="DEBUG")
+            self._last_temp_announcement_minute_key = minute_key
+
+        if phrases:
+            self._speak_message_internal(" ".join(phrases))
+            self._set_last_announcement_label()
+
     def _handle_timed_announcements(self, new_alert_titles: List[str], location_id: str):
         """Handles the logic for all timed audio announcements."""
         if self.mute_action.isChecked():
@@ -2908,12 +3053,10 @@ class WeatherAlertApp(QMainWindow):
             alert_text = ". ".join(new_alert_titles)
             full_message = f"New weather alerts for {self.get_location_name_by_id(location_id)}. {alert_text}"
             self._speak_message_internal(full_message)
-            if hasattr(self, "last_announcement_label"):
-                self.last_announcement_label.setText(f"Last Announcement: {time.strftime('%I:%M:%S %p')}")
+            self._set_last_announcement_label()
         elif self.current_repeater_info:
             self._speak_message_internal(self.current_repeater_info)
-            if hasattr(self, "last_announcement_label"):
-                self.last_announcement_label.setText(f"Last Announcement: {time.strftime('%I:%M:%S %p')}")
+            self._set_last_announcement_label()
 
     # --- UI Update and State Management Methods ---
     def _update_current_time_display(self):
