@@ -1793,10 +1793,13 @@ class WeatherAlertApp(QMainWindow):
             self.current_interval_key, FALLBACK_INITIAL_CHECK_INTERVAL_MS)
 
         self.main_check_timer = QTimer(self)
+        self.main_check_timer.setSingleShot(True)
         self.main_check_timer.timeout.connect(self.perform_check_cycle)
         self.countdown_timer = QTimer(self)
         self.countdown_timer.timeout.connect(self._update_countdown_display)
         self.remaining_time_seconds = 0
+        self._check_in_progress = False
+        self._pending_location_id: Optional[str] = None
         self.clock_timer = QTimer(self)
         self.clock_timer.timeout.connect(self._update_current_time_display)
 
@@ -2257,6 +2260,12 @@ class WeatherAlertApp(QMainWindow):
             return "🌡️"
 
     def _update_location_data(self, location_id):
+        if self._check_in_progress:
+            self._pending_location_id = location_id
+            self.log_to_gui("A check is already running; queued latest location refresh request.", level="DEBUG")
+            return
+
+        self._check_in_progress = True
         self.update_status(f"Fetching data for {self.get_location_name_by_id(location_id)}...")
         self._clear_and_set_loading_states()
 
@@ -2264,6 +2273,36 @@ class WeatherAlertApp(QMainWindow):
         worker.signals.result.connect(self._on_location_data_loaded)
         worker.signals.error.connect(self._on_data_load_error)
         self.thread_pool.start(worker)
+
+    def _schedule_next_timed_check(self, immediate: bool = False):
+        is_active = self.announce_alerts_action.isChecked() or self.auto_refresh_action.isChecked()
+        if not is_active:
+            self.main_check_timer.stop()
+            self.countdown_timer.stop()
+            self.top_countdown_label.setText("Next Check: --:-- (Paused)")
+            return
+
+        if self.current_check_interval_ms <= 0:
+            self.top_countdown_label.setText("Next Check: --:-- (Invalid Interval)")
+            return
+
+        self.main_check_timer.stop()
+        if immediate:
+            self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
+            QTimer.singleShot(100, self.perform_check_cycle)
+            return
+
+        self.main_check_timer.start(self.current_check_interval_ms)
+        self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
+
+    def _finish_check_cycle(self):
+        self._check_in_progress = False
+        if self._pending_location_id:
+            queued_location = self._pending_location_id
+            self._pending_location_id = None
+            self._update_location_data(queued_location)
+            return
+        self._schedule_next_timed_check(immediate=False)
 
     def get_location_name_by_id(self, location_id):
         for loc in self.locations:
@@ -2337,6 +2376,7 @@ class WeatherAlertApp(QMainWindow):
 
         self._handle_timed_announcements(new_alert_titles, location_id)
         self._dispatch_webhooks_for_location(location_id, lifecycle["new"])
+        self._finish_check_cycle()
 
     @Slot(Exception)
     def _on_data_load_error(self, e: Exception):
@@ -2354,6 +2394,7 @@ class WeatherAlertApp(QMainWindow):
             self._update_hourly_forecast_display(cached.get("hourly_forecast"))
             self._update_daily_forecast_display(cached.get("daily_forecast"))
             self._update_alert_map(cached.get("alerts", []))
+            self._finish_check_cycle()
             return
 
         self.current_coords = None
@@ -2361,6 +2402,7 @@ class WeatherAlertApp(QMainWindow):
         self._update_lifecycle_display(None)
         self._update_hourly_forecast_display(None)
         self._update_daily_forecast_display(None)
+        self._finish_check_cycle()
 
     def _clear_and_set_loading_states(self):
         self.alerts_display_area.clear()
@@ -2776,7 +2818,13 @@ class WeatherAlertApp(QMainWindow):
             self.top_countdown_label.setText("Next Check: --:-- (Paused)")
             return
 
+        if self._check_in_progress:
+            self.log_to_gui("Skipped timed check because a previous check is still running.", level="DEBUG")
+            return
+
         self.main_check_timer.stop()
+        self.countdown_timer.stop()
+        self.top_countdown_label.setText("Next Check: checking now...")
 
         if self.auto_refresh_action.isChecked() and QWebEngineView and self.web_view:
             self.web_view.reload()
@@ -2784,10 +2832,9 @@ class WeatherAlertApp(QMainWindow):
         # Only check the currently selected location, not all of them.
         if self.current_location_id:
             self._update_location_data(self.current_location_id)
-
-        self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
-        if self.current_check_interval_ms > 0:
-            self.main_check_timer.start(self.current_check_interval_ms)
+        else:
+            self.log_to_gui("No active location selected. Timed check skipped.", level="WARNING")
+            self._schedule_next_timed_check(immediate=False)
 
     def log_to_gui(self, message: str, level: str = "INFO"):
         formatted_message = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [{level.upper()}] {message}"
@@ -2854,12 +2901,12 @@ class WeatherAlertApp(QMainWindow):
         if not self.announce_alerts_action.isChecked():
             return # Timed announcements are disabled
 
-        if self.current_repeater_info:
-            self._speak_message_internal(self.current_repeater_info)
-        elif new_alert_titles:
+        if new_alert_titles:
             alert_text = ". ".join(new_alert_titles)
             full_message = f"New weather alerts for {self.get_location_name_by_id(location_id)}. {alert_text}"
             self._speak_message_internal(full_message)
+        elif self.current_repeater_info:
+            self._speak_message_internal(self.current_repeater_info)
 
     # --- UI Update and State Management Methods ---
     def _update_current_time_display(self):
@@ -2922,8 +2969,8 @@ class WeatherAlertApp(QMainWindow):
         if is_active:
             if not self.main_check_timer.isActive():
                 self.log_to_gui("Timed checks starting.", level="INFO")
-                QTimer.singleShot(100, self.perform_check_cycle)
-            self._reset_and_start_countdown(self.current_check_interval_ms // 1000)
+            if not self._check_in_progress:
+                self._schedule_next_timed_check(immediate=True)
         else:
             self.log_to_gui("Timed checks paused.", level="INFO")
             self.main_check_timer.stop()
@@ -2938,14 +2985,15 @@ class WeatherAlertApp(QMainWindow):
         self._update_countdown_display()
 
     def _update_countdown_display(self):
-        if self.remaining_time_seconds > 0:
-            self.remaining_time_seconds -= 1
         is_active = self.announce_alerts_action.isChecked() or self.auto_refresh_action.isChecked()
         if not is_active:
             self.top_countdown_label.setText("Next Check: --:-- (Paused)")
         else:
-            minutes, seconds = divmod(self.remaining_time_seconds, 60)
+            remaining = max(self.remaining_time_seconds, 0)
+            minutes, seconds = divmod(remaining, 60)
             self.top_countdown_label.setText(f"Next Check: {minutes:02d}:{seconds:02d}")
+            if self.remaining_time_seconds > 0:
+                self.remaining_time_seconds -= 1
 
     def _update_panel_visibility(self):
         """Centralized function to control visibility of main UI panels."""
