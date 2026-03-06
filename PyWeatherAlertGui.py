@@ -42,7 +42,7 @@ from weather_alert.rules import (
 from weather_alert.webhook import dispatch_notification_channels
 
 # --- Application Version ---
-versionnumber = "26.03.03"
+versionnumber = "26.03.06"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -77,9 +77,11 @@ FALLBACK_ENABLE_SLACK_NOTIFICATIONS = False
 FALLBACK_ANNOUNCE_TIME_TOP = False
 FALLBACK_ANNOUNCE_TIME_15 = False
 FALLBACK_ANNOUNCE_TIME_30 = False
+FALLBACK_ANNOUNCE_TIME_45 = False
 FALLBACK_ANNOUNCE_TEMP_TOP = False
 FALLBACK_ANNOUNCE_TEMP_15 = False
 FALLBACK_ANNOUNCE_TEMP_30 = False
+FALLBACK_ANNOUNCE_TEMP_45 = False
 
 CHECK_INTERVAL_OPTIONS = {
     "1 Minute": 1 * 60 * 1000, "5 Minutes": 5 * 60 * 1000,
@@ -1600,27 +1602,7 @@ class SettingsDialog(QDialog):
         self.interval_combobox.setCurrentText(self.current_settings.get("interval_key", FALLBACK_DEFAULT_INTERVAL_KEY))
         form_layout.addRow("Check Interval:", self.interval_combobox)
 
-        self.tabs.addTab(general_tab, "General")
-
-        # --- Locations Tab ---
-        locations_tab = QWidget()
-        locations_layout = QVBoxLayout(locations_tab)
-        self.manage_locations_button = QPushButton("Manage Locations...")
-        self.manage_locations_button.clicked.connect(self._open_manage_locations_dialog)
-        locations_layout.addWidget(self.manage_locations_button)
-        locations_layout.addStretch()
-        self.tabs.addTab(locations_tab, "Locations")
-
-        # --- Behavior & Display Settings ---
-        behavior_tab = QWidget()
-        behavior_form_layout = QFormLayout(behavior_tab)
-
-        self.announce_alerts_check = QCheckBox("Enable Timed Announcements")
-        self.announce_alerts_check.setChecked(
-            self.current_settings.get("announce_alerts", FALLBACK_ANNOUNCE_ALERTS_CHECKED))
-        behavior_form_layout.addRow(self.announce_alerts_check)
-
-        behavior_form_layout.addRow(QLabel("<b>Scheduled Time Announcements</b>"))
+        form_layout.addRow(QLabel("<b>Scheduled Time Announcements</b>"))
         self.announce_time_top_check = QCheckBox("Announce Time at :00")
         self.announce_time_top_check.setChecked(
             self.current_settings.get("announce_time_top", FALLBACK_ANNOUNCE_TIME_TOP)
@@ -1633,11 +1615,16 @@ class SettingsDialog(QDialog):
         self.announce_time_30_check.setChecked(
             self.current_settings.get("announce_time_30", FALLBACK_ANNOUNCE_TIME_30)
         )
-        behavior_form_layout.addRow(self.announce_time_top_check)
-        behavior_form_layout.addRow(self.announce_time_15_check)
-        behavior_form_layout.addRow(self.announce_time_30_check)
+        self.announce_time_45_check = QCheckBox("Announce Time at :45")
+        self.announce_time_45_check.setChecked(
+            self.current_settings.get("announce_time_45", FALLBACK_ANNOUNCE_TIME_45)
+        )
+        form_layout.addRow(self.announce_time_top_check)
+        form_layout.addRow(self.announce_time_15_check)
+        form_layout.addRow(self.announce_time_30_check)
+        form_layout.addRow(self.announce_time_45_check)
 
-        behavior_form_layout.addRow(QLabel("<b>Scheduled Temperature Announcements</b>"))
+        form_layout.addRow(QLabel("<b>Scheduled Temperature Announcements</b>"))
         self.announce_temp_top_check = QCheckBox("Announce Temp at :00")
         self.announce_temp_top_check.setChecked(
             self.current_settings.get("announce_temp_top", FALLBACK_ANNOUNCE_TEMP_TOP)
@@ -1650,9 +1637,34 @@ class SettingsDialog(QDialog):
         self.announce_temp_30_check.setChecked(
             self.current_settings.get("announce_temp_30", FALLBACK_ANNOUNCE_TEMP_30)
         )
-        behavior_form_layout.addRow(self.announce_temp_top_check)
-        behavior_form_layout.addRow(self.announce_temp_15_check)
-        behavior_form_layout.addRow(self.announce_temp_30_check)
+        self.announce_temp_45_check = QCheckBox("Announce Temp at :45")
+        self.announce_temp_45_check.setChecked(
+            self.current_settings.get("announce_temp_45", FALLBACK_ANNOUNCE_TEMP_45)
+        )
+        form_layout.addRow(self.announce_temp_top_check)
+        form_layout.addRow(self.announce_temp_15_check)
+        form_layout.addRow(self.announce_temp_30_check)
+        form_layout.addRow(self.announce_temp_45_check)
+
+        self.tabs.addTab(general_tab, "General")
+
+        # --- Locations Tab ---
+        locations_tab = QWidget()
+        locations_layout = QVBoxLayout(locations_tab)
+        self.manage_locations_button = QPushButton("Manage Locations...")
+        self.manage_locations_button.clicked.connect(self._open_manage_locations_dialog)
+        locations_layout.addWidget(self.manage_locations_button)
+        locations_layout.addStretch()
+        self.tabs.addTab(locations_tab, "Locations")
+
+        # --- Behavior Settings ---
+        behavior_tab = QWidget()
+        behavior_form_layout = QFormLayout(behavior_tab)
+
+        self.announce_alerts_check = QCheckBox("Enable Timed Announcements")
+        self.announce_alerts_check.setChecked(
+            self.current_settings.get("announce_alerts", FALLBACK_ANNOUNCE_ALERTS_CHECKED))
+        behavior_form_layout.addRow(self.announce_alerts_check)
 
         self.auto_refresh_check = QCheckBox("Auto-Refresh Web Content")
         self.auto_refresh_check.setChecked(
@@ -1705,37 +1717,41 @@ class SettingsDialog(QDialog):
         self.slack_webhook_url_entry.setPlaceholderText("https://hooks.slack.com/services/...")
         behavior_form_layout.addRow("Slack Webhook:", self.slack_webhook_url_entry)
 
+        self.tabs.addTab(behavior_tab, "Behavior")
+
+        # --- Display Settings ---
+        display_tab = QWidget()
+        display_form_layout = QFormLayout(display_tab)
+
         self.dark_mode_check = QCheckBox("Enable Dark Mode")
         self.dark_mode_check.setChecked(self.current_settings.get("dark_mode_enabled", FALLBACK_DARK_MODE_ENABLED))
-        behavior_form_layout.addRow(self.dark_mode_check)
+        display_form_layout.addRow(self.dark_mode_check)
 
-        behavior_form_layout.addRow(QFrame(frameShape=QFrame.Shape.HLine, frameShadow=QFrame.Shadow.Sunken))
-
+        display_form_layout.addRow(QFrame(frameShape=QFrame.Shape.HLine, frameShadow=QFrame.Shadow.Sunken))
         self.show_log_check = QCheckBox("Show Log Panel on Startup")
         self.show_log_check.setToolTip("Show or hide the log panel at the bottom of the window.")
         self.show_log_check.setChecked(self.current_settings.get("show_log", FALLBACK_SHOW_LOG_CHECKED))
-        behavior_form_layout.addRow(self.show_log_check)
+        display_form_layout.addRow(self.show_log_check)
 
         self.show_alerts_check = QCheckBox("Show Current Alerts Area on Startup")
         self.show_alerts_check.setToolTip("Show or hide the Current Alerts panel.")
         self.show_alerts_check.setChecked(
             self.current_settings.get("show_alerts_area", FALLBACK_SHOW_ALERTS_AREA_CHECKED))
-        behavior_form_layout.addRow(self.show_alerts_check)
+        display_form_layout.addRow(self.show_alerts_check)
 
         self.show_forecasts_check = QCheckBox("Show Weather Forecast Area on Startup")
         self.show_forecasts_check.setToolTip("Show or hide the Weather Forecast panel.")
         self.show_forecasts_check.setChecked(
             self.current_settings.get("show_forecasts_area", FALLBACK_SHOW_FORECASTS_AREA_CHECKED))
-        behavior_form_layout.addRow(self.show_forecasts_check)
+        display_form_layout.addRow(self.show_forecasts_check)
 
-        behavior_form_layout.addRow(QFrame(frameShape=QFrame.Shape.HLine, frameShadow=QFrame.Shadow.Sunken))
-
+        display_form_layout.addRow(QFrame(frameShape=QFrame.Shape.HLine, frameShadow=QFrame.Shadow.Sunken))
         self.log_sort_combo = QComboBox()
         self.log_sort_combo.addItems(["Chronological", "Ascending", "Descending"])
         self.log_sort_combo.setCurrentText(
             self.current_settings.get("log_sort_order", FALLBACK_LOG_SORT_ORDER).capitalize())
-        behavior_form_layout.addRow("Initial Log Sort Order:", self.log_sort_combo)
-        self.tabs.addTab(behavior_tab, "Behavior & Display")
+        display_form_layout.addRow("Initial Log Sort Order:", self.log_sort_combo)
+        self.tabs.addTab(display_tab, "Display")
 
         main_layout.addWidget(self.tabs)
 
@@ -1763,9 +1779,11 @@ class SettingsDialog(QDialog):
             "announce_time_top": self.announce_time_top_check.isChecked(),
             "announce_time_15": self.announce_time_15_check.isChecked(),
             "announce_time_30": self.announce_time_30_check.isChecked(),
+            "announce_time_45": self.announce_time_45_check.isChecked(),
             "announce_temp_top": self.announce_temp_top_check.isChecked(),
             "announce_temp_15": self.announce_temp_15_check.isChecked(),
             "announce_temp_30": self.announce_temp_30_check.isChecked(),
+            "announce_temp_45": self.announce_temp_45_check.isChecked(),
             "auto_refresh_content": self.auto_refresh_check.isChecked(),
             "mute_audio": self.mute_audio_check.isChecked(),
             "enable_sounds": self.notification_sound_check.isChecked(),
@@ -1831,9 +1849,11 @@ class WeatherAlertApp(QMainWindow):
         self.current_announce_time_top = FALLBACK_ANNOUNCE_TIME_TOP
         self.current_announce_time_15 = FALLBACK_ANNOUNCE_TIME_15
         self.current_announce_time_30 = FALLBACK_ANNOUNCE_TIME_30
+        self.current_announce_time_45 = FALLBACK_ANNOUNCE_TIME_45
         self.current_announce_temp_top = FALLBACK_ANNOUNCE_TEMP_TOP
         self.current_announce_temp_15 = FALLBACK_ANNOUNCE_TEMP_15
         self.current_announce_temp_30 = FALLBACK_ANNOUNCE_TEMP_30
+        self.current_announce_temp_45 = FALLBACK_ANNOUNCE_TEMP_45
         self.latest_temperature_reading: Optional[str] = None
         self._last_time_announcement_minute_key: Optional[str] = None
         self._last_temp_announcement_minute_key: Optional[str] = None
@@ -1953,9 +1973,11 @@ class WeatherAlertApp(QMainWindow):
         self.current_announce_time_top = settings.get("announce_time_top", FALLBACK_ANNOUNCE_TIME_TOP)
         self.current_announce_time_15 = settings.get("announce_time_15", FALLBACK_ANNOUNCE_TIME_15)
         self.current_announce_time_30 = settings.get("announce_time_30", FALLBACK_ANNOUNCE_TIME_30)
+        self.current_announce_time_45 = settings.get("announce_time_45", FALLBACK_ANNOUNCE_TIME_45)
         self.current_announce_temp_top = settings.get("announce_temp_top", FALLBACK_ANNOUNCE_TEMP_TOP)
         self.current_announce_temp_15 = settings.get("announce_temp_15", FALLBACK_ANNOUNCE_TEMP_15)
         self.current_announce_temp_30 = settings.get("announce_temp_30", FALLBACK_ANNOUNCE_TEMP_30)
+        self.current_announce_temp_45 = settings.get("announce_temp_45", FALLBACK_ANNOUNCE_TEMP_45)
 
         self._last_valid_radar_text = self._get_display_name_for_url(self.current_radar_url) or \
                                       (list(self.RADAR_OPTIONS.keys())[0] if self.RADAR_OPTIONS else "")
@@ -1988,9 +2010,11 @@ class WeatherAlertApp(QMainWindow):
         self.current_announce_time_top = FALLBACK_ANNOUNCE_TIME_TOP
         self.current_announce_time_15 = FALLBACK_ANNOUNCE_TIME_15
         self.current_announce_time_30 = FALLBACK_ANNOUNCE_TIME_30
+        self.current_announce_time_45 = FALLBACK_ANNOUNCE_TIME_45
         self.current_announce_temp_top = FALLBACK_ANNOUNCE_TEMP_TOP
         self.current_announce_temp_15 = FALLBACK_ANNOUNCE_TEMP_15
         self.current_announce_temp_30 = FALLBACK_ANNOUNCE_TEMP_30
+        self.current_announce_temp_45 = FALLBACK_ANNOUNCE_TEMP_45
 
     @Slot()
     def _save_settings(self):
@@ -2004,9 +2028,11 @@ class WeatherAlertApp(QMainWindow):
             "announce_time_top": self.current_announce_time_top,
             "announce_time_15": self.current_announce_time_15,
             "announce_time_30": self.current_announce_time_30,
+            "announce_time_45": self.current_announce_time_45,
             "announce_temp_top": self.current_announce_temp_top,
             "announce_temp_15": self.current_announce_temp_15,
             "announce_temp_30": self.current_announce_temp_30,
+            "announce_temp_45": self.current_announce_temp_45,
             "auto_refresh_content": self.auto_refresh_action.isChecked(),
             "mute_audio": self.mute_action.isChecked(),
             "enable_sounds": self.enable_sounds_action.isChecked(),
@@ -2816,9 +2842,11 @@ class WeatherAlertApp(QMainWindow):
             "announce_time_top": self.current_announce_time_top,
             "announce_time_15": self.current_announce_time_15,
             "announce_time_30": self.current_announce_time_30,
+            "announce_time_45": self.current_announce_time_45,
             "announce_temp_top": self.current_announce_temp_top,
             "announce_temp_15": self.current_announce_temp_15,
             "announce_temp_30": self.current_announce_temp_30,
+            "announce_temp_45": self.current_announce_temp_45,
             "auto_refresh_content": self.auto_refresh_action.isChecked(),
             "mute_audio": self.mute_action.isChecked(),
             "enable_sounds": self.enable_sounds_action.isChecked(),
@@ -2850,9 +2878,11 @@ class WeatherAlertApp(QMainWindow):
             self.current_announce_time_top = new_data["announce_time_top"]
             self.current_announce_time_15 = new_data["announce_time_15"]
             self.current_announce_time_30 = new_data["announce_time_30"]
+            self.current_announce_time_45 = new_data["announce_time_45"]
             self.current_announce_temp_top = new_data["announce_temp_top"]
             self.current_announce_temp_15 = new_data["announce_temp_15"]
             self.current_announce_temp_30 = new_data["announce_temp_30"]
+            self.current_announce_temp_45 = new_data["announce_temp_45"]
             self.current_enable_webhook_notifications = new_data["enable_webhook_notifications"]
             self.current_webhook_url = new_data["webhook_url"]
             self.current_enable_discord_notifications = new_data["enable_discord_notifications"]
@@ -2950,6 +2980,7 @@ class WeatherAlertApp(QMainWindow):
         self.main_check_timer.stop()
         self.countdown_timer.stop()
         self.clock_timer.stop()
+        self.scheduled_announcement_timer.stop()
         self.thread_pool.waitForDone()
         self.alert_history_manager.save_history()
         self._save_settings()
@@ -3004,6 +3035,8 @@ class WeatherAlertApp(QMainWindow):
                 marks.add(15)
             if self.current_announce_time_30:
                 marks.add(30)
+            if self.current_announce_time_45:
+                marks.add(45)
         else:
             if self.current_announce_temp_top:
                 marks.add(0)
@@ -3011,6 +3044,8 @@ class WeatherAlertApp(QMainWindow):
                 marks.add(15)
             if self.current_announce_temp_30:
                 marks.add(30)
+            if self.current_announce_temp_45:
+                marks.add(45)
         return marks
 
     def _check_scheduled_time_and_temperature_announcements(self):
@@ -3024,15 +3059,13 @@ class WeatherAlertApp(QMainWindow):
         phrases: List[str] = []
         time_marks = self._selected_time_marks(announce_time=True)
         if current_minute in time_marks and self._last_time_announcement_minute_key != minute_key:
-            phrases.append(f"The time is {now.strftime('%I:%M %p')}.")
+            phrases.append(f"Time is {now.strftime('%I:%M %p')}.")
             self._last_time_announcement_minute_key = minute_key
 
         temp_marks = self._selected_time_marks(announce_time=False)
         if current_minute in temp_marks and self._last_temp_announcement_minute_key != minute_key:
             if self.latest_temperature_reading:
-                phrases.append(
-                    f"The temperature for {self.get_current_location_name()} is {self.latest_temperature_reading}."
-                )
+                phrases.append(f"Temperature is {self.latest_temperature_reading}.")
             else:
                 self.log_to_gui("Scheduled temperature announcement skipped (temperature data unavailable).", level="DEBUG")
             self._last_temp_announcement_minute_key = minute_key
