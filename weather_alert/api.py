@@ -172,7 +172,11 @@ class NwsApiClient:
         points_url = NWS_POINTS_API_URL_TEMPLATE.format(latitude=lat, longitude=lon)
         try:
             props = self._get_json(points_url).get("properties", {})
-            data = {"hourly": props.get("forecastHourly"), "daily": props.get("forecast")}
+            data = {
+                "hourly": props.get("forecastHourly"),
+                "daily": props.get("forecast"),
+                "grid": props.get("forecastGridData"),
+            }
             self._cache_set(self._forecast_url_cache, cache_key, data, self.forecast_ttl_s)
             return data
         except (requests.RequestException, ValueError) as e:

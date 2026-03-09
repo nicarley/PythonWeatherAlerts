@@ -1,5 +1,7 @@
 import pickle
 
+import pickle
+
 from weather_alert.history import AlertHistoryManager
 
 

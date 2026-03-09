@@ -6,7 +6,7 @@ import os
 import json
 import shutil
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Tuple, Callable
 
 # PySide6 imports
@@ -47,7 +47,7 @@ from weather_alert.dedup import AlertDeduplicator
 from weather_alert.exporter import export_incident_csv, export_incident_json
 
 # --- Application Version ---
-versionnumber = "26.03.06"
+versionnumber = "26.03.09"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -2663,6 +2663,7 @@ class WeatherAlertApp(QMainWindow):
 
         hourly_forecast = None
         daily_forecast = None
+        grid_forecast = None
 
         if forecast_urls.get("hourly"):
             hourly_forecast = self.api_client.get_forecast_data(forecast_urls["hourly"])
@@ -2674,12 +2675,16 @@ class WeatherAlertApp(QMainWindow):
             if not daily_forecast:
                 raise ModularApiError(f"Failed to fetch daily forecast data from {forecast_urls['daily']}.")
 
+        if forecast_urls.get("grid"):
+            grid_forecast = self.api_client.get_forecast_data(forecast_urls["grid"])
+
         return {
             "location_id": location_id,
             "coords": coords,
             "alerts": alerts,
             "hourly_forecast": hourly_forecast,
             "daily_forecast": daily_forecast,
+            "grid_forecast": grid_forecast,
             "fetched_at": time.time(),
         }
 
@@ -2713,8 +2718,8 @@ class WeatherAlertApp(QMainWindow):
         self._update_alerts_display_area(alerts, location_id, lifecycle)
         new_alert_titles = [alert.get("title", "N/A Title") for alert in lifecycle["new"] if alert.get("_notify_allowed")]
         self._update_lifecycle_display(lifecycle)
-        self._update_hourly_forecast_display(result["hourly_forecast"])
-        self._update_daily_forecast_display(result["daily_forecast"])
+        self._update_hourly_forecast_display(result["hourly_forecast"], result.get("grid_forecast"))
+        self._update_daily_forecast_display(result["daily_forecast"], result.get("grid_forecast"))
         self._update_alert_map(alerts)
         self.update_status(f"Data for {self.get_location_name_by_id(location_id)} updated.")
 
@@ -2740,8 +2745,8 @@ class WeatherAlertApp(QMainWindow):
             self.current_coords = cached.get("coords")
             self._update_alerts_display_area(cached.get("alerts", []), self.current_location_id, None)
             self._update_lifecycle_display(None)
-            self._update_hourly_forecast_display(cached.get("hourly_forecast"))
-            self._update_daily_forecast_display(cached.get("daily_forecast"))
+            self._update_hourly_forecast_display(cached.get("hourly_forecast"), cached.get("grid_forecast"))
+            self._update_daily_forecast_display(cached.get("daily_forecast"), cached.get("grid_forecast"))
             self._update_alert_map(cached.get("alerts", []))
             self._finish_check_cycle()
             return
@@ -2749,8 +2754,8 @@ class WeatherAlertApp(QMainWindow):
         self.current_coords = None
         self._update_alerts_display_area([], self.current_location_id, None)
         self._update_lifecycle_display(None)
-        self._update_hourly_forecast_display(None)
-        self._update_daily_forecast_display(None)
+        self._update_hourly_forecast_display(None, None)
+        self._update_daily_forecast_display(None, None)
         self._finish_check_cycle()
 
     def _clear_and_set_loading_states(self):
@@ -3123,7 +3128,7 @@ class WeatherAlertApp(QMainWindow):
         if QSystemTrayIcon.isSystemTrayAvailable() and hasattr(self, "tray_icon"):
             self.tray_icon.showMessage(title, message, self.windowIcon(), 10000)
 
-    def _update_hourly_forecast_display(self, forecast_json: Optional[Dict[str, Any]]):
+    def _update_hourly_forecast_display(self, forecast_json: Optional[Dict[str, Any]], grid_json: Optional[Dict[str, Any]]):
         self._clear_layout(self.hourly_forecast_layout)
         if not forecast_json or 'properties' not in forecast_json or 'periods' not in forecast_json['properties']:
             self.latest_temperature_reading = None
@@ -3137,17 +3142,15 @@ class WeatherAlertApp(QMainWindow):
             self.latest_temperature_reading = f"{first_temp} degrees {first_unit}" if first_unit else str(first_temp)
         else:
             self.latest_temperature_reading = None
-        headers = ["Time", "Temp", "Feels Like", "Wind", "Precip", "Humidity", "Dewpoint", "Forecast"]
+        headers = ["Time", "Temp", "Feels Like", "Wind", "Gusts", "Precip", "Humidity", "Sky", "Forecast"]
         for col, header in enumerate(headers):
             self.hourly_forecast_layout.addWidget(QLabel(f"<b>{header}</b>"), 0, col)
 
         for i, p in enumerate(periods):
             try:
-                start_time_str = p.get('startTime', '')
-                time_obj = time.strptime(start_time_str.split('T')[1].split('-')[0], "%H:%M:%S")
-                formatted_time = time.strftime("%I %p", time_obj).lstrip('0')
+                formatted_time, start_dt, end_dt = self._format_period_time(p)
                 temp = f"{p.get('temperature', 'N/A')}°{p.get('temperatureUnit', '')}"
-                
+
                 # Get feels like temp
                 feels_like_value = p.get('apparentTemperature', {}).get('value')
                 if feels_like_value is None:
@@ -3156,52 +3159,95 @@ class WeatherAlertApp(QMainWindow):
                     feels_like_value = p.get('windChill', {}).get('value')
 
                 if feels_like_value is not None:
-                    # All these values are in Celsius from the API
-                    feels_like = f"{round(feels_like_value * 9/5 + 32)}°F"
+                    feels_like_f = self._c_to_f(feels_like_value)
+                    feels_like = f"{feels_like_f}°F" if feels_like_f is not None else temp
                 else:
-                    # If no 'feels like' value is present, it's the same as the temperature
                     feels_like = temp
 
-                # Enhanced wind display
                 wind_speed = p.get('windSpeed', 'N/A')
                 wind_dir = p.get('windDirection', '')
                 wind = f"{wind_dir} {wind_speed}" if wind_dir else wind_speed
 
-                # Precipitation chance
                 precip = p.get('probabilityOfPrecipitation', {}).get('value', '0')
                 precip = f"{precip}%" if precip is not None else "-"
 
                 humidity = p.get('relativeHumidity', {}).get('value')
                 humidity = f"{humidity}%" if humidity is not None else "N/A"
-                
+
                 dewpoint_c = p.get('dewpoint', {}).get('value')
-                if dewpoint_c is not None:
-                    dewpoint_f = f"{round(dewpoint_c * 9/5 + 32)}°F"
-                else:
-                    dewpoint_f = "N/A"
+                dewpoint_f_value = self._c_to_f(dewpoint_c)
+                dewpoint_f = f"{dewpoint_f_value}°F" if dewpoint_f_value is not None else "N/A"
 
                 short_fc = p.get('shortForecast', 'N/A')
                 emoji = self.get_weather_emoji(short_fc)
+                gust_text = "N/A"
+                sky_text = "N/A"
+                detail_lines = [f"Ends: {p.get('endTime', 'N/A')}", f"Dewpoint: {dewpoint_f}"]
+
+                if start_dt and end_dt:
+                    gust_text = self._format_grid_value(
+                        grid_json,
+                        "windGust",
+                        self._grid_value_for_period(grid_json, "windGust", start_dt, end_dt, aggregate="max"),
+                    )
+                    sky_text = self._format_grid_value(
+                        grid_json,
+                        "skyCover",
+                        self._grid_value_for_period(grid_json, "skyCover", start_dt, end_dt),
+                    )
+                    thunder_text = self._format_grid_value(
+                        grid_json,
+                        "probabilityOfThunder",
+                        self._grid_value_for_period(grid_json, "probabilityOfThunder", start_dt, end_dt),
+                    )
+                    visibility_text = self._format_grid_value(
+                        grid_json,
+                        "visibility",
+                        self._grid_value_for_period(grid_json, "visibility", start_dt, end_dt),
+                    )
+                    qpf_text = self._format_grid_value(
+                        grid_json,
+                        "quantitativePrecipitation",
+                        self._grid_value_for_period(grid_json, "quantitativePrecipitation", start_dt, end_dt, aggregate="sum"),
+                    )
+                    detail_lines.extend(
+                        [
+                            f"Gusts: {gust_text}",
+                            f"Sky cover: {sky_text}",
+                            f"Thunder risk: {thunder_text}",
+                            f"Visibility: {visibility_text}",
+                            f"QPF: {qpf_text}",
+                        ]
+                    )
+
+                if p.get("temperatureTrend"):
+                    detail_lines.append(f"Temperature trend: {p.get('temperatureTrend')}")
+                if p.get("icon"):
+                    detail_lines.append(f"Icon: {p.get('icon')}")
+
+                forecast_label = QLabel(f"{emoji} {short_fc}")
+                forecast_label.setToolTip("\n".join(detail_lines))
 
                 self.hourly_forecast_layout.addWidget(QLabel(formatted_time), i + 1, 0)
                 self.hourly_forecast_layout.addWidget(QLabel(temp), i + 1, 1)
                 self.hourly_forecast_layout.addWidget(QLabel(feels_like), i + 1, 2)
                 self.hourly_forecast_layout.addWidget(QLabel(wind), i + 1, 3)
-                self.hourly_forecast_layout.addWidget(QLabel(precip), i + 1, 4)
-                self.hourly_forecast_layout.addWidget(QLabel(humidity), i + 1, 5)
-                self.hourly_forecast_layout.addWidget(QLabel(dewpoint_f), i + 1, 6)
-                self.hourly_forecast_layout.addWidget(QLabel(f"{emoji} {short_fc}"), i + 1, 7)
+                self.hourly_forecast_layout.addWidget(QLabel(gust_text), i + 1, 4)
+                self.hourly_forecast_layout.addWidget(QLabel(precip), i + 1, 5)
+                self.hourly_forecast_layout.addWidget(QLabel(humidity), i + 1, 6)
+                self.hourly_forecast_layout.addWidget(QLabel(sky_text), i + 1, 7)
+                self.hourly_forecast_layout.addWidget(forecast_label, i + 1, 8)
             except Exception as e:
                 self.log_to_gui(f"Error formatting hourly period: {e}", level="WARNING")
 
-    def _update_daily_forecast_display(self, forecast_json: Optional[Dict[str, Any]]):
+    def _update_daily_forecast_display(self, forecast_json: Optional[Dict[str, Any]], grid_json: Optional[Dict[str, Any]]):
         self._clear_layout(self.daily_forecast_layout)
         if not forecast_json or 'properties' not in forecast_json or 'periods' not in forecast_json['properties']:
             self.daily_forecast_layout.addWidget(QLabel("5-Day forecast data unavailable."), 0, 0)
             return
 
         periods = forecast_json['properties']['periods'][:10]
-        headers = ["Period", "Temp", "Forecast"]
+        headers = ["Period", "Temp", "Wind", "Precip", "Forecast", "Details"]
         for col, header in enumerate(headers):
             self.daily_forecast_layout.addWidget(QLabel(f"<b>{header}</b>"), 0, col)
 
@@ -3209,18 +3255,43 @@ class WeatherAlertApp(QMainWindow):
             try:
                 name = p.get('name', 'N/A')
                 temp = f"{p.get('temperature', 'N/A')}°{p.get('temperatureUnit', '')}"
+                wind_speed = p.get('windSpeed', 'N/A')
+                wind_dir = p.get('windDirection', '')
+                wind = f"{wind_dir} {wind_speed}" if wind_dir else wind_speed
+                precip = p.get('probabilityOfPrecipitation', {}).get('value')
+                precip_text = f"{precip}%" if precip is not None else "-"
                 short_fc = p.get('shortForecast', 'N/A')
                 detailed_fc = p.get('detailedForecast', 'N/A')
                 emoji = self.get_weather_emoji(short_fc)
+                _, start_dt, end_dt = self._format_period_time(p)
+
+                detail_bits = []
+                if start_dt and end_dt:
+                    detail_bits.extend(
+                        [
+                            f"Gusts {self._format_grid_value(grid_json, 'windGust', self._grid_value_for_period(grid_json, 'windGust', start_dt, end_dt, aggregate='max'))}",
+                            f"Sky {self._format_grid_value(grid_json, 'skyCover', self._grid_value_for_period(grid_json, 'skyCover', start_dt, end_dt))}",
+                            f"Thunder {self._format_grid_value(grid_json, 'probabilityOfThunder', self._grid_value_for_period(grid_json, 'probabilityOfThunder', start_dt, end_dt))}",
+                            f'QPF {self._format_grid_value(grid_json, "quantitativePrecipitation", self._grid_value_for_period(grid_json, "quantitativePrecipitation", start_dt, end_dt, aggregate="sum"))}',
+                            f"Visibility {self._format_grid_value(grid_json, 'visibility', self._grid_value_for_period(grid_json, 'visibility', start_dt, end_dt))}",
+                        ]
+                    )
+                if p.get("temperatureTrend"):
+                    detail_bits.append(f"Trend {p.get('temperatureTrend')}")
 
                 name_label = QLabel(name)
                 name_label.setToolTip(detailed_fc)
                 self.daily_forecast_layout.addWidget(name_label, i + 1, 0)
                 self.daily_forecast_layout.addWidget(QLabel(temp), i + 1, 1)
-                
+                self.daily_forecast_layout.addWidget(QLabel(wind), i + 1, 2)
+                self.daily_forecast_layout.addWidget(QLabel(precip_text), i + 1, 3)
+
                 short_fc_label = QLabel(f"{emoji} {short_fc}")
                 short_fc_label.setToolTip(detailed_fc)
-                self.daily_forecast_layout.addWidget(short_fc_label, i + 1, 2)
+                self.daily_forecast_layout.addWidget(short_fc_label, i + 1, 4)
+                details_label = QLabel(" | ".join(detail_bits) if detail_bits else "-")
+                details_label.setToolTip(detailed_fc)
+                self.daily_forecast_layout.addWidget(details_label, i + 1, 5)
             except Exception as e:
                 self.log_to_gui(f"Error formatting daily period: {e}", level="WARNING")
 
@@ -3230,6 +3301,155 @@ class WeatherAlertApp(QMainWindow):
             child = layout.takeAt(0)
             if child.widget():
                 child.widget().deleteLater()
+
+    @staticmethod
+    def _c_to_f(value_c: Optional[float]) -> Optional[int]:
+        if value_c is None:
+            return None
+        return round(value_c * 9 / 5 + 32)
+
+    @staticmethod
+    def _parse_iso_duration(duration_text: str) -> Optional[timedelta]:
+        match = re.match(
+            r"^P(?:(?P<days>\d+)D)?(?:T(?:(?P<hours>\d+)H)?(?:(?P<minutes>\d+)M)?(?:(?P<seconds>\d+)S)?)?$",
+            duration_text,
+        )
+        if not match:
+            return None
+        return timedelta(
+            days=int(match.group("days") or 0),
+            hours=int(match.group("hours") or 0),
+            minutes=int(match.group("minutes") or 0),
+            seconds=int(match.group("seconds") or 0),
+        )
+
+    def _parse_valid_time_range(self, valid_time: str) -> Optional[Tuple[datetime, datetime]]:
+        if not valid_time or "/" not in valid_time:
+            return None
+        start_text, duration_text = valid_time.split("/", 1)
+        try:
+            start_dt = datetime.fromisoformat(start_text.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        duration = self._parse_iso_duration(duration_text)
+        if duration is None:
+            return None
+        return start_dt, start_dt + duration
+
+    @staticmethod
+    def _overlap_seconds(
+        range_start: datetime,
+        range_end: datetime,
+        window_start: datetime,
+        window_end: datetime,
+    ) -> float:
+        overlap_start = max(range_start, window_start)
+        overlap_end = min(range_end, window_end)
+        return max((overlap_end - overlap_start).total_seconds(), 0.0)
+
+    @staticmethod
+    def _grid_layer_meta(grid_json: Optional[Dict[str, Any]], layer_name: str) -> Dict[str, Any]:
+        if not grid_json:
+            return {}
+        return grid_json.get("properties", {}).get(layer_name, {})
+
+    def _grid_value_for_period(
+        self,
+        grid_json: Optional[Dict[str, Any]],
+        layer_name: str,
+        start_dt: datetime,
+        end_dt: datetime,
+        aggregate: str = "avg",
+    ) -> Optional[float]:
+        layer = self._grid_layer_meta(grid_json, layer_name)
+        values = layer.get("values", [])
+        weighted_total = 0.0
+        weighted_seconds = 0.0
+        running_sum = 0.0
+        found_any = False
+        max_value = None
+
+        for entry in values:
+            value = entry.get("value")
+            if value is None:
+                continue
+            time_range = self._parse_valid_time_range(entry.get("validTime", ""))
+            if not time_range:
+                continue
+            value_start, value_end = time_range
+            overlap_seconds = self._overlap_seconds(value_start, value_end, start_dt, end_dt)
+            if overlap_seconds <= 0:
+                continue
+
+            try:
+                numeric_value = float(value)
+            except (TypeError, ValueError):
+                continue
+
+            found_any = True
+            if aggregate == "max":
+                max_value = numeric_value if max_value is None else max(max_value, numeric_value)
+                continue
+
+            if aggregate == "sum":
+                source_seconds = max((value_end - value_start).total_seconds(), 1.0)
+                running_sum += numeric_value * (overlap_seconds / source_seconds)
+                continue
+
+            weighted_total += numeric_value * overlap_seconds
+            weighted_seconds += overlap_seconds
+
+        if not found_any:
+            return None
+        if aggregate == "max":
+            return max_value
+        if aggregate == "sum":
+            return running_sum
+        return (weighted_total / weighted_seconds) if weighted_seconds else None
+
+    def _format_grid_value(self, grid_json: Optional[Dict[str, Any]], layer_name: str, value: Optional[float]) -> str:
+        if value is None:
+            return "N/A"
+
+        layer_meta = self._grid_layer_meta(grid_json, layer_name)
+        unit = str(layer_meta.get("uom") or layer_meta.get("unitCode") or "")
+        lower_unit = unit.lower()
+
+        if layer_name in {"skyCover", "probabilityOfThunder"}:
+            return f"{round(value)}%"
+
+        if layer_name == "windGust":
+            if "km_h-1" in lower_unit:
+                value *= 0.621371
+            elif "m_s-1" in lower_unit:
+                value *= 2.23694
+            return f"{round(value)} mph"
+
+        if layer_name == "visibility":
+            if lower_unit.endswith(":m") or lower_unit.endswith("/m") or lower_unit == "m":
+                value *= 0.000621371
+            return f"{value:.1f} mi"
+
+        if layer_name in {"quantitativePrecipitation", "snowfallAmount", "iceAccumulation"}:
+            if "mm" in lower_unit:
+                value *= 0.0393701
+            return f'{value:.2f}"'
+
+        return f"{round(value, 1)}"
+
+    @staticmethod
+    def _format_period_time(period: Dict[str, Any]) -> Tuple[str, Optional[datetime], Optional[datetime]]:
+        start_text = period.get("startTime", "")
+        end_text = period.get("endTime", "")
+        try:
+            start_dt = datetime.fromisoformat(start_text.replace("Z", "+00:00"))
+            end_dt = datetime.fromisoformat(end_text.replace("Z", "+00:00"))
+        except ValueError:
+            return "N/A", None, None
+
+        prefix = "Day" if period.get("isDaytime") else "Night"
+        label = f'{start_dt.strftime("%I %p").lstrip("0")} {prefix}'
+        return label, start_dt, end_dt
 
     def _open_preferences_dialog(self, initial_tab: str = "General"):
         current_prefs = {
