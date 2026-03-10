@@ -1,3 +1,5 @@
+import pandas
+
 from weather_alert.api import NwsApiClient
 
 
@@ -40,3 +42,35 @@ def test_get_forecast_urls_includes_grid_data(monkeypatch):
         "daily": "https://api.weather.gov/gridpoints/XXX/1,1/forecast",
         "grid": "https://api.weather.gov/gridpoints/XXX/1,1",
     }
+
+
+def test_city_state_abbreviation_resolves(monkeypatch):
+    client = NwsApiClient("test-agent")
+
+    def fake_query_location(city, state_code=None):
+        assert city == "St Louis"
+        assert state_code == "MO"
+        return pandas.DataFrame(
+            [{"place_name": "St Louis", "latitude": 38.6270, "longitude": -90.1994}]
+        )
+
+    monkeypatch.setattr(client.pgeocode_client, "query_location", fake_query_location)
+    coords = client.get_coordinates_for_location("St Louis, MO")
+
+    assert coords == (38.6270, -90.1994)
+
+
+def test_city_state_full_name_resolves(monkeypatch):
+    client = NwsApiClient("test-agent")
+
+    def fake_query_location(city, state_code=None):
+        assert city == "St Louis"
+        assert state_code == "MO"
+        return pandas.DataFrame(
+            [{"place_name": "St Louis", "latitude": 38.6270, "longitude": -90.1994}]
+        )
+
+    monkeypatch.setattr(client.pgeocode_client, "query_location", fake_query_location)
+    coords = client.get_coordinates_for_location("St Louis, Missouri")
+
+    assert coords == (38.6270, -90.1994)

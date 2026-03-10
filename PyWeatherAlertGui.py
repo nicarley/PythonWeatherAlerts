@@ -2287,6 +2287,23 @@ class WeatherAlertApp(QMainWindow):
             f"highest {highest}"
         )
 
+    def _describe_location_escalation(self, location_id: str) -> str:
+        location_cfg = next((loc for loc in self.locations if loc.get("id") == location_id), {})
+        escalation_cfg = location_cfg.get("rules", {}).get("escalation", {})
+        if not escalation_cfg.get("enabled", True):
+            return "Escalation off"
+
+        min_severity = escalation_cfg.get("min_severity", "Severe")
+        radius_miles = escalation_cfg.get("radius_miles", 40)
+        repeat_minutes = escalation_cfg.get("repeat_minutes", 5)
+        active_count = self._active_escalation_count(location_id)
+        active_text = "no active repeats" if active_count == 0 else f"{active_count} repeating"
+        return (
+            f"Escalates {min_severity}+ within {radius_miles} mi"
+            f" · repeats every {repeat_minutes}m"
+            f" · {active_text}"
+        )
+
     def _set_window_icon(self):
         """Sets the application window icon, trying custom files first."""
         icon_path_ico = os.path.join(self._get_resources_path(), "icon.ico")
@@ -2481,66 +2498,96 @@ class WeatherAlertApp(QMainWindow):
 
         # --- Main Content Area (Alerts & Forecasts) ---
         self.alerts_forecasts_container = QWidget()
+        self.alerts_forecasts_container.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         alerts_forecasts_layout = QHBoxLayout(self.alerts_forecasts_container)
         alerts_forecasts_layout.setContentsMargins(0,0,0,0)
-        alerts_forecasts_layout.setSpacing(15) # Increased spacing
+        alerts_forecasts_layout.setSpacing(6)
         main_layout.addWidget(self.alerts_forecasts_container, 1) # Stretch factor 1
 
         # Alerts Group
         self.alerts_group = QGroupBox("Now")
+        self.alerts_group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         alerts_layout = QVBoxLayout(self.alerts_group)
+        alerts_layout.setContentsMargins(5, 5, 5, 5)
+        alerts_layout.setSpacing(4)
         filter_layout = QHBoxLayout()
+        filter_layout.setSpacing(4)
         self.all_alerts_button = QPushButton("All", checkable=True, checked=True)
         self.warning_button = QPushButton("Warnings", checkable=True)
         self.watch_button = QPushButton("Watches", checkable=True)
         self.advisory_button = QPushButton("Advisories", checkable=True)
         for btn in [self.all_alerts_button, self.warning_button, self.watch_button, self.advisory_button]:
             btn.clicked.connect(self._filter_alerts)
+            btn.setMaximumHeight(24)
             filter_layout.addWidget(btn)
         alerts_layout.addLayout(filter_layout)
         self.alerts_display_area = QListWidget()
         self.alerts_display_area.setObjectName("AlertsDisplayArea")
-        self.alerts_display_area.setWordWrap(True)
+        self.alerts_display_area.setWordWrap(False)
+        self.alerts_display_area.setUniformItemSizes(True)
+        self.alerts_display_area.setTextElideMode(Qt.TextElideMode.ElideRight)
         self.alerts_display_area.setAlternatingRowColors(True)
-        self.alerts_display_area.setSpacing(4)
+        self.alerts_display_area.setSpacing(1)
+        self.alerts_display_area.setMaximumHeight(180)
         alerts_layout.addWidget(self.alerts_display_area)
 
         lifecycle_header = QLabel("<b>Alert Lifecycle</b>")
         alerts_layout.addWidget(lifecycle_header)
         self.lifecycle_display_area = QListWidget()
         self.lifecycle_display_area.setObjectName("LifecycleDisplayArea")
+        self.lifecycle_display_area.setWordWrap(False)
+        self.lifecycle_display_area.setUniformItemSizes(True)
+        self.lifecycle_display_area.setTextElideMode(Qt.TextElideMode.ElideRight)
         self.lifecycle_display_area.setAlternatingRowColors(True)
-        self.lifecycle_display_area.setSpacing(3)
-        self.lifecycle_display_area.setMaximumHeight(160)
+        self.lifecycle_display_area.setSpacing(1)
+        self.lifecycle_display_area.setMaximumHeight(90)
         alerts_layout.addWidget(self.lifecycle_display_area)
         alerts_forecasts_layout.addWidget(self.alerts_group, 1)
 
         # Combined Forecasts Group
         self.combined_forecast_widget = QGroupBox("Soon")
+        self.combined_forecast_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         combined_forecast_main_layout = QHBoxLayout(self.combined_forecast_widget)
-        combined_forecast_main_layout.setContentsMargins(10, 10, 10, 10) # Increased margins
-        combined_forecast_main_layout.setSpacing(10) # Increased spacing
+        combined_forecast_main_layout.setContentsMargins(2, 2, 2, 2)
+        combined_forecast_main_layout.setSpacing(3)
         hourly_forecast_sub_group = QGroupBox("8-Hour Forecast")
+        hourly_forecast_sub_group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         hourly_forecast_sub_group_layout = QVBoxLayout(hourly_forecast_sub_group)
-        hourly_forecast_sub_group_layout.setContentsMargins(5, 5, 5, 5)
+        hourly_forecast_sub_group_layout.setContentsMargins(1, 1, 1, 1)
+        hourly_forecast_sub_group_layout.setSpacing(1)
         self.hourly_forecast_widget = QWidget()
         self.hourly_forecast_layout = QGridLayout(self.hourly_forecast_widget)
-        self.hourly_forecast_layout.setContentsMargins(5, 5, 5, 5)
-        self.hourly_forecast_layout.setSpacing(5)
-        self.hourly_forecast_layout.setColumnStretch(8, 1)
-        hourly_font = QFont(); hourly_font.setPointSize(9); self.hourly_forecast_widget.setFont(hourly_font)
+        self.hourly_forecast_layout.setContentsMargins(0, 0, 0, 0)
+        self.hourly_forecast_layout.setHorizontalSpacing(8)
+        self.hourly_forecast_layout.setVerticalSpacing(1)
+        self.hourly_forecast_layout.setColumnStretch(0, 2)
+        self.hourly_forecast_layout.setColumnStretch(1, 1)
+        self.hourly_forecast_layout.setColumnStretch(2, 1)
+        self.hourly_forecast_layout.setColumnStretch(3, 2)
+        self.hourly_forecast_layout.setColumnStretch(4, 1)
+        self.hourly_forecast_layout.setColumnStretch(5, 1)
+        self.hourly_forecast_layout.setColumnStretch(6, 1)
+        self.hourly_forecast_layout.setColumnStretch(7, 1)
+        self.hourly_forecast_layout.setColumnStretch(8, 4)
+        hourly_font = QFont(); hourly_font.setPointSize(8); self.hourly_forecast_widget.setFont(hourly_font)
         hourly_forecast_sub_group_layout.addWidget(self.hourly_forecast_widget)
         combined_forecast_main_layout.addWidget(hourly_forecast_sub_group, 1)
         daily_forecast_sub_group = QGroupBox("5-Day Forecast")
+        daily_forecast_sub_group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         daily_forecast_sub_group_layout = QVBoxLayout(daily_forecast_sub_group)
-        daily_forecast_sub_group_layout.setContentsMargins(5, 5, 5, 5)
+        daily_forecast_sub_group_layout.setContentsMargins(1, 1, 1, 1)
+        daily_forecast_sub_group_layout.setSpacing(1)
         self.daily_forecast_widget = QWidget()
         self.daily_forecast_layout = QGridLayout(self.daily_forecast_widget)
-        self.daily_forecast_layout.setContentsMargins(5, 5, 5, 5)
-        self.daily_forecast_layout.setSpacing(5)
-        self.daily_forecast_layout.setColumnStretch(4, 1)
-        self.daily_forecast_layout.setColumnStretch(5, 2)
-        daily_font = QFont(); daily_font.setPointSize(9); self.daily_forecast_widget.setFont(daily_font)
+        self.daily_forecast_layout.setContentsMargins(0, 0, 0, 0)
+        self.daily_forecast_layout.setHorizontalSpacing(8)
+        self.daily_forecast_layout.setVerticalSpacing(1)
+        self.daily_forecast_layout.setColumnStretch(0, 2)
+        self.daily_forecast_layout.setColumnStretch(1, 1)
+        self.daily_forecast_layout.setColumnStretch(2, 2)
+        self.daily_forecast_layout.setColumnStretch(3, 1)
+        self.daily_forecast_layout.setColumnStretch(4, 4)
+        daily_font = QFont(); daily_font.setPointSize(8); self.daily_forecast_widget.setFont(daily_font)
         daily_forecast_sub_group_layout.addWidget(self.daily_forecast_widget)
         combined_forecast_main_layout.addWidget(daily_forecast_sub_group, 1)
         alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2)
@@ -2553,14 +2600,14 @@ class WeatherAlertApp(QMainWindow):
         if QWebEngineView:
             self.web_view = QWebEngineView()
             self.map_view = QWebEngineView()
-            self.web_tabs.addTab(self.web_view, "Context")
+            self.web_tabs.addTab(self.web_view, "Web Source")
             self.web_tabs.addTab(self.map_view, "Alert Map")
         else:
             self.web_view = QLabel("WebEngineView not available. Please install 'PySide6-WebEngine'.")
             self.web_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.map_view = QLabel("Map view unavailable without PySide6-WebEngine.")
             self.map_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.web_tabs.addTab(self.web_view, "Context")
+            self.web_tabs.addTab(self.web_view, "Web Source")
             self.web_tabs.addTab(self.map_view, "Alert Map")
         self.bottom_splitter.addWidget(self.web_tabs)
 
@@ -2876,6 +2923,41 @@ class WeatherAlertApp(QMainWindow):
             return "💨"
         else:
             return "🌡️"
+
+    @staticmethod
+    def _compact_text(value: Any, max_len: int = 90) -> str:
+        text = " ".join(str(value or "").split())
+        if len(text) <= max_len:
+            return text
+        return f"{text[: max_len - 1].rstrip()}…"
+
+    def _make_compact_label(self, text: str, tooltip: Optional[str] = None) -> QLabel:
+        label = QLabel(text)
+        label.setWordWrap(False)
+        label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        label.setMinimumWidth(0)
+        label.setMaximumHeight(label.fontMetrics().height() + 4)
+        if tooltip:
+            label.setToolTip(tooltip)
+        return label
+
+    def _apply_forecast_cell_style(self, label: QLabel, row_index: int, is_header: bool = False) -> QLabel:
+        palette = self.palette()
+        if is_header:
+            bg = palette.alternateBase().color().name()
+            border = palette.mid().color().name()
+            label.setStyleSheet(
+                f"padding: 2px 5px; background-color: {bg}; border-bottom: 1px solid {border}; font-weight: 600;"
+            )
+        else:
+            bg_role = palette.alternateBase() if row_index % 2 else palette.base()
+            bg = bg_role.color().name()
+            border = palette.midlight().color().name()
+            label.setStyleSheet(
+                f"padding: 1px 5px; background-color: {bg}; border-bottom: 1px solid {border};"
+            )
+        return label
 
     def _update_location_data(self, location_id):
         if self._check_in_progress:
@@ -3321,7 +3403,9 @@ class WeatherAlertApp(QMainWindow):
             title = alert.get('title', 'N/A Title')
             summary = alert.get('summary', 'No summary available.')
             distance_suffix = f" ({distance_miles:.1f} mi)" if isinstance(distance_miles, (int, float)) else ""
-            item = QListWidgetItem(f"{title}{distance_suffix}\n\n{summary}")
+            compact_summary = self._compact_text(summary, 110)
+            item = QListWidgetItem(f"{title}{distance_suffix} | {compact_summary}")
+            item.setToolTip(f"{title}{distance_suffix}\n\n{summary}")
             dedup_meta = self.alert_dedup.classify(alert)
 
             is_new = self.alert_history_manager.add_alert(
@@ -3444,7 +3528,11 @@ class WeatherAlertApp(QMainWindow):
             self.latest_temperature_reading = None
         headers = ["Time", "Temp", "Feels Like", "Wind", "Gusts", "Precip", "Humidity", "Sky", "Forecast"]
         for col, header in enumerate(headers):
-            self.hourly_forecast_layout.addWidget(QLabel(f"<b>{header}</b>"), 0, col)
+            header_label = self._make_compact_label(f"<b>{header}</b>")
+            if col < 8:
+                header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._apply_forecast_cell_style(header_label, 0, is_header=True)
+            self.hourly_forecast_layout.addWidget(header_label, 0, col)
 
         for i, p in enumerate(periods):
             try:
@@ -3525,19 +3613,31 @@ class WeatherAlertApp(QMainWindow):
                 if p.get("icon"):
                     detail_lines.append(f"Icon: {p.get('icon')}")
 
-                forecast_label = QLabel(f"{emoji} {short_fc}")
-                forecast_label.setWordWrap(True)
-                forecast_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-                forecast_label.setToolTip("\n".join(detail_lines))
+                forecast_label = self._make_compact_label(
+                    f"{emoji} {short_fc}",
+                    "\n".join(detail_lines),
+                )
 
-                self.hourly_forecast_layout.addWidget(QLabel(formatted_time), i + 1, 0, alignment=Qt.AlignmentFlag.AlignTop)
-                self.hourly_forecast_layout.addWidget(QLabel(temp), i + 1, 1, alignment=Qt.AlignmentFlag.AlignTop)
-                self.hourly_forecast_layout.addWidget(QLabel(feels_like), i + 1, 2, alignment=Qt.AlignmentFlag.AlignTop)
-                self.hourly_forecast_layout.addWidget(QLabel(wind), i + 1, 3, alignment=Qt.AlignmentFlag.AlignTop)
-                self.hourly_forecast_layout.addWidget(QLabel(gust_text), i + 1, 4, alignment=Qt.AlignmentFlag.AlignTop)
-                self.hourly_forecast_layout.addWidget(QLabel(precip), i + 1, 5, alignment=Qt.AlignmentFlag.AlignTop)
-                self.hourly_forecast_layout.addWidget(QLabel(humidity), i + 1, 6, alignment=Qt.AlignmentFlag.AlignTop)
-                self.hourly_forecast_layout.addWidget(QLabel(sky_text), i + 1, 7, alignment=Qt.AlignmentFlag.AlignTop)
+                time_label = self._make_compact_label(formatted_time)
+                temp_label = self._make_compact_label(temp)
+                feels_like_label = self._make_compact_label(feels_like)
+                wind_label = self._make_compact_label(wind)
+                gust_label = self._make_compact_label(gust_text)
+                precip_label = self._make_compact_label(precip)
+                humidity_label = self._make_compact_label(humidity)
+                sky_label = self._make_compact_label(sky_text)
+                for compact_label in [time_label, temp_label, feels_like_label, wind_label, gust_label, precip_label, humidity_label, sky_label]:
+                    compact_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                    self._apply_forecast_cell_style(compact_label, i + 1)
+                self._apply_forecast_cell_style(forecast_label, i + 1)
+                self.hourly_forecast_layout.addWidget(time_label, i + 1, 0, alignment=Qt.AlignmentFlag.AlignTop)
+                self.hourly_forecast_layout.addWidget(temp_label, i + 1, 1, alignment=Qt.AlignmentFlag.AlignTop)
+                self.hourly_forecast_layout.addWidget(feels_like_label, i + 1, 2, alignment=Qt.AlignmentFlag.AlignTop)
+                self.hourly_forecast_layout.addWidget(wind_label, i + 1, 3, alignment=Qt.AlignmentFlag.AlignTop)
+                self.hourly_forecast_layout.addWidget(gust_label, i + 1, 4, alignment=Qt.AlignmentFlag.AlignTop)
+                self.hourly_forecast_layout.addWidget(precip_label, i + 1, 5, alignment=Qt.AlignmentFlag.AlignTop)
+                self.hourly_forecast_layout.addWidget(humidity_label, i + 1, 6, alignment=Qt.AlignmentFlag.AlignTop)
+                self.hourly_forecast_layout.addWidget(sky_label, i + 1, 7, alignment=Qt.AlignmentFlag.AlignTop)
                 self.hourly_forecast_layout.addWidget(forecast_label, i + 1, 8)
             except Exception as e:
                 self.log_to_gui(f"Error formatting hourly period: {e}", level="WARNING")
@@ -3549,9 +3649,13 @@ class WeatherAlertApp(QMainWindow):
             return
 
         periods = forecast_json['properties']['periods'][:10]
-        headers = ["Period", "Temp", "Wind", "Precip", "Forecast", "Details"]
+        headers = ["Period", "Temp", "Wind", "Precip", "Forecast"]
         for col, header in enumerate(headers):
-            self.daily_forecast_layout.addWidget(QLabel(f"<b>{header}</b>"), 0, col)
+            header_label = self._make_compact_label(f"<b>{header}</b>")
+            if col in (1, 2, 3):
+                header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self._apply_forecast_cell_style(header_label, 0, is_header=True)
+            self.daily_forecast_layout.addWidget(header_label, 0, col)
 
         for i, p in enumerate(periods):
             try:
@@ -3571,35 +3675,38 @@ class WeatherAlertApp(QMainWindow):
                 if start_dt and end_dt:
                     detail_bits.extend(
                         [
-                            f"Gusts {self._format_grid_value(grid_json, 'windGust', self._grid_value_for_period(grid_json, 'windGust', start_dt, end_dt, aggregate='max'))}",
+                            f"Gst {self._format_grid_value(grid_json, 'windGust', self._grid_value_for_period(grid_json, 'windGust', start_dt, end_dt, aggregate='max'))}",
                             f"Sky {self._format_grid_value(grid_json, 'skyCover', self._grid_value_for_period(grid_json, 'skyCover', start_dt, end_dt))}",
-                            f"Thunder {self._format_grid_value(grid_json, 'probabilityOfThunder', self._grid_value_for_period(grid_json, 'probabilityOfThunder', start_dt, end_dt))}",
+                            f"Tstm {self._format_grid_value(grid_json, 'probabilityOfThunder', self._grid_value_for_period(grid_json, 'probabilityOfThunder', start_dt, end_dt))}",
                             f'QPF {self._format_grid_value(grid_json, "quantitativePrecipitation", self._grid_value_for_period(grid_json, "quantitativePrecipitation", start_dt, end_dt, aggregate="sum"))}',
-                            f"Visibility {self._format_grid_value(grid_json, 'visibility', self._grid_value_for_period(grid_json, 'visibility', start_dt, end_dt))}",
+                            f"Vis {self._format_grid_value(grid_json, 'visibility', self._grid_value_for_period(grid_json, 'visibility', start_dt, end_dt))}",
                         ]
                     )
                 if p.get("temperatureTrend"):
                     detail_bits.append(f"Trend {p.get('temperatureTrend')}")
+                forecast_tooltip = detailed_fc
+                if detail_bits:
+                    forecast_tooltip = f"{detailed_fc}\n\n" + " | ".join(detail_bits)
 
-                name_label = QLabel(name)
-                name_label.setWordWrap(True)
-                name_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-                name_label.setToolTip(detailed_fc)
+                name_label = self._make_compact_label(name, forecast_tooltip)
+                temp_label = self._make_compact_label(temp)
+                wind_label = self._make_compact_label(wind)
+                precip_label = self._make_compact_label(precip_text)
+                temp_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                wind_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                precip_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                self._apply_forecast_cell_style(name_label, i + 1)
+                self._apply_forecast_cell_style(temp_label, i + 1)
+                self._apply_forecast_cell_style(wind_label, i + 1)
+                self._apply_forecast_cell_style(precip_label, i + 1)
                 self.daily_forecast_layout.addWidget(name_label, i + 1, 0)
-                self.daily_forecast_layout.addWidget(QLabel(temp), i + 1, 1, alignment=Qt.AlignmentFlag.AlignTop)
-                self.daily_forecast_layout.addWidget(QLabel(wind), i + 1, 2, alignment=Qt.AlignmentFlag.AlignTop)
-                self.daily_forecast_layout.addWidget(QLabel(precip_text), i + 1, 3, alignment=Qt.AlignmentFlag.AlignTop)
+                self.daily_forecast_layout.addWidget(temp_label, i + 1, 1, alignment=Qt.AlignmentFlag.AlignTop)
+                self.daily_forecast_layout.addWidget(wind_label, i + 1, 2, alignment=Qt.AlignmentFlag.AlignTop)
+                self.daily_forecast_layout.addWidget(precip_label, i + 1, 3, alignment=Qt.AlignmentFlag.AlignTop)
 
-                short_fc_label = QLabel(f"{emoji} {short_fc}")
-                short_fc_label.setWordWrap(True)
-                short_fc_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-                short_fc_label.setToolTip(detailed_fc)
+                short_fc_label = self._make_compact_label(f"{emoji} {short_fc}", forecast_tooltip)
+                self._apply_forecast_cell_style(short_fc_label, i + 1)
                 self.daily_forecast_layout.addWidget(short_fc_label, i + 1, 4)
-                details_label = QLabel(" | ".join(detail_bits) if detail_bits else "-")
-                details_label.setWordWrap(True)
-                details_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
-                details_label.setToolTip(detailed_fc)
-                self.daily_forecast_layout.addWidget(details_label, i + 1, 5)
             except Exception as e:
                 self.log_to_gui(f"Error formatting daily period: {e}", level="WARNING")
 
@@ -4077,7 +4184,11 @@ class WeatherAlertApp(QMainWindow):
         self.location_overview_list.clear()
         for loc in self.locations:
             loc_id = loc.get("id", "")
-            text = f"{loc.get('name', 'Unknown')}  |  {self._location_summary_text(loc_id)}  |  {self._describe_location_health(loc_id)}"
+            text = (
+                f"{loc.get('name', 'Unknown')}  |  {self._location_summary_text(loc_id)}"
+                f"  |  {self._describe_location_escalation(loc_id)}"
+                f"  |  {self._describe_location_health(loc_id)}"
+            )
             item = QListWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, loc_id)
             if loc_id == self.current_location_id:

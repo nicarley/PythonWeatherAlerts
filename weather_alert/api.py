@@ -14,6 +14,19 @@ NWS_STATION_API_URL_TEMPLATE = "https://api.weather.gov/stations/{station_id}"
 NWS_POINTS_API_URL_TEMPLATE = "https://api.weather.gov/points/{latitude},{longitude}"
 ALERTS_API_URL = "https://api.weather.gov/alerts/active"
 ZONE_TYPES = ["forecast", "public", "marine", "coastal", "offshore", "fire", "weather"]
+STATE_NAME_TO_CODE = {
+    "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA",
+    "colorado": "CO", "connecticut": "CT", "delaware": "DE", "district of columbia": "DC",
+    "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID", "illinois": "IL",
+    "indiana": "IN", "iowa": "IA", "kansas": "KS", "kentucky": "KY", "louisiana": "LA",
+    "maine": "ME", "maryland": "MD", "massachusetts": "MA", "michigan": "MI", "minnesota": "MN",
+    "mississippi": "MS", "missouri": "MO", "montana": "MT", "nebraska": "NE", "nevada": "NV",
+    "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY",
+    "north carolina": "NC", "north dakota": "ND", "ohio": "OH", "oklahoma": "OK", "oregon": "OR",
+    "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC", "south dakota": "SD",
+    "tennessee": "TN", "texas": "TX", "utah": "UT", "vermont": "VT", "virginia": "VA",
+    "washington": "WA", "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY",
+}
 
 
 class ApiError(Exception):
@@ -97,12 +110,42 @@ class NwsApiClient:
                 continue
         return None
 
+    @staticmethod
+    def _normalize_city_state_input(location_id: str) -> Optional[Tuple[str, str]]:
+        if "," not in location_id:
+            return None
+        city_part, state_part = [p.strip() for p in location_id.split(",", 1)]
+        if not city_part or not state_part:
+            return None
+        state_key = state_part.lower().rstrip(".")
+        state_code = state_part.upper() if len(state_part) == 2 and state_part.isalpha() else STATE_NAME_TO_CODE.get(state_key)
+        if not state_code:
+            return None
+        return city_part, state_code
+
+    def _resolve_city_state(self, city: str, state_code: str) -> Optional[Tuple[float, float]]:
+        city_df = self.pgeocode_client.query_location(city, state_code=state_code)
+        if city_df is None or city_df.empty:
+            return None
+
+        valid_rows = city_df.dropna(subset=["latitude", "longitude"])
+        if valid_rows.empty:
+            return None
+
+        normalized_city = city.strip().lower()
+        exact_matches = valid_rows[
+            valid_rows["place_name"].astype(str).str.strip().str.lower() == normalized_city
+        ]
+        row = exact_matches.iloc[0] if not exact_matches.empty else valid_rows.iloc[0]
+        return float(row.latitude), float(row.longitude)
+
     def get_coordinates_for_location(self, location_id: str) -> Optional[Tuple[float, float]]:
         """Supports zip, airport/station IDs, lat/lon, county/zone IDs, and city,state."""
         if not location_id:
             return None
 
-        processed_input = location_id.strip().upper()
+        raw_input = location_id.strip()
+        processed_input = raw_input.upper()
         cached = self._cache_get(self._coords_cache, processed_input)
         if cached:
             return cached
@@ -126,16 +169,12 @@ class NwsApiClient:
                 self._cache_set(self._coords_cache, processed_input, coords, self.coords_ttl_s)
                 return coords
 
-        if "," in processed_input:
-            city_part, state_part = [p.strip() for p in processed_input.split(",", 1)]
-            if city_part and len(state_part) == 2 and state_part.isalpha():
-                city_df = self.pgeocode_client.query_location(city_part, state_code=state_part)
-                if city_df is not None and not city_df.empty:
-                    row = city_df.iloc[0]
-                    if not pandas.isna(row.latitude) and not pandas.isna(row.longitude):
-                        coords = (float(row.latitude), float(row.longitude))
-                        self._cache_set(self._coords_cache, processed_input, coords, self.coords_ttl_s)
-                        return coords
+        city_state = self._normalize_city_state_input(raw_input)
+        if city_state:
+            coords = self._resolve_city_state(*city_state)
+            if coords:
+                self._cache_set(self._coords_cache, processed_input, coords, self.coords_ttl_s)
+                return coords
 
         nws_id_to_try = processed_input
         if len(processed_input) == 3 and processed_input.isalpha():
@@ -160,7 +199,7 @@ class NwsApiClient:
             return True, "Valid location input."
         return (
             False,
-            "Could not resolve location. Try ZIP (62881), station (KSTL), lat/lon (38.63,-90.2), zone (ILC163), or city/state (St Louis,MO).",
+            "Could not resolve location. Try ZIP (62881), station (KSTL), lat/lon (38.63,-90.2), zone (ILC163), or city/state (St Louis, MO or St Louis, Missouri).",
         )
 
     def get_forecast_urls(self, lat: float, lon: float) -> Optional[Dict[str, str]]:
