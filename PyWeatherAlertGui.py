@@ -2528,7 +2528,7 @@ class WeatherAlertApp(QMainWindow):
         self.alerts_display_area.setTextElideMode(Qt.TextElideMode.ElideRight)
         self.alerts_display_area.setAlternatingRowColors(True)
         self.alerts_display_area.setSpacing(1)
-        self.alerts_display_area.setMaximumHeight(180)
+        self.alerts_display_area.setMaximumHeight(220)
         alerts_layout.addWidget(self.alerts_display_area)
 
         lifecycle_header = QLabel("<b>Alert Lifecycle</b>")
@@ -2555,11 +2555,13 @@ class WeatherAlertApp(QMainWindow):
         hourly_forecast_sub_group_layout = QVBoxLayout(hourly_forecast_sub_group)
         hourly_forecast_sub_group_layout.setContentsMargins(1, 1, 1, 1)
         hourly_forecast_sub_group_layout.setSpacing(1)
+        hourly_forecast_sub_group_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.hourly_forecast_widget = QWidget()
         self.hourly_forecast_layout = QGridLayout(self.hourly_forecast_widget)
         self.hourly_forecast_layout.setContentsMargins(0, 0, 0, 0)
         self.hourly_forecast_layout.setHorizontalSpacing(8)
         self.hourly_forecast_layout.setVerticalSpacing(1)
+        self.hourly_forecast_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.hourly_forecast_layout.setColumnStretch(0, 2)
         self.hourly_forecast_layout.setColumnStretch(1, 1)
         self.hourly_forecast_layout.setColumnStretch(2, 1)
@@ -2570,7 +2572,7 @@ class WeatherAlertApp(QMainWindow):
         self.hourly_forecast_layout.setColumnStretch(7, 1)
         self.hourly_forecast_layout.setColumnStretch(8, 4)
         hourly_font = QFont(); hourly_font.setPointSize(8); self.hourly_forecast_widget.setFont(hourly_font)
-        hourly_forecast_sub_group_layout.addWidget(self.hourly_forecast_widget)
+        hourly_forecast_sub_group_layout.addWidget(self.hourly_forecast_widget, alignment=Qt.AlignmentFlag.AlignTop)
         combined_forecast_main_layout.addWidget(hourly_forecast_sub_group, 1)
         daily_forecast_sub_group = QGroupBox("5-Day Forecast")
         daily_forecast_sub_group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
@@ -2601,9 +2603,12 @@ class WeatherAlertApp(QMainWindow):
             self.web_view = QWebEngineView()
             self.map_view = QWebEngineView()
             self.nws_view = QWebEngineView()
+            self.digital_forecast_view = QWebEngineView()
             self.web_tabs.addTab(self.web_view, "Web Source")
             self.web_tabs.addTab(self.map_view, "Alert Map")
             self.web_tabs.addTab(self.nws_view, "NWS")
+            self.web_tabs.addTab(self.digital_forecast_view, "NWS Digital Forecast")
+            self.digital_forecast_view.setUrl(QUrl("https://digital.weather.gov/"))
         else:
             self.web_view = QLabel("WebEngineView not available. Please install 'PySide6-WebEngine'.")
             self.web_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -2611,9 +2616,15 @@ class WeatherAlertApp(QMainWindow):
             self.map_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.nws_view = QLabel("NWS view unavailable without PySide6-WebEngine.")
             self.nws_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.digital_forecast_view = QLabel(
+                "NWS Digital Forecast view unavailable without PySide6-WebEngine.\n\n"
+                "URL:\nhttps://digital.weather.gov/"
+            )
+            self.digital_forecast_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.web_tabs.addTab(self.web_view, "Web Source")
             self.web_tabs.addTab(self.map_view, "Alert Map")
             self.web_tabs.addTab(self.nws_view, "NWS")
+            self.web_tabs.addTab(self.digital_forecast_view, "NWS Digital Forecast")
         self.bottom_splitter.addWidget(self.web_tabs)
 
         self.log_widget = QWidget()
@@ -2936,13 +2947,20 @@ class WeatherAlertApp(QMainWindow):
             return text
         return f"{text[: max_len - 1].rstrip()}…"
 
-    def _make_compact_label(self, text: str, tooltip: Optional[str] = None) -> QLabel:
+    def _make_compact_label(
+        self,
+        text: str,
+        tooltip: Optional[str] = None,
+        wrap: bool = False,
+        max_lines: int = 1,
+    ) -> QLabel:
         label = QLabel(text)
-        label.setWordWrap(False)
+        label.setWordWrap(wrap)
         label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
         label.setMinimumWidth(0)
-        label.setMaximumHeight(label.fontMetrics().height() + 4)
+        line_count = max(1, max_lines)
+        label.setMaximumHeight((label.fontMetrics().height() * line_count) + 6)
         if tooltip:
             label.setToolTip(tooltip)
         return label
@@ -2963,6 +2981,11 @@ class WeatherAlertApp(QMainWindow):
                 f"padding: 1px 5px; background-color: {bg}; border-bottom: 1px solid {border};"
             )
         return label
+
+    @staticmethod
+    def _apply_tooltip_to_labels(labels: List[QLabel], tooltip: str) -> None:
+        for label in labels:
+            label.setToolTip(tooltip)
 
     def _update_location_data(self, location_id):
         if self._check_in_progress:
@@ -3401,7 +3424,10 @@ class WeatherAlertApp(QMainWindow):
     def _update_alerts_display_area(self, alerts: List[Any], location_id: str, lifecycle: Optional[Dict[str, Any]] = None):
         self.alerts_display_area.clear()
         if not alerts:
-            self.alerts_display_area.addItem(f"No active alerts for {self.get_location_name_by_id(location_id)}.")
+            item = QListWidgetItem(f"No active alerts for {self.get_location_name_by_id(location_id)}.")
+            item.setData(Qt.ItemDataRole.UserRole, "generic")
+            self.alerts_display_area.addItem(item)
+            self._apply_alert_filters()
             return
 
         location_cfg = self._get_location_config(location_id)
@@ -3437,7 +3463,9 @@ class WeatherAlertApp(QMainWindow):
             distance_suffix = f" ({distance_miles:.1f} mi)" if isinstance(distance_miles, (int, float)) else ""
             compact_summary = self._compact_text(summary, 110)
             item = QListWidgetItem(f"{title}{distance_suffix} | {compact_summary}")
-            item.setSizeHint(QSize(item.sizeHint().width(), 30))
+            alert_category = self._classify_alert_category(title)
+            item.setData(Qt.ItemDataRole.UserRole, alert_category)
+            item.setSizeHint(QSize(item.sizeHint().width(), 40))
             item.setToolTip(f"{title}{distance_suffix}\n\n{summary}")
             dedup_meta = self.alert_dedup.classify(alert)
 
@@ -3507,6 +3535,7 @@ class WeatherAlertApp(QMainWindow):
                 item.setForeground(QColor("#0066cc"))  # Blue text
 
             self.alerts_display_area.addItem(item)
+        self._apply_alert_filters()
 
     def _play_alert_sound(self, alert_text: str, rules: Optional[Dict[str, Any]] = None, escalated: bool = False):
         """Plays appropriate system sound for alert type."""
@@ -3646,9 +3675,25 @@ class WeatherAlertApp(QMainWindow):
                 if p.get("icon"):
                     detail_lines.append(f"Icon: {p.get('icon')}")
 
+                row_tooltip = "\n".join(
+                    [
+                        f"Time: {formatted_time}",
+                        f"Temperature: {temp}",
+                        f"Feels like: {feels_like}",
+                        f"Wind: {wind}",
+                        f"Gusts: {gust_text}",
+                        f"Precipitation: {precip}",
+                        f"Humidity: {humidity}",
+                        f"Sky cover: {sky_text}",
+                        f"Forecast: {short_fc}",
+                        *detail_lines,
+                    ]
+                )
                 forecast_label = self._make_compact_label(
-                    f"{emoji} {short_fc}",
-                    "\n".join(detail_lines),
+                    f"{emoji} {self._compact_text(short_fc, 38)}",
+                    row_tooltip,
+                    wrap=True,
+                    max_lines=2,
                 )
 
                 time_label = self._make_compact_label(formatted_time)
@@ -3659,6 +3704,18 @@ class WeatherAlertApp(QMainWindow):
                 precip_label = self._make_compact_label(precip)
                 humidity_label = self._make_compact_label(humidity)
                 sky_label = self._make_compact_label(sky_text)
+                row_labels = [
+                    time_label,
+                    temp_label,
+                    feels_like_label,
+                    wind_label,
+                    gust_label,
+                    precip_label,
+                    humidity_label,
+                    sky_label,
+                    forecast_label,
+                ]
+                self._apply_tooltip_to_labels(row_labels, row_tooltip)
                 for compact_label in [time_label, temp_label, feels_like_label, wind_label, gust_label, precip_label, humidity_label, sky_label]:
                     compact_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                     self._apply_forecast_cell_style(compact_label, i + 1)
@@ -3721,10 +3778,24 @@ class WeatherAlertApp(QMainWindow):
                 if detail_bits:
                     forecast_tooltip = f"{detailed_fc}\n\n" + " | ".join(detail_bits)
 
-                name_label = self._make_compact_label(name, forecast_tooltip)
-                temp_label = self._make_compact_label(temp)
-                wind_label = self._make_compact_label(wind)
-                precip_label = self._make_compact_label(precip_text)
+                row_tooltip = "\n".join(
+                    [
+                        f"Period: {name}",
+                        f"Temperature: {temp}",
+                        f"Wind: {wind}",
+                        f"Precipitation: {precip_text}",
+                        f"Forecast: {short_fc}",
+                        "",
+                        detailed_fc,
+                    ]
+                )
+                if detail_bits:
+                    row_tooltip = f"{row_tooltip}\n\n" + "\n".join(detail_bits)
+
+                name_label = self._make_compact_label(name, row_tooltip)
+                temp_label = self._make_compact_label(temp, row_tooltip)
+                wind_label = self._make_compact_label(wind, row_tooltip)
+                precip_label = self._make_compact_label(precip_text, row_tooltip)
                 temp_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 wind_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 precip_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -3737,7 +3808,12 @@ class WeatherAlertApp(QMainWindow):
                 self.daily_forecast_layout.addWidget(wind_label, i + 1, 2, alignment=Qt.AlignmentFlag.AlignTop)
                 self.daily_forecast_layout.addWidget(precip_label, i + 1, 3, alignment=Qt.AlignmentFlag.AlignTop)
 
-                short_fc_label = self._make_compact_label(f"{emoji} {short_fc}", forecast_tooltip)
+                short_fc_label = self._make_compact_label(
+                    f"{emoji} {self._compact_text(short_fc, 42)}",
+                    row_tooltip,
+                    wrap=True,
+                    max_lines=2,
+                )
                 self._apply_forecast_cell_style(short_fc_label, i + 1)
                 self.daily_forecast_layout.addWidget(short_fc_label, i + 1, 4)
             except Exception as e:
@@ -4840,6 +4916,36 @@ class WeatherAlertApp(QMainWindow):
                 self.log_to_gui(f"Error restoring settings: {e}", level="ERROR")
                 QMessageBox.critical(self, "Restore Error", f"Failed to restore settings from the selected file.\n\nError: {e}")
 
+    def _classify_alert_category(self, title: str) -> str:
+        title_lower = title.lower()
+        if "warning" in title_lower:
+            return "warning"
+        if "watch" in title_lower:
+            return "watch"
+        if "advisory" in title_lower:
+            return "advisory"
+        return "generic"
+
+    def _apply_alert_filters(self) -> None:
+        show_all = self.all_alerts_button.isChecked()
+        show_warnings = self.warning_button.isChecked()
+        show_watches = self.watch_button.isChecked()
+        show_advisories = self.advisory_button.isChecked()
+
+        for i in range(self.alerts_display_area.count()):
+            item = self.alerts_display_area.item(i)
+            category = item.data(Qt.ItemDataRole.UserRole) or "generic"
+            if show_all or category == "generic":
+                item.setHidden(False)
+                continue
+
+            show = (
+                (category == "warning" and show_warnings) or
+                (category == "watch" and show_watches) or
+                (category == "advisory" and show_advisories)
+            )
+            item.setHidden(not show)
+
     def _filter_alerts(self):
         sender = self.sender()
         
@@ -4858,30 +4964,7 @@ class WeatherAlertApp(QMainWindow):
            not self.advisory_button.isChecked():
             self.all_alerts_button.setChecked(True)
 
-        show_all = self.all_alerts_button.isChecked()
-        show_warnings = self.warning_button.isChecked()
-        show_watches = self.watch_button.isChecked()
-        show_advisories = self.advisory_button.isChecked()
-
-        for i in range(self.alerts_display_area.count()):
-            item = self.alerts_display_area.item(i)
-            text = item.text().lower()
-
-            # Logic to determine if the item should be visible
-            is_warning = 'warning' in text
-            is_watch = 'watch' in text
-            is_advisory = 'advisory' in text
-            
-            # Always show items that are not specific alert types (e.g., "No active alerts...")
-            is_generic_message = not (is_warning or is_watch or is_advisory)
-
-            if show_all or is_generic_message:
-                item.setHidden(False)
-            else:
-                show = (is_warning and show_warnings) or \
-                       (is_watch and show_watches) or \
-                       (is_advisory and show_advisories)
-                item.setHidden(not show)
+        self._apply_alert_filters()
 
 
 # --- Application Entry Point ---
