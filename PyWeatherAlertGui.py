@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QStatusBar, QCheckBox, QSplitter, QStyleFactory, QGroupBox, QDialog,
     QDialogButtonBox, QFormLayout, QListWidget, QListWidgetItem, QLayout,
     QSpacerItem, QSizePolicy, QFileDialog, QFrame, QMenu, QStyle, QTableWidget,
-    QTableWidgetItem, QHeaderView, QSystemTrayIcon, QTabWidget
+    QTableWidgetItem, QHeaderView, QSystemTrayIcon, QTabWidget, QAbstractItemView
 )
 from PySide6.QtCore import Qt, QTimer, Slot, QUrl, QFile, QTextStream, QObject, Signal, QRunnable, QThreadPool, QStandardPaths, QMarginsF, QSize
 from PySide6.QtGui import (
@@ -85,6 +85,11 @@ FALLBACK_ANNOUNCE_TIME_TOP = False
 FALLBACK_ANNOUNCE_TIME_15 = False
 FALLBACK_ANNOUNCE_TIME_30 = False
 FALLBACK_ANNOUNCE_TIME_45 = False
+FALLBACK_ANNOUNCE_REPEATER_AT_INTERVAL = True
+FALLBACK_ANNOUNCE_REPEATER_TOP = False
+FALLBACK_ANNOUNCE_REPEATER_15 = False
+FALLBACK_ANNOUNCE_REPEATER_30 = False
+FALLBACK_ANNOUNCE_REPEATER_45 = False
 FALLBACK_ANNOUNCE_TEMP_TOP = False
 FALLBACK_ANNOUNCE_TEMP_15 = False
 FALLBACK_ANNOUNCE_TEMP_30 = False
@@ -175,7 +180,7 @@ QGroupBox {
 
 QGroupBox::title {
     subcontrol-origin: margin;
-    subcontrol-position: top center;
+    subcontrol-position: top left;
     padding: 0 10px;
     background-color: #f0f0f0;
     border-radius: 4px;
@@ -272,22 +277,23 @@ QComboBox QAbstractItemView {
 
 /* --- Buttons --- */
 QPushButton {
-    background-color: #3498db;
+    background-color: #2f80ed;
     color: white;
-    border: 1px solid #3498db;
-    border-radius: 4px;
-    padding: 6px 12px;
+    border: 1px solid #2b6fd0;
+    border-radius: 8px;
+    padding: 7px 14px;
+    min-height: 28px;
     min-width: 80px;
     font-weight: bold;
 }
 
 QPushButton:hover {
-    background-color: #2980b9;
-    border-color: #2980b9;
+    background-color: #246ed6;
+    border-color: #246ed6;
 }
 
 QPushButton:pressed {
-    background-color: #1f618d;
+    background-color: #1d5db5;
 }
 
 QPushButton:focus {
@@ -458,29 +464,31 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
 
 /* --- Tabs --- */
 QTabWidget::pane {
-    border: 1px solid #cccccc;
-    border-radius: 4px;
-    padding: 8px;
+    border: 1px solid #cfd8e3;
+    border-radius: 10px;
+    padding: 10px;
 }
 
 QTabBar::tab {
-    background: #e9e9e9;
-    border: 1px solid #cccccc;
+    background: #e6edf5;
+    border: 1px solid #d0dae6;
     border-bottom: none;
-    padding: 8px 16px;
-    border-top-left-radius: 4px;
-    border-top-right-radius: 4px;
-    color: #555555;
+    padding: 9px 16px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    margin-right: 3px;
+    color: #4b5563;
 }
 
 QTabBar::tab:hover {
-    background: #f0f0f0;
+    background: #edf3f9;
 }
 
 QTabBar::tab:selected {
     background: #ffffff;
-    color: #212121;
+    color: #111827;
     font-weight: bold;
+    border-color: #b9c8d8;
 }
 
 /* --- Table / Tree Headers --- */
@@ -493,6 +501,57 @@ QHeaderView::section {
 
 /* --- Custom Widget Styles --- */
 /* These are preserved from your original file */
+
+#AlertsPanel, #ForecastPanel, #OperationalOverviewPanel {
+    border-radius: 12px;
+}
+
+#AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
+    border-radius: 8px;
+    padding: 6px;
+}
+
+#AlertMetaLabel {
+    color: #5b6773;
+    font-size: 9pt;
+    padding: 2px 2px 4px 2px;
+}
+
+#AlertSectionHeader {
+    color: #1f2937;
+    font-size: 10pt;
+    font-weight: 700;
+    padding-top: 4px;
+}
+
+#DashboardHeadline {
+    font-size: 20px;
+    font-weight: 700;
+    color: #102a43;
+}
+
+#DashboardSubheadline {
+    color: #486581;
+}
+
+#AlertFilterButton {
+    min-width: 92px;
+}
+
+#TopStatusStrip {
+    background: #ffffff;
+    border: 1px solid #d7e0ea;
+    border-radius: 12px;
+}
+
+#TopStatusChip {
+    background: #eef4fa;
+    border: 1px solid #d3deea;
+    border-radius: 9px;
+    padding: 6px 10px;
+    color: #334155;
+    font-weight: 600;
+}
 
 #DailyForecastWidget {
     background-color: #fafafa;
@@ -620,29 +679,37 @@ QGroupBox::title {
 }
 
 /* --- Text/List Views --- */
-QTextEdit, QListView, QTreeView, QTableView {
-    background-color: #252525;
+QTextEdit, QPlainTextEdit, QListWidget, QListView, QTreeView, QTableWidget, QTableView {
+    background-color: #1f2937;
     border: 1px solid #4a4a4a;
-    border-radius: 4px;
+    border-radius: 8px;
     padding: 4px;
-    color: #e0e0e0;
+    color: #f8fafc;
+    alternate-background-color: #243142;
+    selection-background-color: #1f6feb;
+    selection-color: #ffffff;
+    gridline-color: #334155;
 }
 
-QTextEdit:focus, QListView:focus, QTreeView:focus, QTableView:focus {
+QTextEdit:focus, QPlainTextEdit:focus, QListWidget:focus, QListView:focus, QTreeView:focus, QTableWidget:focus, QTableView:focus {
     border: 1px solid #007acc;
 }
 
-QListView::item:alternate {
+QListWidget::item:alternate, QListView::item:alternate {
     background-color: #2a2a2a;
 }
 
-QListView::item:hover, QTreeView::item:hover {
+QListWidget::item:hover, QListView::item:hover, QTreeView::item:hover {
     background-color: #3c3c3c;
 }
 
-QListView::item:selected, QTreeView::item:selected {
+QListWidget::item:selected, QListView::item:selected, QTreeView::item:selected {
     background-color: #007acc;
     color: #ffffff;
+}
+
+QTableWidget::item, QTableView::item {
+    color: #f8fafc;
 }
 
 /* --- Input Fields --- */
@@ -699,27 +766,28 @@ QComboBox QAbstractItemView {
 
 /* --- Buttons --- */
 QPushButton {
-    background-color: #555555;
+    background-color: #1f6feb;
     color: #f0f0f0;
-    border: 1px solid #666666;
-    border-radius: 4px;
-    padding: 6px 12px;
+    border: 1px solid #2f81f7;
+    border-radius: 8px;
+    padding: 7px 14px;
+    min-height: 28px;
     min-width: 80px;
     font-weight: bold;
 }
 
 QPushButton:hover {
-    background-color: #6a6a6a;
-    border-color: #777777;
+    background-color: #2f81f7;
+    border-color: #4090ff;
 }
 
 QPushButton:pressed {
-    background-color: #4a4a4a;
+    background-color: #1858bd;
 }
 
 QPushButton:checked {
-    background-color: #007acc;
-    border-color: #005c99;
+    background-color: #1557b0;
+    border-color: #2f81f7;
 }
 
 QPushButton:focus {
@@ -913,28 +981,28 @@ QSlider::handle:vertical {
 
 /* --- Tab Widget --- */
 QTabWidget::pane {
-    border: 1px solid #4a4a4a;
+    border: 1px solid #3a4657;
     border-top: none;
-    border-radius: 0 0 6px 6px;
+    border-radius: 0 0 10px 10px;
 }
 
 QTabBar::tab {
-    background: #353535;
-    border: 1px solid #4a4a4a;
+    background: #243142;
+    border: 1px solid #334155;
     border-bottom: none;
-    padding: 8px 16px;
-    border-top-left-radius: 6px;
-    border-top-right-radius: 6px;
-    margin-right: 2px;
+    padding: 9px 16px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    margin-right: 3px;
 }
 
 QTabBar::tab:hover {
-    background: #4a4a4a;
+    background: #2d3b4f;
 }
 
 QTabBar::tab:selected {
-    background: #2d2d2d;
-    border-color: #4a4a4a;
+    background: #1f2937;
+    border-color: #4b5b72;
     margin-bottom: -1px; /* Pull tab down to connect with pane */
 }
 
@@ -951,6 +1019,57 @@ QProgressBar::chunk {
     background-color: #007acc;
     border-radius: 3px;
     margin: 1px;
+}
+
+#AlertsPanel, #ForecastPanel, #OperationalOverviewPanel {
+    border-radius: 12px;
+}
+
+#AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
+    border-radius: 8px;
+    padding: 6px;
+}
+
+#AlertMetaLabel {
+    color: #9fb3c8;
+    font-size: 9pt;
+    padding: 2px 2px 4px 2px;
+}
+
+#AlertSectionHeader {
+    color: #e5edf5;
+    font-size: 10pt;
+    font-weight: 700;
+    padding-top: 4px;
+}
+
+#DashboardHeadline {
+    font-size: 20px;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+#DashboardSubheadline {
+    color: #b7c6d9;
+}
+
+#AlertFilterButton {
+    min-width: 92px;
+}
+
+#TopStatusStrip {
+    background: #1f2937;
+    border: 1px solid #334155;
+    border-radius: 12px;
+}
+
+#TopStatusChip {
+    background: #243142;
+    border: 1px solid #334155;
+    border-radius: 9px;
+    padding: 6px 10px;
+    color: #d7e3f1;
+    font-weight: 600;
 }
 '''
 
@@ -1261,10 +1380,13 @@ class ManageLocationsDialog(QDialog):
         edit_button.clicked.connect(self.edit_location)
         remove_button = QPushButton("Remove")
         remove_button.clicked.connect(self.remove_location)
+        sort_button = QPushButton("Sort Alphabetically")
+        sort_button.clicked.connect(self.sort_locations_alphabetically)
 
         button_layout.addWidget(add_button)
         button_layout.addWidget(edit_button)
         button_layout.addWidget(remove_button)
+        button_layout.addWidget(sort_button)
         button_layout.addStretch()
 
         move_up_button = QPushButton("Move Up")
@@ -1348,6 +1470,23 @@ class ManageLocationsDialog(QDialog):
             self.list_widget.insertItem(current_row + 1, self.list_widget.takeItem(current_row))
             self.list_widget.setCurrentRow(current_row + 1)
 
+    def sort_locations_alphabetically(self):
+        current_row = self.list_widget.currentRow()
+        selected_location_id = None
+        if 0 <= current_row < len(self.locations):
+            selected_location_id = self.locations[current_row].get("id")
+
+        self.locations.sort(key=lambda loc: str(loc.get("name", "")).lower())
+        self.list_widget.clear()
+        for loc in self.locations:
+            self.list_widget.addItem(f"{loc['name']} ({loc['id']})")
+
+        if selected_location_id is not None:
+            for index, loc in enumerate(self.locations):
+                if loc.get("id") == selected_location_id:
+                    self.list_widget.setCurrentRow(index)
+                    break
+
     def get_locations(self) -> List[Dict[str, Any]]:
         return self.locations
 
@@ -1401,6 +1540,8 @@ class ManageSourcesDialog(QDialog):
         edit_button.clicked.connect(self.edit_source)
         remove_button = QPushButton("Remove")
         remove_button.clicked.connect(self.remove_source)
+        sort_button = QPushButton("Sort Alphabetically")
+        sort_button.clicked.connect(self.sort_sources_alphabetically)
         move_up_button = QPushButton("Move Up")
         move_up_button.clicked.connect(self.move_up_source)
         move_down_button = QPushButton("Move Down")
@@ -1409,6 +1550,7 @@ class ManageSourcesDialog(QDialog):
         button_layout.addWidget(add_button)
         button_layout.addWidget(edit_button)
         button_layout.addWidget(remove_button)
+        button_layout.addWidget(sort_button)
         button_layout.addStretch()
         button_layout.addWidget(move_up_button)
         button_layout.addWidget(move_down_button)
@@ -1482,6 +1624,20 @@ class ManageSourcesDialog(QDialog):
             q_item = self.list_widget.takeItem(current_row)
             self.list_widget.insertItem(current_row + 1, q_item)
             self.list_widget.setCurrentRow(current_row + 1)
+
+    def sort_sources_alphabetically(self):
+        selected_item = self.list_widget.currentItem()
+        selected_name = selected_item.text() if selected_item else None
+        self.sources_list.sort(key=lambda source: source[0].lower())
+        self.list_widget.clear()
+        for name, _ in self.sources_list:
+            self.list_widget.addItem(name)
+
+        if selected_name:
+            for index, (name, _) in enumerate(self.sources_list):
+                if name == selected_name:
+                    self.list_widget.setCurrentRow(index)
+                    break
 
     def get_sources(self) -> Dict[str, str]:
         return dict(self.sources_list)
@@ -1696,6 +1852,44 @@ class DeliveryHealthDialog(QDialog):
 
 
 class IncidentCenterDialog(QDialog):
+    @staticmethod
+    def _dedupe_history_rows(rows: List[Dict[str, Any]], location_name: str) -> List[Dict[str, Any]]:
+        seen = set()
+        unique_rows: List[Dict[str, Any]] = []
+        for alert in rows:
+            alert_location = str(alert.get("location", ""))
+            if alert_location and alert_location != location_name:
+                continue
+
+            key = (
+                str(alert.get("thread_id", "")),
+                str(alert.get("title", "")),
+                str(alert.get("summary", "")),
+                alert_location,
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            unique_rows.append(alert)
+        return unique_rows
+
+    @staticmethod
+    def _dedupe_timeline_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        seen = set()
+        unique_rows: List[Dict[str, Any]] = []
+        for event in rows:
+            key = (
+                str(event.get("alert_id", "")),
+                str(event.get("lifecycle", "")),
+                str(event.get("title", "")),
+                str(event.get("change_summary", "")),
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            unique_rows.append(event)
+        return unique_rows
+
     def __init__(
         self,
         alert_manager: 'AlertHistoryManager',
@@ -1713,8 +1907,10 @@ class IncidentCenterDialog(QDialog):
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs)
 
-        history_rows = alert_manager.get_recent_alerts(25)
-        timeline_rows = alert_manager.get_recent_lifecycle(25, location_id=location_id)
+        history_rows = self._dedupe_history_rows(alert_manager.get_recent_alerts(100), location_name)[:25]
+        timeline_rows = self._dedupe_timeline_rows(
+            alert_manager.get_recent_lifecycle(100, location_id=location_id)
+        )[:25]
         delivery_stats = tracker.stats()
         total_failures = sum(int(data.get("failures", 0)) for data in delivery_stats.values())
         total_successes = sum(int(data.get("successes", 0)) for data in delivery_stats.values())
@@ -1755,10 +1951,23 @@ class IncidentCenterDialog(QDialog):
         for alert in history_rows:
             row = history_table.rowCount()
             history_table.insertRow(row)
-            history_table.setItem(row, 0, QTableWidgetItem(alert.get("time", "")))
-            history_table.setItem(row, 1, QTableWidgetItem(alert.get("type", "")))
-            history_table.setItem(row, 2, QTableWidgetItem(alert.get("location", "")))
-            history_table.setItem(row, 3, QTableWidgetItem(alert.get("summary", "")))
+            row_tooltip = "\n".join(
+                [
+                    f"Time: {alert.get('time', '')}",
+                    f"Type: {alert.get('type', '')}",
+                    f"Location: {alert.get('location', '')}",
+                    f"Summary: {alert.get('summary', '')}",
+                ]
+            )
+            history_items = [
+                QTableWidgetItem(alert.get("time", "")),
+                QTableWidgetItem(alert.get("type", "")),
+                QTableWidgetItem(alert.get("location", "")),
+                QTableWidgetItem(alert.get("summary", "")),
+            ]
+            for col, item in enumerate(history_items):
+                item.setToolTip(row_tooltip)
+                history_table.setItem(row, col, item)
         history_layout.addWidget(history_table)
         self.tabs.addTab(history_tab, "Alert History")
 
@@ -1773,11 +1982,25 @@ class IncidentCenterDialog(QDialog):
         for event in timeline_rows:
             row = timeline_table.rowCount()
             timeline_table.insertRow(row)
-            timeline_table.setItem(row, 0, QTableWidgetItem(event.get("time", "")))
-            timeline_table.setItem(row, 1, QTableWidgetItem(event.get("lifecycle", "")))
-            timeline_table.setItem(row, 2, QTableWidgetItem(event.get("severity", "")))
-            timeline_table.setItem(row, 3, QTableWidgetItem(event.get("title", "")))
-            timeline_table.setItem(row, 4, QTableWidgetItem(event.get("change_summary", "")))
+            row_tooltip = "\n".join(
+                [
+                    f"Time: {event.get('time', '')}",
+                    f"Lifecycle: {event.get('lifecycle', '')}",
+                    f"Severity: {event.get('severity', '')}",
+                    f"Alert: {event.get('title', '')}",
+                    f"Change Summary: {event.get('change_summary', '')}",
+                ]
+            )
+            timeline_items = [
+                QTableWidgetItem(event.get("time", "")),
+                QTableWidgetItem(event.get("lifecycle", "")),
+                QTableWidgetItem(event.get("severity", "")),
+                QTableWidgetItem(event.get("title", "")),
+                QTableWidgetItem(event.get("change_summary", "")),
+            ]
+            for col, item in enumerate(timeline_items):
+                item.setToolTip(row_tooltip)
+                timeline_table.setItem(row, col, item)
         timeline_layout.addWidget(timeline_table)
         self.tabs.addTab(timeline_tab, "Lifecycle")
 
@@ -1845,6 +2068,33 @@ class SettingsDialog(QDialog):
         self.repeater_entry = QLineEdit(self.current_settings.get("repeater_info", FALLBACK_INITIAL_REPEATER_INFO))
         form_layout.addRow("Announcement:", self.repeater_entry)
 
+        form_layout.addRow(QLabel("<b>Announcement Text Schedule</b>"))
+        self.announce_repeater_interval_check = QCheckBox("Announce at interval")
+        self.announce_repeater_interval_check.setChecked(
+            self.current_settings.get("announce_repeater_at_interval", FALLBACK_ANNOUNCE_REPEATER_AT_INTERVAL)
+        )
+        self.announce_repeater_top_check = QCheckBox("Announce at :00")
+        self.announce_repeater_top_check.setChecked(
+            self.current_settings.get("announce_repeater_top", FALLBACK_ANNOUNCE_REPEATER_TOP)
+        )
+        self.announce_repeater_15_check = QCheckBox("Announce at :15")
+        self.announce_repeater_15_check.setChecked(
+            self.current_settings.get("announce_repeater_15", FALLBACK_ANNOUNCE_REPEATER_15)
+        )
+        self.announce_repeater_30_check = QCheckBox("Announce at :30")
+        self.announce_repeater_30_check.setChecked(
+            self.current_settings.get("announce_repeater_30", FALLBACK_ANNOUNCE_REPEATER_30)
+        )
+        self.announce_repeater_45_check = QCheckBox("Announce at :45")
+        self.announce_repeater_45_check.setChecked(
+            self.current_settings.get("announce_repeater_45", FALLBACK_ANNOUNCE_REPEATER_45)
+        )
+        form_layout.addRow(self.announce_repeater_interval_check)
+        form_layout.addRow(self.announce_repeater_top_check)
+        form_layout.addRow(self.announce_repeater_15_check)
+        form_layout.addRow(self.announce_repeater_30_check)
+        form_layout.addRow(self.announce_repeater_45_check)
+
         self.interval_combobox = QComboBox()
         self.interval_combobox.addItems(CHECK_INTERVAL_OPTIONS.keys())
         self.interval_combobox.setCurrentText(self.current_settings.get("interval_key", FALLBACK_DEFAULT_INTERVAL_KEY))
@@ -1909,6 +2159,8 @@ class SettingsDialog(QDialog):
         edit_button.clicked.connect(self._edit_location)
         remove_button = QPushButton("Remove")
         remove_button.clicked.connect(self._remove_location)
+        sort_locations_button = QPushButton("Sort Locations Alphabetically")
+        sort_locations_button.clicked.connect(self._sort_locations_alphabetically)
         move_up_button = QPushButton("Move Up")
         move_up_button.clicked.connect(self._move_up_location)
         move_down_button = QPushButton("Move Down")
@@ -1916,6 +2168,7 @@ class SettingsDialog(QDialog):
         locations_button_layout.addWidget(add_button)
         locations_button_layout.addWidget(edit_button)
         locations_button_layout.addWidget(remove_button)
+        locations_button_layout.addWidget(sort_locations_button)
         locations_button_layout.addStretch()
         locations_button_layout.addWidget(move_up_button)
         locations_button_layout.addWidget(move_down_button)
@@ -2112,11 +2365,31 @@ class SettingsDialog(QDialog):
         self._refresh_locations_list()
         self.locations_list_widget.setCurrentRow(current_row + 1)
 
+    def _sort_locations_alphabetically(self):
+        current_row = self.locations_list_widget.currentRow()
+        selected_location_id = None
+        if 0 <= current_row < len(self.locations_data):
+            selected_location_id = self.locations_data[current_row].get("id")
+
+        self.locations_data.sort(key=lambda loc: str(loc.get("name", "")).lower())
+        self._refresh_locations_list()
+
+        if selected_location_id is not None:
+            for index, loc in enumerate(self.locations_data):
+                if loc.get("id") == selected_location_id:
+                    self.locations_list_widget.setCurrentRow(index)
+                    break
+
     def get_settings_data(self) -> Dict[str, Any]:
         return {
             "repeater_info": self.repeater_entry.text(),
             "locations": self.locations_data,
             "interval_key": self.interval_combobox.currentText(),
+            "announce_repeater_at_interval": self.announce_repeater_interval_check.isChecked(),
+            "announce_repeater_top": self.announce_repeater_top_check.isChecked(),
+            "announce_repeater_15": self.announce_repeater_15_check.isChecked(),
+            "announce_repeater_30": self.announce_repeater_30_check.isChecked(),
+            "announce_repeater_45": self.announce_repeater_45_check.isChecked(),
             "announce_alerts": self.announce_alerts_check.isChecked(),
             "announce_time_top": self.announce_time_top_check.isChecked(),
             "announce_time_15": self.announce_time_15_check.isChecked(),
@@ -2170,6 +2443,11 @@ class WeatherAlertApp(QMainWindow):
         self.escalation_repeat_state: Dict[str, Dict[str, Any]] = {}
         self.last_lifecycle_by_location: Dict[str, Dict[str, Any]] = {}
         self.location_runtime_status: Dict[str, Dict[str, Any]] = {}
+        self._last_loaded_web_url: str = ""
+        self._last_loaded_nws_url: str = ""
+        self._last_map_signature: Tuple[Any, ...] = ()
+        self._last_map_empty_location_id: str = ""
+        self._last_nws_placeholder_location_id: str = ""
 
         # Initialize application state variables
         self.RADAR_OPTIONS = DEFAULT_RADAR_OPTIONS.copy()
@@ -2201,12 +2479,18 @@ class WeatherAlertApp(QMainWindow):
         self.current_announce_time_15 = FALLBACK_ANNOUNCE_TIME_15
         self.current_announce_time_30 = FALLBACK_ANNOUNCE_TIME_30
         self.current_announce_time_45 = FALLBACK_ANNOUNCE_TIME_45
+        self.current_announce_repeater_at_interval = FALLBACK_ANNOUNCE_REPEATER_AT_INTERVAL
+        self.current_announce_repeater_top = FALLBACK_ANNOUNCE_REPEATER_TOP
+        self.current_announce_repeater_15 = FALLBACK_ANNOUNCE_REPEATER_15
+        self.current_announce_repeater_30 = FALLBACK_ANNOUNCE_REPEATER_30
+        self.current_announce_repeater_45 = FALLBACK_ANNOUNCE_REPEATER_45
         self.current_announce_temp_top = FALLBACK_ANNOUNCE_TEMP_TOP
         self.current_announce_temp_15 = FALLBACK_ANNOUNCE_TEMP_15
         self.current_announce_temp_30 = FALLBACK_ANNOUNCE_TEMP_30
         self.current_announce_temp_45 = FALLBACK_ANNOUNCE_TEMP_45
         self.latest_temperature_reading: Optional[str] = None
         self._last_time_announcement_minute_key: Optional[str] = None
+        self._last_repeater_announcement_minute_key: Optional[str] = None
         self._last_temp_announcement_minute_key: Optional[str] = None
 
         self._load_settings()
@@ -2387,6 +2671,13 @@ class WeatherAlertApp(QMainWindow):
         self.current_enable_discord_notifications = settings.get("enable_discord_notifications", FALLBACK_ENABLE_DISCORD_NOTIFICATIONS)
         self.current_slack_webhook_url = settings.get("slack_webhook_url", FALLBACK_SLACK_WEBHOOK_URL)
         self.current_enable_slack_notifications = settings.get("enable_slack_notifications", FALLBACK_ENABLE_SLACK_NOTIFICATIONS)
+        self.current_announce_repeater_at_interval = settings.get(
+            "announce_repeater_at_interval", FALLBACK_ANNOUNCE_REPEATER_AT_INTERVAL
+        )
+        self.current_announce_repeater_top = settings.get("announce_repeater_top", FALLBACK_ANNOUNCE_REPEATER_TOP)
+        self.current_announce_repeater_15 = settings.get("announce_repeater_15", FALLBACK_ANNOUNCE_REPEATER_15)
+        self.current_announce_repeater_30 = settings.get("announce_repeater_30", FALLBACK_ANNOUNCE_REPEATER_30)
+        self.current_announce_repeater_45 = settings.get("announce_repeater_45", FALLBACK_ANNOUNCE_REPEATER_45)
         self.current_announce_time_top = settings.get("announce_time_top", FALLBACK_ANNOUNCE_TIME_TOP)
         self.current_announce_time_15 = settings.get("announce_time_15", FALLBACK_ANNOUNCE_TIME_15)
         self.current_announce_time_30 = settings.get("announce_time_30", FALLBACK_ANNOUNCE_TIME_30)
@@ -2426,6 +2717,11 @@ class WeatherAlertApp(QMainWindow):
         self.current_enable_discord_notifications = FALLBACK_ENABLE_DISCORD_NOTIFICATIONS
         self.current_slack_webhook_url = FALLBACK_SLACK_WEBHOOK_URL
         self.current_enable_slack_notifications = FALLBACK_ENABLE_SLACK_NOTIFICATIONS
+        self.current_announce_repeater_at_interval = FALLBACK_ANNOUNCE_REPEATER_AT_INTERVAL
+        self.current_announce_repeater_top = FALLBACK_ANNOUNCE_REPEATER_TOP
+        self.current_announce_repeater_15 = FALLBACK_ANNOUNCE_REPEATER_15
+        self.current_announce_repeater_30 = FALLBACK_ANNOUNCE_REPEATER_30
+        self.current_announce_repeater_45 = FALLBACK_ANNOUNCE_REPEATER_45
         self.current_announce_time_top = FALLBACK_ANNOUNCE_TIME_TOP
         self.current_announce_time_15 = FALLBACK_ANNOUNCE_TIME_15
         self.current_announce_time_30 = FALLBACK_ANNOUNCE_TIME_30
@@ -2445,6 +2741,11 @@ class WeatherAlertApp(QMainWindow):
             "radar_options_dict": self.RADAR_OPTIONS,
             "radar_url": self.current_radar_url,
             "announce_alerts": self.announce_alerts_action.isChecked(),
+            "announce_repeater_at_interval": self.current_announce_repeater_at_interval,
+            "announce_repeater_top": self.current_announce_repeater_top,
+            "announce_repeater_15": self.current_announce_repeater_15,
+            "announce_repeater_30": self.current_announce_repeater_30,
+            "announce_repeater_45": self.current_announce_repeater_45,
             "announce_time_top": self.current_announce_time_top,
             "announce_time_15": self.current_announce_time_15,
             "announce_time_30": self.current_announce_time_30,
@@ -2501,37 +2802,46 @@ class WeatherAlertApp(QMainWindow):
         self.alerts_forecasts_container.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         alerts_forecasts_layout = QHBoxLayout(self.alerts_forecasts_container)
         alerts_forecasts_layout.setContentsMargins(0,0,0,0)
-        alerts_forecasts_layout.setSpacing(6)
+        alerts_forecasts_layout.setSpacing(4)
         main_layout.addWidget(self.alerts_forecasts_container, 1) # Stretch factor 1
 
         # Alerts Group
         self.alerts_group = QGroupBox("Now")
+        self.alerts_group.setObjectName("AlertsPanel")
         self.alerts_group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         alerts_layout = QVBoxLayout(self.alerts_group)
-        alerts_layout.setContentsMargins(5, 5, 5, 5)
+        alerts_layout.setContentsMargins(6, 6, 6, 6)
         alerts_layout.setSpacing(4)
         filter_layout = QHBoxLayout()
-        filter_layout.setSpacing(4)
+        filter_layout.setSpacing(3)
         self.all_alerts_button = QPushButton("All", checkable=True, checked=True)
         self.warning_button = QPushButton("Warnings", checkable=True)
         self.watch_button = QPushButton("Watches", checkable=True)
         self.advisory_button = QPushButton("Advisories", checkable=True)
         for btn in [self.all_alerts_button, self.warning_button, self.watch_button, self.advisory_button]:
             btn.clicked.connect(self._filter_alerts)
-            btn.setMaximumHeight(24)
+            btn.setMaximumHeight(26)
+            btn.setObjectName("AlertFilterButton")
             filter_layout.addWidget(btn)
         alerts_layout.addLayout(filter_layout)
+        self.alerts_meta_label = QLabel("Waiting for alert data...")
+        self.alerts_meta_label.setObjectName("AlertMetaLabel")
+        self.alerts_meta_label.setWordWrap(True)
+        alerts_layout.addWidget(self.alerts_meta_label)
         self.alerts_display_area = QListWidget()
         self.alerts_display_area.setObjectName("AlertsDisplayArea")
-        self.alerts_display_area.setWordWrap(False)
-        self.alerts_display_area.setUniformItemSizes(True)
-        self.alerts_display_area.setTextElideMode(Qt.TextElideMode.ElideRight)
+        self.alerts_display_area.setWordWrap(True)
+        self.alerts_display_area.setUniformItemSizes(False)
+        self.alerts_display_area.setTextElideMode(Qt.TextElideMode.ElideNone)
         self.alerts_display_area.setAlternatingRowColors(True)
         self.alerts_display_area.setSpacing(1)
         self.alerts_display_area.setMaximumHeight(220)
+        self.alerts_display_area.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.alerts_display_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         alerts_layout.addWidget(self.alerts_display_area)
 
-        lifecycle_header = QLabel("<b>Alert Lifecycle</b>")
+        lifecycle_header = QLabel("Alert Lifecycle")
+        lifecycle_header.setObjectName("AlertSectionHeader")
         alerts_layout.addWidget(lifecycle_header)
         self.lifecycle_display_area = QListWidget()
         self.lifecycle_display_area.setObjectName("LifecycleDisplayArea")
@@ -2540,27 +2850,28 @@ class WeatherAlertApp(QMainWindow):
         self.lifecycle_display_area.setTextElideMode(Qt.TextElideMode.ElideRight)
         self.lifecycle_display_area.setAlternatingRowColors(True)
         self.lifecycle_display_area.setSpacing(1)
-        self.lifecycle_display_area.setMaximumHeight(90)
+        self.lifecycle_display_area.setMaximumHeight(72)
         alerts_layout.addWidget(self.lifecycle_display_area)
         alerts_forecasts_layout.addWidget(self.alerts_group, 1)
 
         # Combined Forecasts Group
         self.combined_forecast_widget = QGroupBox("Soon")
+        self.combined_forecast_widget.setObjectName("ForecastPanel")
         self.combined_forecast_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
         combined_forecast_main_layout = QHBoxLayout(self.combined_forecast_widget)
-        combined_forecast_main_layout.setContentsMargins(2, 2, 2, 2)
-        combined_forecast_main_layout.setSpacing(3)
+        combined_forecast_main_layout.setContentsMargins(1, 1, 1, 1)
+        combined_forecast_main_layout.setSpacing(2)
         hourly_forecast_sub_group = QGroupBox("8-Hour Forecast")
         hourly_forecast_sub_group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         hourly_forecast_sub_group_layout = QVBoxLayout(hourly_forecast_sub_group)
-        hourly_forecast_sub_group_layout.setContentsMargins(1, 1, 1, 1)
-        hourly_forecast_sub_group_layout.setSpacing(1)
+        hourly_forecast_sub_group_layout.setContentsMargins(0, 0, 0, 0)
+        hourly_forecast_sub_group_layout.setSpacing(0)
         hourly_forecast_sub_group_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.hourly_forecast_widget = QWidget()
         self.hourly_forecast_layout = QGridLayout(self.hourly_forecast_widget)
         self.hourly_forecast_layout.setContentsMargins(0, 0, 0, 0)
-        self.hourly_forecast_layout.setHorizontalSpacing(8)
-        self.hourly_forecast_layout.setVerticalSpacing(1)
+        self.hourly_forecast_layout.setHorizontalSpacing(5)
+        self.hourly_forecast_layout.setVerticalSpacing(0)
         self.hourly_forecast_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.hourly_forecast_layout.setColumnStretch(0, 2)
         self.hourly_forecast_layout.setColumnStretch(1, 1)
@@ -2577,13 +2888,13 @@ class WeatherAlertApp(QMainWindow):
         daily_forecast_sub_group = QGroupBox("5-Day Forecast")
         daily_forecast_sub_group.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         daily_forecast_sub_group_layout = QVBoxLayout(daily_forecast_sub_group)
-        daily_forecast_sub_group_layout.setContentsMargins(1, 1, 1, 1)
-        daily_forecast_sub_group_layout.setSpacing(1)
+        daily_forecast_sub_group_layout.setContentsMargins(0, 0, 0, 0)
+        daily_forecast_sub_group_layout.setSpacing(0)
         self.daily_forecast_widget = QWidget()
         self.daily_forecast_layout = QGridLayout(self.daily_forecast_widget)
         self.daily_forecast_layout.setContentsMargins(0, 0, 0, 0)
-        self.daily_forecast_layout.setHorizontalSpacing(8)
-        self.daily_forecast_layout.setVerticalSpacing(1)
+        self.daily_forecast_layout.setHorizontalSpacing(5)
+        self.daily_forecast_layout.setVerticalSpacing(0)
         self.daily_forecast_layout.setColumnStretch(0, 2)
         self.daily_forecast_layout.setColumnStretch(1, 1)
         self.daily_forecast_layout.setColumnStretch(2, 2)
@@ -2606,8 +2917,8 @@ class WeatherAlertApp(QMainWindow):
             self.digital_forecast_view = QWebEngineView()
             self.web_tabs.addTab(self.web_view, "Web Source")
             self.web_tabs.addTab(self.map_view, "Alert Map")
-            self.web_tabs.addTab(self.nws_view, "NWS")
-            self.web_tabs.addTab(self.digital_forecast_view, "NWS Digital Forecast")
+            self.web_tabs.addTab(self.nws_view, "City variable, NWS")
+            self.web_tabs.addTab(self.digital_forecast_view, "National Digital Graphic Forecast")
             self.digital_forecast_view.setUrl(QUrl("https://digital.weather.gov/"))
         else:
             self.web_view = QLabel("WebEngineView not available. Please install 'PySide6-WebEngine'.")
@@ -2623,8 +2934,8 @@ class WeatherAlertApp(QMainWindow):
             self.digital_forecast_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.web_tabs.addTab(self.web_view, "Web Source")
             self.web_tabs.addTab(self.map_view, "Alert Map")
-            self.web_tabs.addTab(self.nws_view, "NWS")
-            self.web_tabs.addTab(self.digital_forecast_view, "NWS Digital Forecast")
+            self.web_tabs.addTab(self.nws_view, "City variable, NWS")
+            self.web_tabs.addTab(self.digital_forecast_view, "National Digital Graphic Forecast")
         self.bottom_splitter.addWidget(self.web_tabs)
 
         self.log_widget = QWidget()
@@ -2681,62 +2992,64 @@ class WeatherAlertApp(QMainWindow):
 
     def _create_top_status_bar(self) -> QHBoxLayout:
         top_status_layout = QHBoxLayout()
-        top_status_layout.setContentsMargins(5, 3, 5, 3)
+        top_status_layout.setContentsMargins(0, 0, 0, 4)
 
         style = self.style()
-        self.top_repeater_label = QLabel("Announcement: N/A")
-        self.top_countdown_label = QLabel("Next Check: --:--")
-        self.last_announcement_label = QLabel("Last Announcement: --")
-        self.current_time_label = QLabel("Current Time: --:--:--")
+        strip = QFrame()
+        strip.setObjectName("TopStatusStrip")
+        strip_layout = QHBoxLayout(strip)
+        strip_layout.setContentsMargins(12, 10, 12, 10)
+        strip_layout.setSpacing(10)
 
-        volume_icon_label = QLabel()
-        volume_icon_label.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_MediaVolume).pixmap(16, 16))
-        top_status_layout.addWidget(volume_icon_label)
-        top_status_layout.addWidget(self.top_repeater_label)
-        top_status_layout.addSpacing(20)
+        self.top_repeater_label = QLabel("Announcement: N/A")
+        self.top_repeater_label.setObjectName("TopStatusChip")
+        self.top_countdown_label = QLabel("Next Check: --:--")
+        self.top_countdown_label.setObjectName("TopStatusChip")
+        self.last_announcement_label = QLabel("Last Announcement: --")
+        self.last_announcement_label.setObjectName("TopStatusChip")
+        self.current_time_label = QLabel("Current Time: --:--:--")
+        self.current_time_label.setObjectName("TopStatusChip")
 
         location_icon_label = QLabel()
         location_icon_label.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon).pixmap(16, 16))
-        top_status_layout.addWidget(location_icon_label)
+        strip_layout.addWidget(location_icon_label)
 
         self.location_combo = QComboBox()
         self.location_combo.setMinimumWidth(220)
         self.location_combo.setToolTip("Select a location to view")
         self.location_combo.currentIndexChanged.connect(self._on_location_selected)
-        top_status_layout.addWidget(self.location_combo)
-
-        top_status_layout.addSpacing(20)
+        strip_layout.addWidget(self.location_combo)
 
         interval_icon_label = QLabel()
         interval_icon_label.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload).pixmap(16, 16))
-        top_status_layout.addWidget(interval_icon_label)
+        strip_layout.addWidget(interval_icon_label)
 
         self.top_interval_combo = QComboBox()
         self.top_interval_combo.addItems(CHECK_INTERVAL_OPTIONS.keys())
         self.top_interval_combo.setMinimumWidth(130)
         self.top_interval_combo.setToolTip("Set check interval")
         self.top_interval_combo.currentTextChanged.connect(self._on_top_interval_changed)
-        top_status_layout.addWidget(self.top_interval_combo)
-        top_status_layout.addSpacing(10)
+        strip_layout.addWidget(self.top_interval_combo)
 
         self.web_source_quick_select_button = QPushButton("Web Source")
         self.web_source_quick_select_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
         self.web_source_quick_select_button.setToolTip("Quick select web source")
-        top_status_layout.addWidget(self.web_source_quick_select_button)
+        strip_layout.addWidget(self.web_source_quick_select_button)
 
         self.mute_button = QPushButton("Mute")
         self.mute_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolumeMuted))
         self.mute_button.setToolTip("Mute All Audio")
         self.mute_button.setCheckable(True)
         self.mute_button.toggled.connect(self._on_mute_toggled)
-        top_status_layout.addWidget(self.mute_button)
+        strip_layout.addWidget(self.mute_button)
 
-        top_status_layout.addStretch(1)
-        top_status_layout.addWidget(self.top_countdown_label)
-        top_status_layout.addSpacing(15)
-        top_status_layout.addWidget(self.last_announcement_label)
-        top_status_layout.addSpacing(15)
-        top_status_layout.addWidget(self.current_time_label)
+        strip_layout.addStretch(1)
+        strip_layout.addWidget(self.top_repeater_label)
+        strip_layout.addWidget(self.top_countdown_label)
+        strip_layout.addWidget(self.last_announcement_label)
+        strip_layout.addWidget(self.current_time_label)
+
+        top_status_layout.addWidget(strip)
 
         return top_status_layout
 
@@ -2768,17 +3081,20 @@ class WeatherAlertApp(QMainWindow):
 
     def _create_dashboard_overview(self) -> QWidget:
         panel = QGroupBox("Operational Overview")
+        panel.setObjectName("OperationalOverviewPanel")
         layout = QVBoxLayout(panel)
-        layout.setSpacing(10)
+        layout.setSpacing(12)
+        layout.setContentsMargins(12, 12, 12, 12)
 
         self.dashboard_header_widget = QWidget()
         header_layout = QVBoxLayout(self.dashboard_header_widget)
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(4)
         self.dashboard_headline = QLabel("Now monitoring current location")
-        self.dashboard_headline.setStyleSheet("font-size: 18px; font-weight: bold;")
+        self.dashboard_headline.setObjectName("DashboardHeadline")
         self.dashboard_subheadline = QLabel("Alerts, escalation, and delivery health are summarized here.")
         self.dashboard_subheadline.setWordWrap(True)
+        self.dashboard_subheadline.setObjectName("DashboardSubheadline")
         header_layout.addWidget(self.dashboard_headline)
         header_layout.addWidget(self.dashboard_subheadline)
         layout.addWidget(self.dashboard_header_widget)
@@ -2805,6 +3121,7 @@ class WeatherAlertApp(QMainWindow):
         layout.addLayout(footer_layout)
 
         self.location_overview_list = QListWidget()
+        self.location_overview_list.setObjectName("LocationOverviewList")
         self.location_overview_list.setMaximumHeight(140)
         self.location_overview_list.itemClicked.connect(self._on_location_overview_clicked)
         layout.addWidget(self.location_overview_list)
@@ -2965,20 +3282,35 @@ class WeatherAlertApp(QMainWindow):
             label.setToolTip(tooltip)
         return label
 
-    def _apply_forecast_cell_style(self, label: QLabel, row_index: int, is_header: bool = False) -> QLabel:
-        palette = self.palette()
+    def _forecast_theme_colors(self, row_index: int, is_header: bool = False) -> Dict[str, str]:
+        if self.current_dark_mode_enabled:
+            if is_header:
+                return {"bg": "#223041", "border": "#42546b", "text": "#f8fafc"}
+            return {
+                "bg": "#18222f" if row_index % 2 == 0 else "#1e2b3a",
+                "border": "#314154",
+                "text": "#f8fafc",
+            }
+
         if is_header:
-            bg = palette.alternateBase().color().name()
-            border = palette.mid().color().name()
+            return {"bg": "#dfeaf5", "border": "#b8c9dc", "text": "#102a43"}
+        return {
+            "bg": "#ffffff" if row_index % 2 == 0 else "#f4f8fc",
+            "border": "#d3deea",
+            "text": "#102a43",
+        }
+
+    def _apply_forecast_cell_style(self, label: QLabel, row_index: int, is_header: bool = False) -> QLabel:
+        colors = self._forecast_theme_colors(row_index, is_header=is_header)
+        if is_header:
             label.setStyleSheet(
-                f"padding: 2px 5px; background-color: {bg}; border-bottom: 1px solid {border}; font-weight: 600;"
+                f"padding: 4px 6px; background-color: {colors['bg']}; color: {colors['text']}; "
+                f"border-bottom: 1px solid {colors['border']}; font-weight: 700;"
             )
         else:
-            bg_role = palette.alternateBase() if row_index % 2 else palette.base()
-            bg = bg_role.color().name()
-            border = palette.midlight().color().name()
             label.setStyleSheet(
-                f"padding: 1px 5px; background-color: {bg}; border-bottom: 1px solid {border};"
+                f"padding: 3px 6px; background-color: {colors['bg']}; color: {colors['text']}; "
+                f"border-bottom: 1px solid {colors['border']};"
             )
         return label
 
@@ -3171,6 +3503,7 @@ class WeatherAlertApp(QMainWindow):
 
     def _clear_and_set_loading_states(self):
         self.alerts_display_area.clear()
+        self.alerts_meta_label.setText(f"{self.get_current_location_name()}: loading alerts and forecast data...")
         self.alerts_display_area.addItem("Loading alerts...")
         self.lifecycle_display_area.clear()
         self.lifecycle_display_area.addItem("Loading lifecycle...")
@@ -3348,10 +3681,24 @@ class WeatherAlertApp(QMainWindow):
         if not (QWebEngineView and self.map_view):
             return
         if not alerts:
-            self.map_view.setHtml("<html><body><h3>No active polygons for current location.</h3></body></html>")
+            if self._last_map_empty_location_id != self.current_location_id:
+                self.map_view.setHtml("<html><body><h3>No active polygons for current location.</h3></body></html>")
+                self._last_map_empty_location_id = self.current_location_id
+                self._last_map_signature = ()
             return
 
         if not self.current_coords:
+            return
+
+        map_signature = (
+            round(self.current_coords[0], 4),
+            round(self.current_coords[1], 4),
+            tuple(
+                (str(alert.get("id", "")), str(alert.get("updated", "")), str(alert.get("severity", "")))
+                for alert in alerts
+            ),
+        )
+        if map_signature == self._last_map_signature:
             return
 
         geojson = self.api_client.build_alert_geojson(alerts)
@@ -3396,6 +3743,8 @@ class WeatherAlertApp(QMainWindow):
 </html>
 """
         self.map_view.setHtml(html)
+        self._last_map_signature = map_signature
+        self._last_map_empty_location_id = ""
 
     def _build_nws_forecast_url(self, coords: Optional[Tuple[float, float]]) -> Optional[str]:
         if not coords:
@@ -3404,12 +3753,22 @@ class WeatherAlertApp(QMainWindow):
         return f"https://forecast.weather.gov/MapClick.php?lat={lat}&lon={lon}"
 
     def _update_nws_tab(self) -> None:
+        if hasattr(self, "web_tabs") and hasattr(self, "nws_view"):
+            tab_index = self.web_tabs.indexOf(self.nws_view)
+            if tab_index != -1:
+                self.web_tabs.setTabText(tab_index, f"{self.get_current_location_name()}, NWS")
         nws_url = self._build_nws_forecast_url(self.current_coords)
         if QWebEngineView and self.nws_view:
             if nws_url:
-                self.nws_view.setUrl(QUrl(nws_url))
+                if nws_url != self._last_loaded_nws_url:
+                    self.nws_view.setUrl(QUrl(nws_url))
+                    self._last_loaded_nws_url = nws_url
+                    self._last_nws_placeholder_location_id = ""
             else:
-                self.nws_view.setHtml("<html><body><h3>Select a location to load the NWS forecast.</h3></body></html>")
+                if self._last_nws_placeholder_location_id != self.current_location_id:
+                    self.nws_view.setHtml("<html><body><h3>Select a location to load the NWS forecast.</h3></body></html>")
+                    self._last_nws_placeholder_location_id = self.current_location_id
+                    self._last_loaded_nws_url = ""
             return
 
         if isinstance(self.nws_view, QLabel):
@@ -3425,8 +3784,9 @@ class WeatherAlertApp(QMainWindow):
         self.alerts_display_area.clear()
         if not alerts:
             item = QListWidgetItem(f"No active alerts for {self.get_location_name_by_id(location_id)}.")
-            item.setData(Qt.ItemDataRole.UserRole, "generic")
+            item.setData(Qt.ItemDataRole.UserRole + 1, "generic")
             self.alerts_display_area.addItem(item)
+            self.alerts_meta_label.setText(f"{self.get_location_name_by_id(location_id)}: no active alerts right now.")
             self._apply_alert_filters()
             return
 
@@ -3461,11 +3821,11 @@ class WeatherAlertApp(QMainWindow):
             title = alert.get('title', 'N/A Title')
             summary = alert.get('summary', 'No summary available.')
             distance_suffix = f" ({distance_miles:.1f} mi)" if isinstance(distance_miles, (int, float)) else ""
-            compact_summary = self._compact_text(summary, 110)
-            item = QListWidgetItem(f"{title}{distance_suffix} | {compact_summary}")
-            alert_category = self._classify_alert_category(title)
-            item.setData(Qt.ItemDataRole.UserRole, alert_category)
-            item.setSizeHint(QSize(item.sizeHint().width(), 40))
+            alert_text = f"{title}{distance_suffix}\n{summary}"
+            item = QListWidgetItem(alert_text)
+            alert_category = self._classify_alert_category(alert)
+            item.setData(Qt.ItemDataRole.UserRole + 1, alert_category)
+            item.setSizeHint(QSize(item.sizeHint().width(), self._alert_item_height_for_text(alert_text)))
             item.setToolTip(f"{title}{distance_suffix}\n\n{summary}")
             dedup_meta = self.alert_dedup.classify(alert)
 
@@ -3981,6 +4341,11 @@ class WeatherAlertApp(QMainWindow):
             "locations": self.locations,
             "interval_key": self.current_interval_key,
             "announce_alerts": self.announce_alerts_action.isChecked(),
+            "announce_repeater_at_interval": self.current_announce_repeater_at_interval,
+            "announce_repeater_top": self.current_announce_repeater_top,
+            "announce_repeater_15": self.current_announce_repeater_15,
+            "announce_repeater_30": self.current_announce_repeater_30,
+            "announce_repeater_45": self.current_announce_repeater_45,
             "announce_time_top": self.current_announce_time_top,
             "announce_time_15": self.current_announce_time_15,
             "announce_time_30": self.current_announce_time_30,
@@ -4017,6 +4382,11 @@ class WeatherAlertApp(QMainWindow):
             self.current_repeater_info = new_data["repeater_info"]
             self.locations = [normalize_location_entry(loc) for loc in new_data["locations"]]
             self.current_interval_key = new_data["interval_key"]
+            self.current_announce_repeater_at_interval = new_data["announce_repeater_at_interval"]
+            self.current_announce_repeater_top = new_data["announce_repeater_top"]
+            self.current_announce_repeater_15 = new_data["announce_repeater_15"]
+            self.current_announce_repeater_30 = new_data["announce_repeater_30"]
+            self.current_announce_repeater_45 = new_data["announce_repeater_45"]
             self.current_announce_time_top = new_data["announce_time_top"]
             self.current_announce_time_15 = new_data["announce_time_15"]
             self.current_announce_time_30 = new_data["announce_time_30"]
@@ -4191,7 +4561,7 @@ class WeatherAlertApp(QMainWindow):
 
     def _set_last_announcement_label(self):
         if hasattr(self, "last_announcement_label"):
-            self.last_announcement_label.setText(f"Last Announcement: {time.strftime('%I:%M:%S %p')}")
+            self.last_announcement_label.setText(f"Last Audio {time.strftime('%I:%M:%S %p')}")
 
     def _selected_time_marks(self, announce_time: bool) -> set:
         marks = set()
@@ -4215,6 +4585,18 @@ class WeatherAlertApp(QMainWindow):
                 marks.add(45)
         return marks
 
+    def _selected_repeater_marks(self) -> set:
+        marks = set()
+        if self.current_announce_repeater_top:
+            marks.add(0)
+        if self.current_announce_repeater_15:
+            marks.add(15)
+        if self.current_announce_repeater_30:
+            marks.add(30)
+        if self.current_announce_repeater_45:
+            marks.add(45)
+        return marks
+
     def _check_scheduled_time_and_temperature_announcements(self):
         if self.mute_action.isChecked() or not self.announce_alerts_action.isChecked():
             return
@@ -4224,6 +4606,15 @@ class WeatherAlertApp(QMainWindow):
         current_minute = now.minute
 
         phrases: List[str] = []
+        repeater_marks = self._selected_repeater_marks()
+        if (
+            self.current_repeater_info
+            and current_minute in repeater_marks
+            and self._last_repeater_announcement_minute_key != minute_key
+        ):
+            phrases.append(self.current_repeater_info)
+            self._last_repeater_announcement_minute_key = minute_key
+
         time_marks = self._selected_time_marks(announce_time=True)
         if current_minute in time_marks and self._last_time_announcement_minute_key != minute_key:
             phrases.append(f"Time is {now.strftime('%I:%M %p')}.")
@@ -4272,18 +4663,19 @@ class WeatherAlertApp(QMainWindow):
             full_message = f"New weather alerts for {self.get_location_name_by_id(location_id)}. {alert_text}"
             self._speak_message_internal(full_message)
             self._set_last_announcement_label()
-        elif self.current_repeater_info:
+        elif self.current_repeater_info and self.current_announce_repeater_at_interval:
             self._speak_message_internal(self.current_repeater_info)
             self._set_last_announcement_label()
 
     # --- UI Update and State Management Methods ---
     def _update_current_time_display(self):
         if hasattr(self, 'current_time_label'):
-            self.current_time_label.setText(f"Current Time: {time.strftime('%I:%M:%S %p')}")
+            self.current_time_label.setText(f"Local Time {time.strftime('%I:%M:%S %p')}")
 
     def _update_top_status_bar_display(self):
         if hasattr(self, 'top_repeater_label'):
-            self.top_repeater_label.setText(f"Announcement: {self.current_repeater_info or 'N/A'}")
+            repeater_text = self._compact_text(self.current_repeater_info or "N/A", 36)
+            self.top_repeater_label.setText(f"Announcement {repeater_text}")
         self._update_dashboard_summary()
 
     def _refresh_location_overview(self) -> None:
@@ -4765,8 +5157,13 @@ class WeatherAlertApp(QMainWindow):
                     f"Loading PDF...<br><br>Opening <a href='{url_str}'>{url_str}</a> in default browser.</div></body></html>"
                 )
                 QDesktopServices.openUrl(QUrl(url_str))
+                self._last_loaded_web_url = url_str
             else:
+                if url_str == self._last_loaded_web_url:
+                    self.log_to_gui(f"Skipped reloading unchanged web view: {url_str}", level="DEBUG")
+                    return
                 self.web_view.setUrl(QUrl(url_str))
+                self._last_loaded_web_url = url_str
             self.log_to_gui(f"Loaded web view: {url_str}", level="INFO")
         else:
             self.log_to_gui("Web view not available.", level="WARNING")
@@ -4916,27 +5313,60 @@ class WeatherAlertApp(QMainWindow):
                 self.log_to_gui(f"Error restoring settings: {e}", level="ERROR")
                 QMessageBox.critical(self, "Restore Error", f"Failed to restore settings from the selected file.\n\nError: {e}")
 
-    def _classify_alert_category(self, title: str) -> str:
-        title_lower = title.lower()
-        if "warning" in title_lower:
+    def _classify_alert_category(self, alert: Dict[str, Any]) -> str:
+        text_parts = [
+            str(alert.get("title", "")),
+            str(alert.get("event", "")),
+            str(alert.get("headline", "")),
+            str(alert.get("summary", "")),
+        ]
+        combined_text = " ".join(text_parts).lower()
+        if "warning" in combined_text:
             return "warning"
-        if "watch" in title_lower:
+        if "watch" in combined_text:
             return "watch"
-        if "advisory" in title_lower:
+        if "advisory" in combined_text:
             return "advisory"
         return "generic"
+
+    def _alert_item_height_for_text(self, text: str) -> int:
+        available_width = max(self.alerts_display_area.viewport().width() - 18, 220)
+        rect = self.alerts_display_area.fontMetrics().boundingRect(
+            0,
+            0,
+            available_width,
+            1000,
+            int(Qt.TextFlag.TextWordWrap),
+            text,
+        )
+        return max(56, rect.height() + 14)
+
+    def _update_alerts_meta_label(self, visible_count: int, total_count: int, location_name: str) -> None:
+        filter_bits = []
+        if self.warning_button.isChecked():
+            filter_bits.append("warnings")
+        if self.watch_button.isChecked():
+            filter_bits.append("watches")
+        if self.advisory_button.isChecked():
+            filter_bits.append("advisories")
+        filter_text = "all alert types" if self.all_alerts_button.isChecked() or not filter_bits else ", ".join(filter_bits)
+        self.alerts_meta_label.setText(
+            f"{location_name}: showing {visible_count} of {total_count} alerts • filter: {filter_text}"
+        )
 
     def _apply_alert_filters(self) -> None:
         show_all = self.all_alerts_button.isChecked()
         show_warnings = self.warning_button.isChecked()
         show_watches = self.watch_button.isChecked()
         show_advisories = self.advisory_button.isChecked()
+        visible_count = 0
 
         for i in range(self.alerts_display_area.count()):
             item = self.alerts_display_area.item(i)
-            category = item.data(Qt.ItemDataRole.UserRole) or "generic"
+            category = item.data(Qt.ItemDataRole.UserRole + 1) or "generic"
             if show_all or category == "generic":
                 item.setHidden(False)
+                visible_count += 1
                 continue
 
             show = (
@@ -4945,6 +5375,10 @@ class WeatherAlertApp(QMainWindow):
                 (category == "advisory" and show_advisories)
             )
             item.setHidden(not show)
+            if show:
+                visible_count += 1
+        self._update_alerts_meta_label(visible_count, self.alerts_display_area.count(), self.get_current_location_name())
+        self.alerts_display_area.viewport().update()
 
     def _filter_alerts(self):
         sender = self.sender()
