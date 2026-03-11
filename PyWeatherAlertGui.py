@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QSpacerItem, QSizePolicy, QFileDialog, QFrame, QMenu, QStyle, QTableWidget,
     QTableWidgetItem, QHeaderView, QSystemTrayIcon, QTabWidget
 )
-from PySide6.QtCore import Qt, QTimer, Slot, QUrl, QFile, QTextStream, QObject, Signal, QRunnable, QThreadPool, QStandardPaths, QMarginsF
+from PySide6.QtCore import Qt, QTimer, Slot, QUrl, QFile, QTextStream, QObject, Signal, QRunnable, QThreadPool, QStandardPaths, QMarginsF, QSize
 from PySide6.QtGui import (
     QTextCursor, QIcon, QColor, QDesktopServices, QPalette, QAction,
     QActionGroup, QFont, QPixmap, QFontDatabase
@@ -2600,15 +2600,20 @@ class WeatherAlertApp(QMainWindow):
         if QWebEngineView:
             self.web_view = QWebEngineView()
             self.map_view = QWebEngineView()
+            self.nws_view = QWebEngineView()
             self.web_tabs.addTab(self.web_view, "Web Source")
             self.web_tabs.addTab(self.map_view, "Alert Map")
+            self.web_tabs.addTab(self.nws_view, "NWS")
         else:
             self.web_view = QLabel("WebEngineView not available. Please install 'PySide6-WebEngine'.")
             self.web_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.map_view = QLabel("Map view unavailable without PySide6-WebEngine.")
             self.map_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.nws_view = QLabel("NWS view unavailable without PySide6-WebEngine.")
+            self.nws_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.web_tabs.addTab(self.web_view, "Web Source")
             self.web_tabs.addTab(self.map_view, "Alert Map")
+            self.web_tabs.addTab(self.nws_view, "NWS")
         self.bottom_splitter.addWidget(self.web_tabs)
 
         self.log_widget = QWidget()
@@ -3089,6 +3094,7 @@ class WeatherAlertApp(QMainWindow):
         self._update_hourly_forecast_display(result["hourly_forecast"], result.get("grid_forecast"))
         self._update_daily_forecast_display(result["daily_forecast"], result.get("grid_forecast"))
         self._update_alert_map(alerts)
+        self._update_nws_tab()
         self._update_dashboard_summary()
         self.update_status(f"Data for {self.get_location_name_by_id(location_id)} updated.")
 
@@ -3122,6 +3128,7 @@ class WeatherAlertApp(QMainWindow):
             self._update_hourly_forecast_display(cached.get("hourly_forecast"), cached.get("grid_forecast"))
             self._update_daily_forecast_display(cached.get("daily_forecast"), cached.get("grid_forecast"))
             self._update_alert_map(cached.get("alerts", []))
+            self._update_nws_tab()
             self._update_dashboard_summary()
             self._finish_check_cycle()
             return
@@ -3135,6 +3142,7 @@ class WeatherAlertApp(QMainWindow):
         self._update_lifecycle_display(None)
         self._update_hourly_forecast_display(None, None)
         self._update_daily_forecast_display(None, None)
+        self._update_nws_tab()
         self._update_dashboard_summary()
         self._finish_check_cycle()
 
@@ -3366,6 +3374,30 @@ class WeatherAlertApp(QMainWindow):
 """
         self.map_view.setHtml(html)
 
+    def _build_nws_forecast_url(self, coords: Optional[Tuple[float, float]]) -> Optional[str]:
+        if not coords:
+            return None
+        lat, lon = coords
+        return f"https://forecast.weather.gov/MapClick.php?lat={lat}&lon={lon}"
+
+    def _update_nws_tab(self) -> None:
+        nws_url = self._build_nws_forecast_url(self.current_coords)
+        if QWebEngineView and self.nws_view:
+            if nws_url:
+                self.nws_view.setUrl(QUrl(nws_url))
+            else:
+                self.nws_view.setHtml("<html><body><h3>Select a location to load the NWS forecast.</h3></body></html>")
+            return
+
+        if isinstance(self.nws_view, QLabel):
+            if nws_url:
+                self.nws_view.setText(
+                    "NWS view unavailable without PySide6-WebEngine.\n\n"
+                    f"Forecast URL:\n{nws_url}"
+                )
+            else:
+                self.nws_view.setText("NWS view unavailable without PySide6-WebEngine.")
+
     def _update_alerts_display_area(self, alerts: List[Any], location_id: str, lifecycle: Optional[Dict[str, Any]] = None):
         self.alerts_display_area.clear()
         if not alerts:
@@ -3405,6 +3437,7 @@ class WeatherAlertApp(QMainWindow):
             distance_suffix = f" ({distance_miles:.1f} mi)" if isinstance(distance_miles, (int, float)) else ""
             compact_summary = self._compact_text(summary, 110)
             item = QListWidgetItem(f"{title}{distance_suffix} | {compact_summary}")
+            item.setSizeHint(QSize(item.sizeHint().width(), 30))
             item.setToolTip(f"{title}{distance_suffix}\n\n{summary}")
             dedup_meta = self.alert_dedup.classify(alert)
 
@@ -4296,6 +4329,7 @@ class WeatherAlertApp(QMainWindow):
 
         if QWebEngineView and self.web_view:
             self._load_web_view_url(self.current_radar_url)
+        self._update_nws_tab()
 
         self._refresh_location_overview()
         self._update_dashboard_summary()
