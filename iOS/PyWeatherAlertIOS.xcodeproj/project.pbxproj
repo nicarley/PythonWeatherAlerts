@@ -1,0 +1,333 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000010000000000000001 /* PyWeatherAlertIOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000001 /* PyWeatherAlertIOSApp.swift */; };
+		A10000020000000000000001 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000120000000000000001 /* Models.swift */; };
+		A10000030000000000000001 /* NWSClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000130000000000000001 /* NWSClient.swift */; };
+		A10000040000000000000001 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000140000000000000001 /* NotificationService.swift */; };
+		A10000050000000000000001 /* AppStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000150000000000000001 /* AppStore.swift */; };
+		A10000060000000000000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000160000000000000001 /* ContentView.swift */; };
+		A10000070000000000000001 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000170000000000000001 /* DashboardView.swift */; };
+		A10000080000000000000001 /* LocationEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000180000000000000001 /* LocationEditorView.swift */; };
+		A10000090000000000000001 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000190000000000000001 /* SettingsView.swift */; };
+		A10000100000000000000001 /* WebTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000200000000000000001 /* WebTabView.swift */; };
+		A100001A0000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A100002A0000000000000001 /* Assets.xcassets */; };
+		A100001B0000000000000001 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A100002B0000000000000001 /* LaunchScreen.storyboard */; };
+		A100001C0000000000000001 /* Branding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100002C0000000000000001 /* Branding.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000110000000000000001 /* PyWeatherAlertIOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PyWeatherAlertIOSApp.swift; sourceTree = "<group>"; };
+		A10000120000000000000001 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		A10000130000000000000001 /* NWSClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NWSClient.swift; sourceTree = "<group>"; };
+		A10000140000000000000001 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
+		A10000150000000000000001 /* AppStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStore.swift; sourceTree = "<group>"; };
+		A10000160000000000000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A10000170000000000000001 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		A10000180000000000000001 /* LocationEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationEditorView.swift; sourceTree = "<group>"; };
+		A10000190000000000000001 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A10000200000000000000001 /* WebTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebTabView.swift; sourceTree = "<group>"; };
+		A10000210000000000000001 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A10000220000000000000001 /* PyWeatherAlertIOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PyWeatherAlertIOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A100002A0000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A100002B0000000000000001 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		A100002C0000000000000001 /* Branding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Branding.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000230000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000240000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A10000250000000000000001 /* PyWeatherAlertIOS */,
+				A10000260000000000000001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A10000250000000000000001 /* PyWeatherAlertIOS */ = {
+			isa = PBXGroup;
+			children = (
+				A10000110000000000000001 /* PyWeatherAlertIOSApp.swift */,
+				A10000120000000000000001 /* Models.swift */,
+				A10000270000000000000001 /* Services */,
+				A10000280000000000000001 /* Stores */,
+				A10000290000000000000001 /* Views */,
+				A10000210000000000000001 /* Info.plist */,
+				A100002A0000000000000001 /* Assets.xcassets */,
+				A100002B0000000000000001 /* LaunchScreen.storyboard */,
+			);
+			path = PyWeatherAlertIOS;
+			sourceTree = "<group>";
+		};
+		A10000260000000000000001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A10000220000000000000001 /* PyWeatherAlertIOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A10000270000000000000001 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A10000130000000000000001 /* NWSClient.swift */,
+				A10000140000000000000001 /* NotificationService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		A10000280000000000000001 /* Stores */ = {
+			isa = PBXGroup;
+			children = (
+				A10000150000000000000001 /* AppStore.swift */,
+			);
+			path = Stores;
+			sourceTree = "<group>";
+		};
+		A10000290000000000000001 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A10000160000000000000001 /* ContentView.swift */,
+				A10000170000000000000001 /* DashboardView.swift */,
+				A100002C0000000000000001 /* Branding.swift */,
+				A10000180000000000000001 /* LocationEditorView.swift */,
+				A10000190000000000000001 /* SettingsView.swift */,
+				A10000200000000000000001 /* WebTabView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000300000000000000001 /* PyWeatherAlertIOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000310000000000000001 /* Build configuration list for PBXNativeTarget "PyWeatherAlertIOS" */;
+			buildPhases = (
+				A10000320000000000000001 /* Sources */,
+				A10000230000000000000001 /* Frameworks */,
+				A10000330000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PyWeatherAlertIOS;
+			productName = PyWeatherAlertIOS;
+			productReference = A10000220000000000000001 /* PyWeatherAlertIOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A10000340000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					A10000300000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = A10000350000000000000001 /* Build configuration list for PBXProject "PyWeatherAlertIOS" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A10000240000000000000001;
+			productRefGroup = A10000260000000000000001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A10000300000000000000001 /* PyWeatherAlertIOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A10000330000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A100001A0000000000000001 /* Assets.xcassets in Resources */,
+				A100001B0000000000000001 /* LaunchScreen.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10000320000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000050000000000000001 /* AppStore.swift in Sources */,
+				A10000060000000000000001 /* ContentView.swift in Sources */,
+				A10000070000000000000001 /* DashboardView.swift in Sources */,
+				A100001C0000000000000001 /* Branding.swift in Sources */,
+				A10000080000000000000001 /* LocationEditorView.swift in Sources */,
+				A10000020000000000000001 /* Models.swift in Sources */,
+				A10000030000000000000001 /* NWSClient.swift in Sources */,
+				A10000040000000000000001 /* NotificationService.swift in Sources */,
+				A10000010000000000000001 /* PyWeatherAlertIOSApp.swift in Sources */,
+				A10000090000000000000001 /* SettingsView.swift in Sources */,
+				A10000100000000000000001 /* WebTabView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A10000360000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PyWeatherAlertIOS/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.americana.pyweatheralert.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A10000370000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PyWeatherAlertIOS/Info.plist;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.americana.pyweatheralert.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		A10000380000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		A10000390000000000000001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10000310000000000000001 /* Build configuration list for PBXNativeTarget "PyWeatherAlertIOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000360000000000000001 /* Debug */,
+				A10000370000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000350000000000000001 /* Build configuration list for PBXProject "PyWeatherAlertIOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000380000000000000001 /* Debug */,
+				A10000390000000000000001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A10000340000000000000001 /* Project object */;
+}

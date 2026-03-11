@@ -1,0 +1,20 @@
+name: PyWeatherAlertIOS
+options:
+  createIntermediateGroups: true
+targets:
+  PyWeatherAlertIOS:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: PyWeatherAlertIOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.americana.pyweatheralert.ios
+        PRODUCT_NAME: PyWeatherAlertIOS
+        INFOPLIST_FILE: PyWeatherAlertIOS/Info.plist
+        SWIFT_VERSION: 5.9
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        GENERATE_INFOPLIST_FILE: NO
