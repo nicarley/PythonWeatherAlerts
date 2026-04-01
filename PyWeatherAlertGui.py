@@ -12,11 +12,11 @@ from typing import Optional, Dict, Any, List, Tuple, Callable
 
 # PySide6 imports
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QBoxLayout, QGridLayout,
     QLabel, QLineEdit, QPushButton, QComboBox, QTextEdit, QMessageBox,
     QStatusBar, QCheckBox, QSplitter, QStyleFactory, QGroupBox, QDialog,
     QDialogButtonBox, QFormLayout, QListWidget, QListWidgetItem, QLayout,
-    QSpacerItem, QSizePolicy, QFileDialog, QFrame, QMenu, QStyle, QTableWidget,
+    QSpacerItem, QSizePolicy, QFileDialog, QFrame, QMenu, QStyle, QTableWidget, QScrollArea,
     QTableWidgetItem, QHeaderView, QSystemTrayIcon, QTabWidget, QAbstractItemView, QToolTip
 )
 from PySide6.QtCore import Qt, QTimer, Slot, QUrl, QFile, QTextStream, QObject, Signal, QRunnable, QThreadPool, QStandardPaths, QMarginsF, QSize
@@ -68,6 +68,8 @@ FALLBACK_ANNOUNCE_ALERTS_CHECKED = False
 FALLBACK_SHOW_LOG_CHECKED = False
 FALLBACK_SHOW_ALERTS_AREA_CHECKED = True
 FALLBACK_SHOW_FORECASTS_AREA_CHECKED = True
+FALLBACK_SHOW_HOURLY_FORECAST_CHECKED = True
+FALLBACK_SHOW_DAILY_FORECAST_CHECKED = True
 FALLBACK_SHOW_MONITORING_STATUS_CHECKED = True
 FALLBACK_SHOW_LOCATION_OVERVIEW_CHECKED = True
 FALLBACK_AUTO_REFRESH_CONTENT_CHECKED = False
@@ -506,18 +508,18 @@ QHeaderView::section {
 /* These are preserved from your original file */
 
 #AlertsPanel, #ForecastPanel, #OperationalOverviewPanel {
-    border-radius: 12px;
+    border-radius: 10px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
     border-radius: 8px;
-    padding: 6px;
+    padding: 4px;
 }
 
 #AlertMetaLabel {
     color: #5b6773;
-    font-size: 9pt;
-    padding: 2px 2px 4px 2px;
+    font-size: 10pt;
+    padding: 0px 1px 1px 1px;
 }
 
 #AlertSectionHeader {
@@ -528,103 +530,109 @@ QHeaderView::section {
 }
 
 #DashboardHeadline {
-    font-size: 20px;
-    font-weight: 700;
+    font-size: 22px;
+    font-weight: 800;
     color: #102a43;
 }
 
 #DashboardSubheadline {
     color: #486581;
+    font-size: 10pt;
 }
 
 #AlertFilterButton {
-    min-width: 92px;
-    min-height: 30px;
-    background: #3b92cf;
-    border: 1px solid #3b92cf;
-    border-radius: 4px;
+    min-width: 84px;
+    min-height: 24px;
+    background: #1f6fb2;
+    border: 1px solid #1f6fb2;
+    border-radius: 5px;
     color: #ffffff;
     font-weight: 700;
-    padding: 5px 10px;
+    padding: 2px 8px;
 }
 
 #AlertFilterButton:hover {
-    background: #2f84c0;
-    border-color: #2f84c0;
+    background: #185d95;
+    border-color: #185d95;
 }
 
 #AlertFilterButton:pressed, #AlertFilterButton:checked {
-    background: #2878b8;
-    border-color: #2878b8;
+    background: #144d7b;
+    border-color: #144d7b;
 }
 
 QGroupBox#AlertsPanel,
 QGroupBox#ForecastPanel {
-    background: #ececec;
-    border: 1px solid #c9c9c9;
-    border-radius: 12px;
-    margin-top: 12px;
+    background: #ffffff;
+    border: 1px solid #d6dee8;
+    border-radius: 10px;
+    margin-top: 16px;
 }
 
 QGroupBox#AlertsPanel::title,
 QGroupBox#ForecastPanel::title {
     subcontrol-origin: margin;
-    subcontrol-position: top center;
-    top: -2px;
-    padding: 0 8px;
-    background: transparent;
-    color: #2878b8;
-    font-weight: 700;
+    subcontrol-position: top left;
+    left: 10px;
+    top: 0px;
+    padding: 1px 8px;
+    background: #f3f7fb;
+    border-radius: 6px;
+    color: #1f6fb2;
+    font-weight: 800;
 }
 
 #TopStatusStrip {
     background: #ffffff;
     border: 1px solid #d7e0ea;
-    border-radius: 12px;
+    border-radius: 14px;
 }
 
 #TopStatusChip {
-    background: #eef4fa;
-    border: 1px solid #d3deea;
-    border-radius: 9px;
-    padding: 6px 10px;
-    color: #334155;
-    font-weight: 600;
+    background: #f4f8fb;
+    border: 1px solid #d8e2ec;
+    border-radius: 10px;
+    padding: 4px 8px;
+    color: #243b53;
+    font-weight: 700;
 }
 
 QGroupBox#HourlyForecastCard, QGroupBox#DailyForecastCard {
-    background: #efefef;
-    border: 1px solid #c5c5c5;
-    border-radius: 10px;
-    margin-top: 16px;
+    background: #f8fafc;
+    border: 1px solid #d6dee8;
+    border-radius: 8px;
+    margin-top: 14px;
 }
 
 QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
     subcontrol-origin: margin;
-    subcontrol-position: top center;
-    padding: 1px 8px;
-    background: #dfe3e7;
-    border-radius: 6px;
-    color: #2878b8;
+    subcontrol-position: top left;
+    left: 8px;
+    top: 0px;
+    padding: 1px 7px;
+    background: #eaf1f7;
+    border-radius: 5px;
+    color: #1f6fb2;
+    font-weight: 700;
 }
 
 QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
-    background: #f5f5f5;
-    border: 1px solid #d2d2d2;
-    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid #e1e8f0;
+    border-radius: 6px;
 }
 
-#AlertsDisplayArea, #LifecycleDisplayArea {
-    background: #f5f5f5;
-    border: 1px solid #d2d2d2;
-    border-radius: 4px;
-    padding: 8px;
+#AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
+    background: #fbfcfe;
+    border: 1px solid #dbe4ee;
+    border-radius: 6px;
+    padding: 4px;
 }
 
 #AlertsDisplayArea::item, #LifecycleDisplayArea::item {
     background: transparent;
     border-radius: 0px;
-    padding: 3px 4px;
+    padding: 1px 2px;
 }
 
 #AlertsDisplayArea::item:alternate, #LifecycleDisplayArea::item:alternate {
@@ -1106,18 +1114,18 @@ QProgressBar::chunk {
 }
 
 #AlertsPanel, #ForecastPanel, #OperationalOverviewPanel {
-    border-radius: 12px;
+    border-radius: 10px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
     border-radius: 8px;
-    padding: 6px;
+    padding: 4px;
 }
 
 #AlertMetaLabel {
     color: #9fb3c8;
-    font-size: 9pt;
-    padding: 2px 2px 4px 2px;
+    font-size: 10pt;
+    padding: 0px 1px 1px 1px;
 }
 
 #AlertSectionHeader {
@@ -1128,24 +1136,25 @@ QProgressBar::chunk {
 }
 
 #DashboardHeadline {
-    font-size: 20px;
-    font-weight: 700;
+    font-size: 22px;
+    font-weight: 800;
     color: #f8fafc;
 }
 
 #DashboardSubheadline {
     color: #b7c6d9;
+    font-size: 10pt;
 }
 
 #AlertFilterButton {
-    min-width: 92px;
-    min-height: 30px;
+    min-width: 84px;
+    min-height: 24px;
     background: #2b6ea5;
     border: 1px solid #2b6ea5;
-    border-radius: 4px;
+    border-radius: 5px;
     color: #f8fafc;
     font-weight: 700;
-    padding: 5px 10px;
+    padding: 2px 8px;
 }
 
 #AlertFilterButton:hover {
@@ -1160,71 +1169,76 @@ QProgressBar::chunk {
 
 QGroupBox#AlertsPanel,
 QGroupBox#ForecastPanel {
-    background: #1f2630;
-    border: 1px solid #384556;
-    border-radius: 12px;
-    margin-top: 12px;
+    background: #18212b;
+    border: 1px solid #314152;
+    border-radius: 10px;
+    margin-top: 16px;
 }
 
 QGroupBox#AlertsPanel::title,
 QGroupBox#ForecastPanel::title {
     subcontrol-origin: margin;
-    subcontrol-position: top center;
-    top: -2px;
-    padding: 0 8px;
-    background: transparent;
-    color: #7eb7e7;
-    font-weight: 700;
+    subcontrol-position: top left;
+    left: 10px;
+    top: 0px;
+    padding: 1px 8px;
+    background: #22303d;
+    border-radius: 6px;
+    color: #8dc4ef;
+    font-weight: 800;
 }
 
 #TopStatusStrip {
-    background: #1f2937;
+    background: #16202a;
     border: 1px solid #334155;
-    border-radius: 12px;
+    border-radius: 14px;
 }
 
 #TopStatusChip {
-    background: #243142;
-    border: 1px solid #334155;
-    border-radius: 9px;
-    padding: 6px 10px;
-    color: #d7e3f1;
-    font-weight: 600;
+    background: #202c39;
+    border: 1px solid #324557;
+    border-radius: 10px;
+    padding: 4px 8px;
+    color: #e2ebf5;
+    font-weight: 700;
 }
 
 QGroupBox#HourlyForecastCard, QGroupBox#DailyForecastCard {
-    background: #222b36;
-    border: 1px solid #3b4859;
-    border-radius: 10px;
-    margin-top: 16px;
+    background: #1e2935;
+    border: 1px solid #354556;
+    border-radius: 8px;
+    margin-top: 14px;
 }
 
 QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
     subcontrol-origin: margin;
-    subcontrol-position: top center;
-    padding: 1px 8px;
-    background: #2b3643;
-    border-radius: 6px;
-    color: #7eb7e7;
+    subcontrol-position: top left;
+    left: 8px;
+    top: 0px;
+    padding: 1px 7px;
+    background: #273445;
+    border-radius: 5px;
+    color: #8dc4ef;
+    font-weight: 700;
 }
 
 QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
-    background: #24303c;
-    border: 1px solid #465569;
-    border-radius: 8px;
+    background: #1b2530;
+    border: 1px solid #425366;
+    border-radius: 6px;
 }
 
-#AlertsDisplayArea, #LifecycleDisplayArea {
-    background: #24303c;
-    border: 1px solid #465569;
-    border-radius: 4px;
-    padding: 8px;
+#AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
+    background: #1b2530;
+    border: 1px solid #425366;
+    border-radius: 6px;
+    padding: 4px;
 }
 
 #AlertsDisplayArea::item, #LifecycleDisplayArea::item {
     background: transparent;
     border-radius: 0px;
-    padding: 3px 4px;
+    padding: 1px 2px;
 }
 
 #AlertsDisplayArea::item:alternate, #LifecycleDisplayArea::item:alternate {
@@ -2421,11 +2435,25 @@ class SettingsDialog(QDialog):
             self.current_settings.get("show_alerts_area", FALLBACK_SHOW_ALERTS_AREA_CHECKED))
         display_form_layout.addRow(self.show_alerts_check)
 
-        self.show_forecasts_check = QCheckBox("Show Weather Forecast Area on Startup")
-        self.show_forecasts_check.setToolTip("Show or hide the Weather Forecast panel.")
-        self.show_forecasts_check.setChecked(
-            self.current_settings.get("show_forecasts_area", FALLBACK_SHOW_FORECASTS_AREA_CHECKED))
-        display_form_layout.addRow(self.show_forecasts_check)
+        self.show_hourly_forecast_check = QCheckBox("Show 8-Hour Forecast on Startup")
+        self.show_hourly_forecast_check.setToolTip("Show or hide the 8-Hour Forecast panel.")
+        self.show_hourly_forecast_check.setChecked(
+            self.current_settings.get(
+                "show_hourly_forecast",
+                self.current_settings.get("show_forecasts_area", FALLBACK_SHOW_HOURLY_FORECAST_CHECKED),
+            )
+        )
+        display_form_layout.addRow(self.show_hourly_forecast_check)
+
+        self.show_daily_forecast_check = QCheckBox("Show 5-Day Forecast on Startup")
+        self.show_daily_forecast_check.setToolTip("Show or hide the 5-Day Forecast panel.")
+        self.show_daily_forecast_check.setChecked(
+            self.current_settings.get(
+                "show_daily_forecast",
+                self.current_settings.get("show_forecasts_area", FALLBACK_SHOW_DAILY_FORECAST_CHECKED),
+            )
+        )
+        display_form_layout.addRow(self.show_daily_forecast_check)
 
         display_form_layout.addRow(QFrame(frameShape=QFrame.Shape.HLine, frameShadow=QFrame.Shadow.Sunken))
         self.log_sort_combo = QComboBox()
@@ -2575,7 +2603,9 @@ class SettingsDialog(QDialog):
             "dark_mode_enabled": self.dark_mode_check.isChecked(),
             "show_log": self.show_log_check.isChecked(),
             "show_alerts_area": self.show_alerts_check.isChecked(),
-            "show_forecasts_area": self.show_forecasts_check.isChecked(),
+            "show_forecasts_area": self.show_hourly_forecast_check.isChecked() or self.show_daily_forecast_check.isChecked(),
+            "show_hourly_forecast": self.show_hourly_forecast_check.isChecked(),
+            "show_daily_forecast": self.show_daily_forecast_check.isChecked(),
             "log_sort_order": self.log_sort_combo.currentText().lower(),
         }
 
@@ -2585,7 +2615,8 @@ class WeatherAlertApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"Weather Alert Monitor v{versionnumber}")
-        self.setGeometry(100, 100, 950, 850)
+        self.setGeometry(100, 100, 1360, 920)
+        self.setMinimumSize(1180, 820)
 
         self._log_buffer: List[str] = []
 
@@ -2611,6 +2642,9 @@ class WeatherAlertApp(QMainWindow):
         self._last_map_signature: Tuple[Any, ...] = ()
         self._last_map_empty_location_id: str = ""
         self._last_nws_placeholder_location_id: str = ""
+        self._web_tabs_fullscreen_active = False
+        self._web_tabs_previous_splitter_sizes: List[int] = []
+        self._web_tabs_was_maximized = False
 
         # Initialize application state variables
         self.RADAR_OPTIONS = DEFAULT_RADAR_OPTIONS.copy()
@@ -2624,6 +2658,8 @@ class WeatherAlertApp(QMainWindow):
         self.current_show_log_checked = FALLBACK_SHOW_LOG_CHECKED
         self.current_show_alerts_area_checked = FALLBACK_SHOW_ALERTS_AREA_CHECKED
         self.current_show_forecasts_area_checked = FALLBACK_SHOW_FORECASTS_AREA_CHECKED
+        self.current_show_hourly_forecast_checked = FALLBACK_SHOW_HOURLY_FORECAST_CHECKED
+        self.current_show_daily_forecast_checked = FALLBACK_SHOW_DAILY_FORECAST_CHECKED
         self.current_show_monitoring_status_checked = FALLBACK_SHOW_MONITORING_STATUS_CHECKED
         self.current_show_location_overview_checked = FALLBACK_SHOW_LOCATION_OVERVIEW_CHECKED
         self.current_auto_refresh_content_checked = FALLBACK_AUTO_REFRESH_CONTENT_CHECKED
@@ -2815,6 +2851,14 @@ class WeatherAlertApp(QMainWindow):
         self.current_show_alerts_area_checked = settings.get("show_alerts_area", FALLBACK_SHOW_ALERTS_AREA_CHECKED)
         self.current_show_forecasts_area_checked = settings.get("show_forecasts_area",
                                                                 FALLBACK_SHOW_FORECASTS_AREA_CHECKED)
+        self.current_show_hourly_forecast_checked = settings.get(
+            "show_hourly_forecast",
+            self.current_show_forecasts_area_checked,
+        )
+        self.current_show_daily_forecast_checked = settings.get(
+            "show_daily_forecast",
+            self.current_show_forecasts_area_checked,
+        )
         self.current_show_monitoring_status_checked = settings.get(
             "show_monitoring_status", FALLBACK_SHOW_MONITORING_STATUS_CHECKED
         )
@@ -2866,6 +2910,8 @@ class WeatherAlertApp(QMainWindow):
         self.current_show_log_checked = FALLBACK_SHOW_LOG_CHECKED
         self.current_show_alerts_area_checked = FALLBACK_SHOW_ALERTS_AREA_CHECKED
         self.current_show_forecasts_area_checked = FALLBACK_SHOW_FORECASTS_AREA_CHECKED
+        self.current_show_hourly_forecast_checked = FALLBACK_SHOW_HOURLY_FORECAST_CHECKED
+        self.current_show_daily_forecast_checked = FALLBACK_SHOW_DAILY_FORECAST_CHECKED
         self.current_show_monitoring_status_checked = FALLBACK_SHOW_MONITORING_STATUS_CHECKED
         self.current_show_location_overview_checked = FALLBACK_SHOW_LOCATION_OVERVIEW_CHECKED
         self.current_auto_refresh_content_checked = FALLBACK_AUTO_REFRESH_CONTENT_CHECKED
@@ -2930,7 +2976,9 @@ class WeatherAlertApp(QMainWindow):
             "dark_mode_enabled": self.dark_mode_action.isChecked(),
             "show_log": self.show_log_action.isChecked(),
             "show_alerts_area": self.show_alerts_area_action.isChecked(),
-            "show_forecasts_area": self.show_forecasts_area_action.isChecked(),
+            "show_forecasts_area": self.show_hourly_forecast_action.isChecked() or self.show_daily_forecast_action.isChecked(),
+            "show_hourly_forecast": self.show_hourly_forecast_action.isChecked(),
+            "show_daily_forecast": self.show_daily_forecast_action.isChecked(),
             "show_monitoring_status": self.show_monitoring_status_action.isChecked(),
             "show_location_overview": self.show_location_overview_action.isChecked(),
             "log_sort_order": self.current_log_sort_order,
@@ -2945,8 +2993,8 @@ class WeatherAlertApp(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setSpacing(15) # Increased spacing
-        main_layout.setContentsMargins(15, 15, 15, 15) # Added margins
+        main_layout.setSpacing(18)
+        main_layout.setContentsMargins(18, 18, 18, 18)
 
         # --- Top Status Bar ---
         top_status_layout = self._create_top_status_bar()
@@ -2962,29 +3010,31 @@ class WeatherAlertApp(QMainWindow):
 
         # --- Main Content Area (Alerts & Forecasts) ---
         self.alerts_forecasts_container = QWidget()
-        self.alerts_forecasts_container.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
-        alerts_forecasts_layout = QHBoxLayout(self.alerts_forecasts_container)
+        self.alerts_forecasts_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        alerts_forecasts_layout = QVBoxLayout(self.alerts_forecasts_container)
         alerts_forecasts_layout.setContentsMargins(0, 0, 0, 0)
-        alerts_forecasts_layout.setSpacing(10)
-        alerts_forecasts_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        main_layout.addWidget(self.alerts_forecasts_container, 1) # Stretch factor 1
+        alerts_forecasts_layout.setSpacing(0)
+        self.alerts_forecasts_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.alerts_forecasts_splitter.setChildrenCollapsible(False)
+        alerts_forecasts_layout.addWidget(self.alerts_forecasts_splitter)
+        main_layout.addWidget(self.alerts_forecasts_container, 2)
 
         # Alerts Group
         self.alerts_group = QGroupBox("Current Alerts")
         self.alerts_group.setObjectName("AlertsPanel")
-        self.alerts_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+        self.alerts_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         alerts_layout = QVBoxLayout(self.alerts_group)
-        alerts_layout.setContentsMargins(8, 10, 8, 10)
-        alerts_layout.setSpacing(6)
+        alerts_layout.setContentsMargins(8, 8, 8, 8)
+        alerts_layout.setSpacing(4)
         filter_layout = QHBoxLayout()
-        filter_layout.setSpacing(6)
+        filter_layout.setSpacing(3)
         self.all_alerts_button = QPushButton("All", checkable=True, checked=True)
         self.warning_button = QPushButton("Warnings", checkable=True)
         self.watch_button = QPushButton("Watches", checkable=True)
         self.advisory_button = QPushButton("Advisories", checkable=True)
         for btn in [self.all_alerts_button, self.warning_button, self.watch_button, self.advisory_button]:
             btn.clicked.connect(self._filter_alerts)
-            btn.setMaximumHeight(26)
+            btn.setMaximumHeight(22)
             btn.setObjectName("AlertFilterButton")
             filter_layout.addWidget(btn)
         alerts_layout.addLayout(filter_layout)
@@ -3002,9 +3052,9 @@ class WeatherAlertApp(QMainWindow):
         self.alerts_display_area.setTextElideMode(Qt.TextElideMode.ElideNone)
         self.alerts_display_area.setAlternatingRowColors(True)
         self.alerts_display_area.setSpacing(1)
-        self.alerts_display_area.setMaximumHeight(190)
         self.alerts_display_area.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.alerts_display_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.alerts_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         alerts_layout.addWidget(self.alerts_display_area)
 
         self.lifecycle_display_area = QListWidget(self.alerts_group)
@@ -3013,33 +3063,31 @@ class WeatherAlertApp(QMainWindow):
         self.lifecycle_display_area.setUniformItemSizes(True)
         self.lifecycle_display_area.setTextElideMode(Qt.TextElideMode.ElideRight)
         self.lifecycle_display_area.setAlternatingRowColors(True)
-        self.lifecycle_display_area.setSpacing(1)
-        self.lifecycle_display_area.setMaximumHeight(72)
-        self.lifecycle_display_area.hide()
-        alerts_forecasts_layout.addWidget(self.alerts_group, 1, Qt.AlignmentFlag.AlignTop)
+        self.lifecycle_display_area.setSpacing(0)
+        self.lifecycle_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        alerts_layout.addWidget(self.lifecycle_display_area)
+        self.alerts_forecasts_splitter.addWidget(self.alerts_group)
 
         # Combined Forecasts Group
         self.combined_forecast_widget = QGroupBox("Weather Forecast")
         self.combined_forecast_widget.setObjectName("ForecastPanel")
-        self.combined_forecast_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
-        combined_forecast_main_layout = QHBoxLayout(self.combined_forecast_widget)
-        combined_forecast_main_layout.setContentsMargins(10, 12, 10, 10)
-        combined_forecast_main_layout.setSpacing(10)
-        combined_forecast_main_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.combined_forecast_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.combined_forecast_main_layout = QBoxLayout(QBoxLayout.Direction.LeftToRight, self.combined_forecast_widget)
+        self.combined_forecast_main_layout.setContentsMargins(8, 8, 8, 8)
+        self.combined_forecast_main_layout.setSpacing(6)
         self.hourly_forecast_group = QGroupBox("8-Hour Forecast")
         self.hourly_forecast_group.setObjectName("HourlyForecastCard")
-        self.hourly_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+        self.hourly_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         hourly_forecast_sub_group_layout = QVBoxLayout(self.hourly_forecast_group)
         hourly_forecast_sub_group_layout.setContentsMargins(6, 6, 6, 6)
         hourly_forecast_sub_group_layout.setSpacing(2)
-        hourly_forecast_sub_group_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.hourly_forecast_widget = QWidget()
         self.hourly_forecast_widget.setObjectName("HourlyForecastGrid")
+        self.hourly_forecast_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.hourly_forecast_layout = QGridLayout(self.hourly_forecast_widget)
         self.hourly_forecast_layout.setContentsMargins(4, 4, 4, 4)
-        self.hourly_forecast_layout.setHorizontalSpacing(7)
-        self.hourly_forecast_layout.setVerticalSpacing(3)
-        self.hourly_forecast_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.hourly_forecast_layout.setHorizontalSpacing(5)
+        self.hourly_forecast_layout.setVerticalSpacing(2)
         self.hourly_forecast_layout.setColumnStretch(0, 0)
         self.hourly_forecast_layout.setColumnStretch(1, 2)
         self.hourly_forecast_layout.setColumnStretch(2, 2)
@@ -3049,38 +3097,59 @@ class WeatherAlertApp(QMainWindow):
         self.hourly_forecast_layout.setColumnStretch(6, 2)
         self.hourly_forecast_layout.setColumnStretch(7, 2)
         self.hourly_forecast_layout.setColumnStretch(8, 5)
-        hourly_font = QFont(); hourly_font.setPointSize(4); self.hourly_forecast_widget.setFont(hourly_font)
-        hourly_forecast_sub_group_layout.addWidget(self.hourly_forecast_widget, alignment=Qt.AlignmentFlag.AlignTop)
-        combined_forecast_main_layout.addWidget(self.hourly_forecast_group, 1, Qt.AlignmentFlag.AlignTop)
+        hourly_font = QFont(); hourly_font.setPointSize(9); self.hourly_forecast_widget.setFont(hourly_font)
+        self.hourly_forecast_scroll = QScrollArea()
+        self.hourly_forecast_scroll.setWidgetResizable(True)
+        self.hourly_forecast_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.hourly_forecast_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.hourly_forecast_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.hourly_forecast_scroll.setWidget(self.hourly_forecast_widget)
+        hourly_forecast_sub_group_layout.addWidget(self.hourly_forecast_scroll)
+        self.combined_forecast_main_layout.addWidget(self.hourly_forecast_group, 1)
         self.daily_forecast_group = QGroupBox("5-Day Forecast")
         self.daily_forecast_group.setObjectName("DailyForecastCard")
-        self.daily_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+        self.daily_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         daily_forecast_sub_group_layout = QVBoxLayout(self.daily_forecast_group)
         daily_forecast_sub_group_layout.setContentsMargins(6, 6, 6, 6)
         daily_forecast_sub_group_layout.setSpacing(2)
         self.daily_forecast_widget = QWidget()
         self.daily_forecast_widget.setObjectName("DailyForecastGrid")
+        self.daily_forecast_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.daily_forecast_layout = QGridLayout(self.daily_forecast_widget)
         self.daily_forecast_layout.setContentsMargins(4, 4, 4, 4)
-        self.daily_forecast_layout.setHorizontalSpacing(8)
-        self.daily_forecast_layout.setVerticalSpacing(3)
+        self.daily_forecast_layout.setHorizontalSpacing(5)
+        self.daily_forecast_layout.setVerticalSpacing(2)
         self.daily_forecast_layout.setColumnStretch(0, 2)
         self.daily_forecast_layout.setColumnStretch(1, 1)
         self.daily_forecast_layout.setColumnStretch(2, 2)
         self.daily_forecast_layout.setColumnStretch(3, 1)
         self.daily_forecast_layout.setColumnStretch(4, 4)
-        daily_font = QFont(); daily_font.setPointSize(4); self.daily_forecast_widget.setFont(daily_font)
-        daily_forecast_sub_group_layout.addWidget(self.daily_forecast_widget)
-        combined_forecast_main_layout.addWidget(self.daily_forecast_group, 1, Qt.AlignmentFlag.AlignTop)
-        alerts_forecasts_layout.addWidget(self.combined_forecast_widget, 2, Qt.AlignmentFlag.AlignTop)
+        daily_font = QFont(); daily_font.setPointSize(9); self.daily_forecast_widget.setFont(daily_font)
+        self.daily_forecast_scroll = QScrollArea()
+        self.daily_forecast_scroll.setWidgetResizable(True)
+        self.daily_forecast_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.daily_forecast_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.daily_forecast_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.daily_forecast_scroll.setWidget(self.daily_forecast_widget)
+        daily_forecast_sub_group_layout.addWidget(self.daily_forecast_scroll)
+        self.combined_forecast_main_layout.addWidget(self.daily_forecast_group, 1)
+        self.alerts_forecasts_splitter.addWidget(self.combined_forecast_widget)
+        self._apply_forecast_layout_mode()
         self._apply_forecast_panel_sizes()
         self._apply_forecast_font_sizes()
 
         # --- Bottom Splitter (Web View & Log) ---
         self.bottom_splitter = QSplitter(Qt.Orientation.Vertical)
-        main_layout.addWidget(self.bottom_splitter, 3) # Stretch factor 3
+        self.bottom_splitter.setChildrenCollapsible(False)
+        main_layout.addWidget(self.bottom_splitter, 2)
 
         self.web_tabs = QTabWidget()
+        self.web_tabs_fullscreen_button = QPushButton("Full Screen")
+        self.web_tabs_fullscreen_button.setCheckable(True)
+        self.web_tabs_fullscreen_button.setMaximumHeight(26)
+        self.web_tabs_fullscreen_button.setToolTip("Show the web tabs in fullscreen mode")
+        self.web_tabs_fullscreen_button.clicked.connect(self._toggle_web_tabs_fullscreen)
+        self.web_tabs.setCornerWidget(self.web_tabs_fullscreen_button, Qt.Corner.TopRightCorner)
         if QWebEngineView:
             self.web_view = QWebEngineView()
             self.map_view = QWebEngineView()
@@ -3107,6 +3176,7 @@ class WeatherAlertApp(QMainWindow):
             self.web_tabs.addTab(self.map_view, "Alert Map")
             self.web_tabs.addTab(self.nws_view, "City variable, NWS")
             self.web_tabs.addTab(self.digital_forecast_view, "National Digital Graphic Forecast")
+        self._update_web_tabs_fullscreen_button()
         self.bottom_splitter.addWidget(self.web_tabs)
 
         self.log_widget = QWidget()
@@ -3128,6 +3198,7 @@ class WeatherAlertApp(QMainWindow):
             self._log_buffer.clear()
 
         self.bottom_splitter.setSizes([400, 200])
+        self.alerts_forecasts_splitter.setSizes([460, 900])
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -3136,6 +3207,47 @@ class WeatherAlertApp(QMainWindow):
         self.status_bar.addPermanentWidget(self.network_status_indicator)
 
         self._init_system_tray()
+
+    def _toggle_web_tabs_fullscreen(self, checked: bool) -> None:
+        self._web_tabs_fullscreen_active = checked
+
+        if checked:
+            self._web_tabs_previous_splitter_sizes = self.bottom_splitter.sizes()
+            self._web_tabs_was_maximized = self.isMaximized()
+            self.showFullScreen()
+        else:
+            if self._web_tabs_was_maximized:
+                self.showMaximized()
+            else:
+                self.showNormal()
+
+        self._update_web_tabs_fullscreen_button()
+        self._update_panel_visibility()
+
+        if checked:
+            self.bottom_splitter.setSizes([1, 0])
+        elif self._web_tabs_previous_splitter_sizes:
+            self.bottom_splitter.setSizes(self._web_tabs_previous_splitter_sizes)
+
+    def _update_web_tabs_fullscreen_button(self) -> None:
+        if not hasattr(self, "web_tabs_fullscreen_button"):
+            return
+
+        self.web_tabs_fullscreen_button.blockSignals(True)
+        self.web_tabs_fullscreen_button.setChecked(self._web_tabs_fullscreen_active)
+        self.web_tabs_fullscreen_button.setText("Exit Full Screen" if self._web_tabs_fullscreen_active else "Full Screen")
+        icon_type = (
+            QStyle.StandardPixmap.SP_TitleBarNormalButton
+            if self._web_tabs_fullscreen_active
+            else QStyle.StandardPixmap.SP_TitleBarMaxButton
+        )
+        self.web_tabs_fullscreen_button.setIcon(self.style().standardIcon(icon_type))
+        self.web_tabs_fullscreen_button.setToolTip(
+            "Return to the standard dashboard layout"
+            if self._web_tabs_fullscreen_active
+            else "Show the web tabs in fullscreen mode"
+        )
+        self.web_tabs_fullscreen_button.blockSignals(False)
 
     def _init_system_tray(self):
         """Initializes the system tray icon and menu."""
@@ -3163,41 +3275,46 @@ class WeatherAlertApp(QMainWindow):
 
     def _create_top_status_bar(self) -> QHBoxLayout:
         top_status_layout = QHBoxLayout()
-        top_status_layout.setContentsMargins(0, 0, 0, 4)
+        top_status_layout.setContentsMargins(0, 0, 0, 2)
 
         style = self.style()
         strip = QFrame()
+        self.top_status_strip = strip
         strip.setObjectName("TopStatusStrip")
         strip_layout = QHBoxLayout(strip)
-        strip_layout.setContentsMargins(12, 10, 12, 10)
-        strip_layout.setSpacing(10)
+        strip_layout.setContentsMargins(8, 6, 8, 6)
+        strip_layout.setSpacing(6)
 
         self.top_repeater_label = QLabel("Announcement: N/A")
         self.top_repeater_label.setObjectName("TopStatusChip")
         self.top_countdown_label = QLabel("Next Check: --:--")
         self.top_countdown_label.setObjectName("TopStatusChip")
+        self.current_temperature_label = QLabel("Temp --")
+        self.current_temperature_label.setObjectName("TopStatusChip")
         self.last_announcement_label = QLabel("Last Announcement: --")
         self.last_announcement_label.setObjectName("TopStatusChip")
         self.current_time_label = QLabel("Current Time: --:--:--")
         self.current_time_label.setObjectName("TopStatusChip")
 
         location_icon_label = QLabel()
-        location_icon_label.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon).pixmap(16, 16))
+        location_icon_label.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon).pixmap(14, 14))
         strip_layout.addWidget(location_icon_label)
 
         self.location_combo = QComboBox()
-        self.location_combo.setMinimumWidth(220)
+        self.location_combo.setMinimumWidth(190)
+        self.location_combo.setMinimumHeight(28)
         self.location_combo.setToolTip("Select a location to view")
         self.location_combo.currentIndexChanged.connect(self._on_location_selected)
         strip_layout.addWidget(self.location_combo)
 
         interval_icon_label = QLabel()
-        interval_icon_label.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload).pixmap(16, 16))
+        interval_icon_label.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload).pixmap(14, 14))
         strip_layout.addWidget(interval_icon_label)
 
         self.top_interval_combo = QComboBox()
         self.top_interval_combo.addItems(CHECK_INTERVAL_OPTIONS.keys())
-        self.top_interval_combo.setMinimumWidth(130)
+        self.top_interval_combo.setMinimumWidth(118)
+        self.top_interval_combo.setMinimumHeight(28)
         self.top_interval_combo.setToolTip("Set check interval")
         self.top_interval_combo.currentTextChanged.connect(self._on_top_interval_changed)
         strip_layout.addWidget(self.top_interval_combo)
@@ -3205,18 +3322,21 @@ class WeatherAlertApp(QMainWindow):
         self.web_source_quick_select_button = QPushButton("Web Source")
         self.web_source_quick_select_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
         self.web_source_quick_select_button.setToolTip("Quick select web source")
+        self.web_source_quick_select_button.setMinimumHeight(28)
         strip_layout.addWidget(self.web_source_quick_select_button)
 
         self.mute_button = QPushButton("Mute")
         self.mute_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolumeMuted))
         self.mute_button.setToolTip("Mute All Audio")
         self.mute_button.setCheckable(True)
+        self.mute_button.setMinimumHeight(28)
         self.mute_button.toggled.connect(self._on_mute_toggled)
         strip_layout.addWidget(self.mute_button)
 
         strip_layout.addStretch(1)
         strip_layout.addWidget(self.top_repeater_label)
         strip_layout.addWidget(self.top_countdown_label)
+        strip_layout.addWidget(self.current_temperature_label)
         strip_layout.addWidget(self.last_announcement_label)
         strip_layout.addWidget(self.current_time_label)
 
@@ -3293,7 +3413,8 @@ class WeatherAlertApp(QMainWindow):
 
         self.location_overview_list = QListWidget()
         self.location_overview_list.setObjectName("LocationOverviewList")
-        self.location_overview_list.setMaximumHeight(140)
+        self.location_overview_list.setMinimumHeight(170)
+        self.location_overview_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.location_overview_list.itemClicked.connect(self._on_location_overview_clicked)
         layout.addWidget(self.location_overview_list)
         return panel
@@ -3339,9 +3460,12 @@ class WeatherAlertApp(QMainWindow):
         self.show_alerts_area_action = QAction("Show Current &Alerts Area", self, checkable=True)
         self.show_alerts_area_action.toggled.connect(self._on_show_alerts_toggled)
         view_menu.addAction(self.show_alerts_area_action)
-        self.show_forecasts_area_action = QAction("Show Station &Forecasts Area", self, checkable=True)
-        self.show_forecasts_area_action.toggled.connect(self._on_show_forecasts_toggled)
-        view_menu.addAction(self.show_forecasts_area_action)
+        self.show_hourly_forecast_action = QAction("Show &8-Hour Forecast", self, checkable=True)
+        self.show_hourly_forecast_action.toggled.connect(self._on_show_hourly_forecast_toggled)
+        view_menu.addAction(self.show_hourly_forecast_action)
+        self.show_daily_forecast_action = QAction("Show &5-Day Forecast", self, checkable=True)
+        self.show_daily_forecast_action.toggled.connect(self._on_show_daily_forecast_toggled)
+        view_menu.addAction(self.show_daily_forecast_action)
         self.show_monitoring_status_action = QAction("Show Monitoring Status", self, checkable=True)
         self.show_monitoring_status_action.toggled.connect(self._on_show_monitoring_status_toggled)
         view_menu.addAction(self.show_monitoring_status_action)
@@ -3440,15 +3564,24 @@ class WeatherAlertApp(QMainWindow):
         text: str,
         tooltip: Optional[str] = None,
         wrap: bool = False,
-        max_lines: int = 1,
+        max_lines: Optional[int] = 1,
     ) -> QLabel:
         label = QLabel(text)
         label.setWordWrap(wrap)
-        label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Fixed)
+        label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        label.setSizePolicy(
+            QSizePolicy.Policy.Expanding if wrap else QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Preferred if wrap else QSizePolicy.Policy.Fixed,
+        )
         label.setMinimumWidth(0)
-        line_count = max(1, max_lines)
-        label.setMaximumHeight((label.fontMetrics().height() * line_count) + 6)
+        line_height = label.fontMetrics().lineSpacing()
+        if max_lines is None:
+            label.setMinimumHeight(line_height + 4)
+            label.setMaximumHeight(16777215)
+        else:
+            line_count = max(1, max_lines)
+            label.setMinimumHeight((line_height * line_count) + 2)
+            label.setMaximumHeight((line_height * line_count) + 5)
         if tooltip:
             label.setToolTip(tooltip)
         return label
@@ -3496,6 +3629,51 @@ class WeatherAlertApp(QMainWindow):
     def _apply_tooltip_to_labels(labels: List[QLabel], tooltip: str) -> None:
         for label in labels:
             label.setToolTip(tooltip)
+
+    def _is_forecast_layout_stacked(self) -> bool:
+        forecast_width = self.combined_forecast_widget.width() if hasattr(self, "combined_forecast_widget") else self.width()
+        return forecast_width < 1450
+
+    def _apply_forecast_layout_mode(self) -> None:
+        if not hasattr(self, "combined_forecast_main_layout"):
+            return
+
+        direction = (
+            QBoxLayout.Direction.TopToBottom
+            if self._is_forecast_layout_stacked()
+            else QBoxLayout.Direction.LeftToRight
+        )
+        self.combined_forecast_main_layout.setDirection(direction)
+
+    @staticmethod
+    def _daily_daytime_periods(periods: List[Dict[str, Any]], limit: int = 5) -> List[Dict[str, Any]]:
+        daily_periods: List[Dict[str, Any]] = []
+
+        for index, period in enumerate(periods):
+            if not period.get("isDaytime", False):
+                continue
+
+            paired_low = None
+            paired_name = None
+            paired_short_forecast = None
+            for next_period in periods[index + 1:]:
+                if next_period.get("isDaytime", False):
+                    break
+                paired_low = next_period.get("temperature")
+                paired_name = next_period.get("name")
+                paired_short_forecast = next_period.get("shortForecast")
+                break
+
+            combined_period = dict(period)
+            combined_period["_paired_low_temp"] = paired_low
+            combined_period["_paired_low_name"] = paired_name
+            combined_period["_paired_low_forecast"] = paired_short_forecast
+            daily_periods.append(combined_period)
+
+            if len(daily_periods) >= limit:
+                break
+
+        return daily_periods
 
     @staticmethod
     def _format_rich_tooltip(tooltip: str) -> str:
@@ -3696,6 +3874,8 @@ class WeatherAlertApp(QMainWindow):
         self.alerts_display_area.addItem("Loading alerts...")
         self.lifecycle_display_area.clear()
         self.lifecycle_display_area.addItem("Loading lifecycle...")
+        self.latest_temperature_reading = None
+        self._update_top_status_bar_display()
         self._clear_layout(self.hourly_forecast_layout)
         self.hourly_forecast_layout.addWidget(QLabel("Loading..."), 0, 0)
         self._clear_layout(self.daily_forecast_layout)
@@ -4128,15 +4308,17 @@ class WeatherAlertApp(QMainWindow):
         if not forecast_json or 'properties' not in forecast_json or 'periods' not in forecast_json['properties']:
             self.latest_temperature_reading = None
             self.hourly_forecast_layout.addWidget(QLabel("8-Hour forecast data unavailable."), 0, 0)
+            self._update_top_status_bar_display()
             return
 
         periods = forecast_json['properties']['periods'][:8]
         if periods:
             first_temp = periods[0].get('temperature', 'N/A')
             first_unit = periods[0].get('temperatureUnit', '')
-            self.latest_temperature_reading = f"{first_temp} degrees {first_unit}" if first_unit else str(first_temp)
+            self.latest_temperature_reading = f"{first_temp}°{first_unit}" if first_unit else str(first_temp)
         else:
             self.latest_temperature_reading = None
+        self._update_top_status_bar_display()
         headers = ["Time", "Temp", "Feels Like", "Wind", "Gusts", "Precip", "Humidity", "Sky", "Forecast"]
         for col, header in enumerate(headers):
             header_label = self._make_compact_label(f"<b>{header}</b>")
@@ -4242,10 +4424,10 @@ class WeatherAlertApp(QMainWindow):
                 )
                 rich_row_tooltip = self._format_rich_tooltip(row_tooltip)
                 forecast_label = self._make_compact_label(
-                    f"{emoji} {self._compact_text(short_fc, 38)}",
+                    f"{emoji} {short_fc}",
                     rich_row_tooltip,
                     wrap=True,
-                    max_lines=2,
+                    max_lines=None,
                 )
                 forecast_label.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
 
@@ -4293,8 +4475,12 @@ class WeatherAlertApp(QMainWindow):
             self.daily_forecast_layout.addWidget(QLabel("5-Day forecast data unavailable."), 0, 0)
             return
 
-        periods = forecast_json['properties']['periods'][:10]
-        headers = ["Period", "Temp", "Wind", "Precip", "Forecast"]
+        periods = self._daily_daytime_periods(forecast_json['properties']['periods'], limit=5)
+        if not periods:
+            self.daily_forecast_layout.addWidget(QLabel("5-Day forecast data unavailable."), 0, 0)
+            return
+
+        headers = ["Day", "High / Low", "Wind", "Precip", "Forecast"]
         for col, header in enumerate(headers):
             header_label = self._make_compact_label(f"<b>{header}</b>")
             if col in (1, 2, 3):
@@ -4305,7 +4491,10 @@ class WeatherAlertApp(QMainWindow):
         for i, p in enumerate(periods):
             try:
                 name = p.get('name', 'N/A')
-                temp = f"{p.get('temperature', 'N/A')}°{p.get('temperatureUnit', '')}"
+                high_temp = f"{p.get('temperature', 'N/A')}°{p.get('temperatureUnit', '')}"
+                low_value = p.get("_paired_low_temp")
+                low_temp = f"{low_value}°{p.get('temperatureUnit', '')}" if low_value is not None else "N/A"
+                temp = f"H {high_temp} / L {low_temp}" if low_value is not None else f"H {high_temp}"
                 wind_speed = p.get('windSpeed', 'N/A')
                 wind_dir = p.get('windDirection', '')
                 wind = f"{wind_dir} {wind_speed}" if wind_dir else wind_speed
@@ -4315,6 +4504,8 @@ class WeatherAlertApp(QMainWindow):
                 detailed_fc = p.get('detailedForecast', 'N/A')
                 emoji = self.get_weather_emoji(short_fc)
                 _, start_dt, end_dt = self._format_period_time(p)
+                overnight_name = p.get("_paired_low_name")
+                overnight_short_fc = p.get("_paired_low_forecast")
 
                 detail_bits = []
                 if start_dt and end_dt:
@@ -4329,13 +4520,15 @@ class WeatherAlertApp(QMainWindow):
                     )
                 if p.get("temperatureTrend"):
                     detail_bits.append(f"Trend {p.get('temperatureTrend')}")
+                if overnight_name and overnight_short_fc:
+                    detail_bits.append(f"{overnight_name}: {overnight_short_fc}")
                 forecast_tooltip = detailed_fc
                 if detail_bits:
                     forecast_tooltip = f"{detailed_fc}\n\n" + " | ".join(detail_bits)
 
                 row_tooltip = "\n".join(
                     [
-                        f"Period: {name}",
+                        f"Day: {name}",
                         f"Temperature: {temp}",
                         f"Wind: {wind}",
                         f"Precipitation: {precip_text}",
@@ -4365,10 +4558,10 @@ class WeatherAlertApp(QMainWindow):
                 self.daily_forecast_layout.addWidget(precip_label, i + 1, 3, alignment=Qt.AlignmentFlag.AlignTop)
 
                 short_fc_label = self._make_compact_label(
-                    f"{emoji} {self._compact_text(short_fc, 42)}",
+                    f"{emoji} {short_fc}",
                     rich_row_tooltip,
                     wrap=True,
-                    max_lines=2,
+                    max_lines=None,
                 )
                 short_fc_label.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
                 self._apply_forecast_cell_style(short_fc_label, i + 1)
@@ -4563,7 +4756,9 @@ class WeatherAlertApp(QMainWindow):
             "dark_mode_enabled": self.dark_mode_action.isChecked(),
             "show_log": self.show_log_action.isChecked(),
             "show_alerts_area": self.show_alerts_area_action.isChecked(),
-            "show_forecasts_area": self.show_forecasts_area_action.isChecked(),
+            "show_forecasts_area": self.show_hourly_forecast_action.isChecked() or self.show_daily_forecast_action.isChecked(),
+            "show_hourly_forecast": self.show_hourly_forecast_action.isChecked(),
+            "show_daily_forecast": self.show_daily_forecast_action.isChecked(),
             "log_sort_order": self.current_log_sort_order,
         }
 
@@ -4635,8 +4830,11 @@ class WeatherAlertApp(QMainWindow):
             if self.show_alerts_area_action.isChecked() != new_data["show_alerts_area"]:
                 self.show_alerts_area_action.setChecked(new_data["show_alerts_area"])
 
-            if self.show_forecasts_area_action.isChecked() != new_data["show_forecasts_area"]:
-                self.show_forecasts_area_action.setChecked(new_data["show_forecasts_area"])
+            if self.show_hourly_forecast_action.isChecked() != new_data["show_hourly_forecast"]:
+                self.show_hourly_forecast_action.setChecked(new_data["show_hourly_forecast"])
+
+            if self.show_daily_forecast_action.isChecked() != new_data["show_daily_forecast"]:
+                self.show_daily_forecast_action.setChecked(new_data["show_daily_forecast"])
 
             if self.current_log_sort_order != new_data["log_sort_order"]:
                 self.current_log_sort_order = new_data["log_sort_order"]
@@ -4872,6 +5070,9 @@ class WeatherAlertApp(QMainWindow):
         if hasattr(self, 'top_repeater_label'):
             repeater_text = self._compact_text(self.current_repeater_info or "N/A", 36)
             self.top_repeater_label.setText(f"Announcement {repeater_text}")
+        if hasattr(self, 'current_temperature_label'):
+            temp_text = self.latest_temperature_reading or "--"
+            self.current_temperature_label.setText(f"Temp {temp_text}")
         self._update_dashboard_summary()
 
     def _refresh_location_overview(self) -> None:
@@ -4962,21 +5163,24 @@ class WeatherAlertApp(QMainWindow):
         # Block signals to prevent toggled slots from firing during setup
         self.show_log_action.blockSignals(True)
         self.show_alerts_area_action.blockSignals(True)
-        self.show_forecasts_area_action.blockSignals(True)
+        self.show_hourly_forecast_action.blockSignals(True)
+        self.show_daily_forecast_action.blockSignals(True)
         self.show_monitoring_status_action.blockSignals(True)
         self.show_location_overview_action.blockSignals(True)
         self.file_show_monitoring_status_action.blockSignals(True)
 
         self.show_log_action.setChecked(self.current_show_log_checked)
         self.show_alerts_area_action.setChecked(self.current_show_alerts_area_checked)
-        self.show_forecasts_area_action.setChecked(self.current_show_forecasts_area_checked)
+        self.show_hourly_forecast_action.setChecked(self.current_show_hourly_forecast_checked)
+        self.show_daily_forecast_action.setChecked(self.current_show_daily_forecast_checked)
         self.show_monitoring_status_action.setChecked(self.current_show_monitoring_status_checked)
         self.show_location_overview_action.setChecked(self.current_show_location_overview_checked)
         self.file_show_monitoring_status_action.setChecked(self.current_show_monitoring_status_checked)
 
         self.show_log_action.blockSignals(False)
         self.show_alerts_area_action.blockSignals(False)
-        self.show_forecasts_area_action.blockSignals(False)
+        self.show_hourly_forecast_action.blockSignals(False)
+        self.show_daily_forecast_action.blockSignals(False)
         self.show_monitoring_status_action.blockSignals(False)
         self.show_location_overview_action.blockSignals(False)
         self.file_show_monitoring_status_action.blockSignals(False)
@@ -5045,21 +5249,30 @@ class WeatherAlertApp(QMainWindow):
     def _update_panel_visibility(self):
         """Centralized function to control visibility of main UI panels."""
         show_alerts = self.show_alerts_area_action.isChecked()
-        show_forecasts = self.show_forecasts_area_action.isChecked()
+        show_hourly_forecast = self.show_hourly_forecast_action.isChecked()
+        show_daily_forecast = self.show_daily_forecast_action.isChecked()
+        show_forecasts = show_hourly_forecast or show_daily_forecast
         show_log = self.show_log_action.isChecked()
         show_monitoring_status = self.show_monitoring_status_action.isChecked()
         show_location_overview = self.show_location_overview_action.isChecked()
+        tabs_fullscreen = self._web_tabs_fullscreen_active
 
-        self.alerts_group.setVisible(show_alerts)
-        self.combined_forecast_widget.setVisible(show_forecasts)
-        self.alerts_forecasts_container.setVisible(show_alerts or show_forecasts)
-        self.log_widget.setVisible(show_log)
+        self.alerts_group.setVisible(show_alerts and not tabs_fullscreen)
+        self.combined_forecast_widget.setVisible(show_forecasts and not tabs_fullscreen)
+        self.hourly_forecast_group.setVisible(show_hourly_forecast and not tabs_fullscreen)
+        self.daily_forecast_group.setVisible(show_daily_forecast and not tabs_fullscreen)
+        self.alerts_forecasts_container.setVisible((show_alerts or show_forecasts) and not tabs_fullscreen)
+        self.log_widget.setVisible(show_log and not tabs_fullscreen)
         if hasattr(self, "dashboard_overview_panel"):
-            self.dashboard_overview_panel.setVisible(show_monitoring_status)
+            self.dashboard_overview_panel.setVisible(show_monitoring_status and not tabs_fullscreen)
         if hasattr(self, "location_overview_header"):
-            self.location_overview_header.setVisible(show_location_overview)
+            self.location_overview_header.setVisible(show_location_overview and not tabs_fullscreen)
         if hasattr(self, "location_overview_list"):
-            self.location_overview_list.setVisible(show_location_overview)
+            self.location_overview_list.setVisible(show_location_overview and not tabs_fullscreen)
+        if hasattr(self, "top_status_strip"):
+            self.top_status_strip.setVisible(not tabs_fullscreen)
+        if self.statusBar():
+            self.statusBar().setVisible(not tabs_fullscreen)
 
     # --- Action Handlers ---
     def _on_announce_alerts_toggled(self, checked):
@@ -5110,8 +5323,15 @@ class WeatherAlertApp(QMainWindow):
         self._update_panel_visibility()
         self._save_settings()
 
-    def _on_show_forecasts_toggled(self, checked):
-        self.current_show_forecasts_area_checked = checked
+    def _on_show_hourly_forecast_toggled(self, checked):
+        self.current_show_hourly_forecast_checked = checked
+        self.current_show_forecasts_area_checked = self.show_hourly_forecast_action.isChecked() or self.show_daily_forecast_action.isChecked()
+        self._update_panel_visibility()
+        self._save_settings()
+
+    def _on_show_daily_forecast_toggled(self, checked):
+        self.current_show_daily_forecast_checked = checked
+        self.current_show_forecasts_area_checked = self.show_hourly_forecast_action.isChecked() or self.show_daily_forecast_action.isChecked()
         self._update_panel_visibility()
         self._save_settings()
 
@@ -5429,8 +5649,17 @@ class WeatherAlertApp(QMainWindow):
         return None
 
     def _apply_forecast_font_sizes(self) -> None:
-        hourly_size = 6 if self.current_dark_mode_enabled else 4
-        daily_size = 6 if self.current_dark_mode_enabled else 4
+        width = self.combined_forecast_widget.width() if hasattr(self, "combined_forecast_widget") else self.width()
+        width = max(width, 900)
+        if width < 1200:
+            hourly_size = 7
+            daily_size = 7
+        elif width < 1550:
+            hourly_size = 8
+            daily_size = 8
+        else:
+            hourly_size = 9
+            daily_size = 9
 
         hourly_font = self.hourly_forecast_widget.font()
         hourly_font.setPointSize(hourly_size)
@@ -5441,18 +5670,21 @@ class WeatherAlertApp(QMainWindow):
         self.daily_forecast_widget.setFont(daily_font)
 
     def _apply_forecast_panel_sizes(self) -> None:
-        alerts_panel_height = 190
-        panel_height = 250
-        outer_panel_height = 342
+        window_height = max(self.height(), 820)
+        is_stacked = self._is_forecast_layout_stacked() if hasattr(self, "combined_forecast_widget") else False
+        alerts_panel_height = max(170, min(260, int(window_height * 0.20)))
+        lifecycle_height = max(42, min(72, int(window_height * 0.055)))
+        forecast_panel_height = max(190, min(320, int(window_height * (0.21 if is_stacked else 0.25))))
 
-        self.alerts_display_area.setFixedHeight(alerts_panel_height)
-        self.hourly_forecast_widget.setFixedHeight(panel_height)
-        self.daily_forecast_widget.setFixedHeight(panel_height)
-        self.alerts_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.hourly_forecast_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.daily_forecast_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.alerts_group.setFixedHeight(outer_panel_height)
-        self.combined_forecast_widget.setFixedHeight(outer_panel_height)
+        self.alerts_display_area.setMinimumHeight(alerts_panel_height)
+        self.lifecycle_display_area.setMinimumHeight(lifecycle_height)
+        self.hourly_forecast_scroll.setMinimumHeight(forecast_panel_height)
+        self.daily_forecast_scroll.setMinimumHeight(forecast_panel_height)
+        self.alerts_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.hourly_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.daily_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.alerts_group.setMinimumHeight(alerts_panel_height + lifecycle_height + 48)
+        self.combined_forecast_widget.setMinimumHeight((forecast_panel_height * (2 if is_stacked else 1)) + (72 if is_stacked else 34))
 
     def _apply_color_scheme(self):
         stylesheet = DARK_STYLESHEET if self.current_dark_mode_enabled else LIGHT_STYLESHEET
@@ -5485,6 +5717,13 @@ class WeatherAlertApp(QMainWindow):
 
         self.log_area.clear()
         self.log_area.append('\n'.join(lines))
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "hourly_forecast_widget") and hasattr(self, "daily_forecast_widget"):
+            self._apply_forecast_layout_mode()
+            self._apply_forecast_font_sizes()
+            self._apply_forecast_panel_sizes()
 
     @Slot()
     def _sort_log_ascending(self):
