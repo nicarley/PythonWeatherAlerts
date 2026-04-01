@@ -48,7 +48,7 @@ from weather_alert.dedup import AlertDeduplicator
 from weather_alert.exporter import export_incident_csv, export_incident_json
 
 # --- Application Version ---
-versionnumber = "26.03.11"
+versionnumber = "26.04.11"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -70,6 +70,15 @@ FALLBACK_SHOW_ALERTS_AREA_CHECKED = True
 FALLBACK_SHOW_FORECASTS_AREA_CHECKED = True
 FALLBACK_SHOW_HOURLY_FORECAST_CHECKED = True
 FALLBACK_SHOW_DAILY_FORECAST_CHECKED = True
+FALLBACK_SHOW_TOOLBAR_LOCATION = True
+FALLBACK_SHOW_TOOLBAR_INTERVAL = True
+FALLBACK_SHOW_TOOLBAR_SOURCES = True
+FALLBACK_SHOW_TOOLBAR_MUTE = True
+FALLBACK_SHOW_TOOLBAR_REPEATER = True
+FALLBACK_SHOW_TOOLBAR_COUNTDOWN = True
+FALLBACK_SHOW_TOOLBAR_TEMP = True
+FALLBACK_SHOW_TOOLBAR_LAST_ANNOUNCEMENT = False
+FALLBACK_SHOW_TOOLBAR_TIME = True
 FALLBACK_SHOW_MONITORING_STATUS_CHECKED = True
 FALLBACK_SHOW_LOCATION_OVERVIEW_CHECKED = True
 FALLBACK_AUTO_REFRESH_CONTENT_CHECKED = False
@@ -147,9 +156,9 @@ LIGHT_STYLESHEET = '''
 
 /* --- Global Styles --- */
 QWidget {
-    background-color: #f0f0f0;
-    color: #212121;
-    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    background-color: #f5f6f8;
+    color: #1f2933;
+    font-family: "SF Pro Text", ".AppleSystemUIFont", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
     font-size: 10pt;
     border: none;
 }
@@ -227,21 +236,21 @@ QListWidget::item:selected {
 /* --- Input Fields --- */
 QLineEdit, QComboBox {
     background-color: #ffffff;
-    border: 1px solid #cccccc;
-    border-radius: 4px;
-    padding: 5px;
+    border: 1px solid #d5dae1;
+    border-radius: 10px;
+    padding: 6px 10px;
     padding-right: 24px;
-    min-height: 20px;
-    selection-background-color: #3498db;
+    min-height: 22px;
+    selection-background-color: #0a84ff;
     selection-color: #ffffff;
 }
 
 QLineEdit:hover, QComboBox:hover {
-    border-color: #bbbbbb;
+    border-color: #c2c9d3;
 }
 
 QLineEdit:focus, QComboBox:focus {
-    border-color: #3498db;
+    border-color: #0a84ff;
 }
 
 QLineEdit:disabled, QComboBox:disabled {
@@ -254,20 +263,20 @@ QLineEdit:disabled, QComboBox:disabled {
 QComboBox::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
-    width: 20px;
+    width: 24px;
     border-left-width: 1px;
-    border-left-color: #cccccc;
+    border-left-color: #e5e7eb;
     border-left-style: solid;
-    border-top-right-radius: 3px;
-    border-bottom-right-radius: 3px;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
 }
 
 QComboBox::drop-down:hover {
-    background-color: #e9e9e9;
+    background-color: #f4f5f7;
 }
 
 QComboBox::down-arrow {
-    image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="%234a5568" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>');
+    image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24"><path fill="%236b7280" d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>');
     width: 12px;
     height: 12px;
 }
@@ -282,28 +291,28 @@ QComboBox QAbstractItemView {
 
 /* --- Buttons --- */
 QPushButton {
-    background-color: #2f80ed;
-    color: white;
-    border: 1px solid #2b6fd0;
-    border-radius: 8px;
-    padding: 5px 12px;
-    min-height: 28px;
+    background-color: #ffffff;
+    color: #1f2937;
+    border: 1px solid #d4dae3;
+    border-radius: 10px;
+    padding: 6px 12px;
+    min-height: 30px;
     min-width: 80px;
-    font-weight: bold;
+    font-weight: 600;
 }
 
 QPushButton:hover {
-    background-color: #246ed6;
-    border-color: #246ed6;
+    background-color: #f7f8fa;
+    border-color: #c5ced8;
 }
 
 QPushButton:pressed {
-    background-color: #1d5db5;
+    background-color: #eef2f7;
 }
 
 QPushButton:focus {
-    border-color: #2980b9;
-    outline: 2px solid #a8d8f8; /* A light blue glow for focus */
+    border-color: #0a84ff;
+    outline: 2px solid #b9ddff;
 }
 
 QPushButton:disabled {
@@ -369,28 +378,30 @@ QRadioButton::indicator:checked::after {
 
 /* --- Menu, Status, and Tool Bars --- */
 QMenuBar {
-    background-color: #e9e9e9;
-    color: #212121;
+    background-color: #f5f6f8;
+    color: #374151;
 }
 
 QMenuBar::item {
     background: transparent;
-    padding: 4px 8px;
+    padding: 5px 10px;
+    border-radius: 7px;
 }
 
 QMenuBar::item:selected { /* Hover */
-    background-color: #dcdcdc;
+    background-color: #e9edf2;
 }
 
 QMenuBar::item:pressed {
-    background-color: #3498db;
-    color: #ffffff;
+    background-color: #dbeafe;
+    color: #0f172a;
 }
 
 QMenu {
     background-color: #ffffff;
-    border: 1px solid #cccccc;
-    padding: 5px;
+    border: 1px solid #d7dee7;
+    padding: 6px;
+    border-radius: 10px;
 }
 
 QMenu::item {
@@ -403,8 +414,8 @@ QMenu::item:disabled {
 }
 
 QMenu::item:selected {
-    background-color: #3498db;
-    color: #ffffff;
+    background-color: #e8f2ff;
+    color: #102a43;
 }
 
 QMenu::separator {
@@ -414,27 +425,28 @@ QMenu::separator {
 }
 
 QStatusBar {
-    background-color: #e0e0e0;
-    color: #555555;
+    background-color: #eef1f5;
+    color: #52606d;
+    border-top: 1px solid #dde5ee;
 }
 
 /* --- ScrollBars --- */
 QScrollBar:vertical {
     border: none;
-    background: #e9e9e9;
-    width: 12px;
-    margin: 15px 0 15px 0;
-    border-radius: 6px;
+    background: transparent;
+    width: 10px;
+    margin: 10px 0 10px 0;
+    border-radius: 5px;
 }
 
 QScrollBar::handle:vertical {
-    background: #bbbbbb;
+    background: #c7cfda;
     min-height: 20px;
-    border-radius: 6px;
+    border-radius: 5px;
 }
 
 QScrollBar::handle:vertical:hover {
-    background: #a0a0a0;
+    background: #aab5c3;
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
@@ -445,20 +457,20 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 
 QScrollBar:horizontal {
     border: none;
-    background: #e9e9e9;
-    height: 12px;
-    margin: 0 15px 0 15px;
-    border-radius: 6px;
+    background: transparent;
+    height: 10px;
+    margin: 0 10px 0 10px;
+    border-radius: 5px;
 }
 
 QScrollBar::handle:horizontal {
-    background: #bbbbbb;
+    background: #c7cfda;
     min-width: 20px;
-    border-radius: 6px;
+    border-radius: 5px;
 }
 
 QScrollBar::handle:horizontal:hover {
-    background: #a0a0a0;
+    background: #aab5c3;
 }
 
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
@@ -469,31 +481,33 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
 
 /* --- Tabs --- */
 QTabWidget::pane {
-    border: 1px solid #cfd8e3;
-    border-radius: 10px;
+    border: 1px solid #dde4ee;
+    border-radius: 12px;
     padding: 10px;
+    background: #ffffff;
 }
 
 QTabBar::tab {
-    background: #e6edf5;
-    border: 1px solid #d0dae6;
+    background: #eef2f7;
+    border: 1px solid #dde4ee;
     border-bottom: none;
-    padding: 9px 16px;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    margin-right: 3px;
-    color: #4b5563;
+    padding: 8px 16px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    margin-right: 6px;
+    color: #52606d;
+    font-weight: 600;
 }
 
 QTabBar::tab:hover {
-    background: #edf3f9;
+    background: #f7f9fb;
 }
 
 QTabBar::tab:selected {
     background: #ffffff;
     color: #111827;
-    font-weight: bold;
-    border-color: #b9c8d8;
+    font-weight: 700;
+    border-color: #d0dae5;
 }
 
 /* --- Table / Tree Headers --- */
@@ -542,30 +556,31 @@ QHeaderView::section {
 
 #AlertFilterButton {
     min-width: 84px;
-    min-height: 24px;
-    background: #1f6fb2;
-    border: 1px solid #1f6fb2;
-    border-radius: 5px;
-    color: #ffffff;
-    font-weight: 700;
-    padding: 2px 8px;
+    min-height: 26px;
+    background: #ffffff;
+    border: 1px solid #d4dae3;
+    border-radius: 13px;
+    color: #425466;
+    font-weight: 600;
+    padding: 2px 10px;
 }
 
 #AlertFilterButton:hover {
-    background: #185d95;
-    border-color: #185d95;
+    background: #f5f7fa;
+    border-color: #c5ced8;
 }
 
 #AlertFilterButton:pressed, #AlertFilterButton:checked {
-    background: #144d7b;
-    border-color: #144d7b;
+    background: #dbeafe;
+    border-color: #9ec5fe;
+    color: #0b5394;
 }
 
 QGroupBox#AlertsPanel,
 QGroupBox#ForecastPanel {
-    background: #ffffff;
-    border: 1px solid #d6dee8;
-    border-radius: 10px;
+    background: #fcfcfd;
+    border: 1px solid #dde4ee;
+    border-radius: 16px;
     margin-top: 16px;
 }
 
@@ -575,32 +590,43 @@ QGroupBox#ForecastPanel::title {
     subcontrol-position: top left;
     left: 10px;
     top: 0px;
-    padding: 1px 8px;
-    background: #f3f7fb;
-    border-radius: 6px;
-    color: #1f6fb2;
-    font-weight: 800;
+    padding: 1px 10px;
+    background: #f0f4f8;
+    border-radius: 8px;
+    color: #486581;
+    font-weight: 700;
 }
 
 #TopStatusStrip {
     background: #ffffff;
-    border: 1px solid #d7e0ea;
+    border: 1px solid #e0e6ee;
+    border-radius: 18px;
+}
+
+#TopToolbarSection {
+    background: #f7f9fc;
+    border: 1px solid #e3e8ef;
     border-radius: 14px;
 }
 
+#TopToolbarIcon {
+    color: #7b8794;
+    padding: 0 2px;
+}
+
 #TopStatusChip {
-    background: #f4f8fb;
-    border: 1px solid #d8e2ec;
-    border-radius: 10px;
-    padding: 4px 8px;
-    color: #243b53;
-    font-weight: 700;
+    background: #f6f8fb;
+    border: 1px solid #e1e6ed;
+    border-radius: 12px;
+    padding: 5px 10px;
+    color: #334e68;
+    font-weight: 600;
 }
 
 QGroupBox#HourlyForecastCard, QGroupBox#DailyForecastCard {
     background: #f8fafc;
-    border: 1px solid #d6dee8;
-    border-radius: 8px;
+    border: 1px solid #e1e8f0;
+    border-radius: 14px;
     margin-top: 14px;
 }
 
@@ -609,23 +635,23 @@ QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
     subcontrol-position: top left;
     left: 8px;
     top: 0px;
-    padding: 1px 7px;
-    background: #eaf1f7;
-    border-radius: 5px;
-    color: #1f6fb2;
+    padding: 1px 9px;
+    background: #edf2f7;
+    border-radius: 7px;
+    color: #52606d;
     font-weight: 700;
 }
 
 QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
     background: #ffffff;
-    border: 1px solid #e1e8f0;
-    border-radius: 6px;
+    border: 1px solid #e7edf4;
+    border-radius: 12px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
-    background: #fbfcfe;
-    border: 1px solid #dbe4ee;
-    border-radius: 6px;
+    background: #ffffff;
+    border: 1px solid #e6ebf2;
+    border-radius: 12px;
     padding: 4px;
 }
 
@@ -640,7 +666,53 @@ QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
 }
 
 #AlertsDisplayArea::item:hover, #LifecycleDisplayArea::item:hover {
-    background: #ebf4fb;
+    background: #f2f7fd;
+}
+
+QSplitter::handle {
+    background: transparent;
+}
+
+QSplitter::handle:horizontal {
+    width: 10px;
+}
+
+QSplitter::handle:vertical {
+    height: 10px;
+}
+
+#OverviewCard {
+    border: 1px solid #e1e7ef;
+    border-radius: 16px;
+    background: #ffffff;
+}
+
+#OverviewCard QLabel[role='value'] {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+#OverviewCard QLabel[role='title'] {
+    color: #7b8794;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+#OverviewCard QLabel[role='detail'] {
+    color: #52606d;
+}
+
+#LocationOverviewHeader {
+    color: #334e68;
+    font-weight: 700;
+}
+
+#ToolbarMuteButton {
+    min-width: 34px;
+    max-width: 34px;
+    padding: 4px;
 }
 
 #DailyForecastWidget {
@@ -719,9 +791,9 @@ DARK_STYLESHEET = '''
 
 /* --- Global Styles --- */
 QWidget {
-    background-color: #2d2d2d;
-    color: #f0f0f0;
-    font-family: "Segoe UI", "Helvetica Neue", "Arial", sans-serif;
+    background-color: #151a20;
+    color: #eef2f7;
+    font-family: "SF Pro Text", ".AppleSystemUIFont", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
     font-size: 10pt;
     border: none;
 }
@@ -806,19 +878,19 @@ QTableWidget::item, QTableView::item {
 
 /* --- Input Fields --- */
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QDateEdit, QTimeEdit {
-    background-color: #3c3c3c;
-    border: 1px solid #555555;
-    border-radius: 4px;
-    padding: 5px;
-    min-height: 20px;
+    background-color: #202833;
+    border: 1px solid #364152;
+    border-radius: 10px;
+    padding: 6px 10px;
+    min-height: 22px;
 }
 
 QLineEdit:hover, QComboBox:hover, QSpinBox:hover, QDoubleSpinBox:hover, QDateEdit:hover, QTimeEdit:hover {
-    border-color: #6a6a6a;
+    border-color: #4a596e;
 }
 
 QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus, QDateEdit:focus, QTimeEdit:focus {
-    border-color: #007acc;
+    border-color: #4da3ff;
 }
 
 QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QDateEdit:disabled, QTimeEdit:disabled {
@@ -831,16 +903,16 @@ QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled, QDoubleSpinBox:disabl
 QComboBox::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
-    width: 20px;
+    width: 24px;
     border-left-width: 1px;
-    border-left-color: #555555;
+    border-left-color: #364152;
     border-left-style: solid;
-    border-top-right-radius: 3px;
-    border-bottom-right-radius: 3px;
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
 }
 
 QComboBox::drop-down:hover {
-    background-color: #555555;
+    background-color: #2a3340;
 }
 
 QComboBox::down-arrow {
@@ -858,33 +930,34 @@ QComboBox QAbstractItemView {
 
 /* --- Buttons --- */
 QPushButton {
-    background-color: #1f6feb;
-    color: #f0f0f0;
-    border: 1px solid #2f81f7;
-    border-radius: 8px;
-    padding: 5px 12px;
-    min-height: 28px;
+    background-color: #202833;
+    color: #f8fbff;
+    border: 1px solid #3b4a5f;
+    border-radius: 10px;
+    padding: 6px 12px;
+    min-height: 30px;
     min-width: 80px;
-    font-weight: bold;
+    font-weight: 600;
 }
 
 QPushButton:hover {
-    background-color: #2f81f7;
-    border-color: #4090ff;
+    background-color: #273142;
+    border-color: #50617a;
 }
 
 QPushButton:pressed {
-    background-color: #1858bd;
+    background-color: #1a2230;
 }
 
 QPushButton:checked {
-    background-color: #1557b0;
-    border-color: #2f81f7;
+    background-color: #0a84ff;
+    border-color: #369cff;
+    color: #ffffff;
 }
 
 QPushButton:focus {
-    border: 1px solid #00aaff;
-    outline: none; /* Disable the default focus outline */
+    border: 1px solid #4da3ff;
+    outline: none;
 }
 
 QPushButton:disabled {
@@ -942,27 +1015,29 @@ QRadioButton::indicator:checked {
 
 /* --- Menu, Status, and Tool Bars --- */
 QMenuBar {
-    background-color: #3c3c3c;
-    color: #f0f0f0;
+    background-color: #151a20;
+    color: #e6edf5;
 }
 
 QMenuBar::item {
     background: transparent;
-    padding: 4px 10px;
+    padding: 5px 10px;
+    border-radius: 7px;
 }
 
 QMenuBar::item:selected { /* Hover */
-    background-color: #555555;
+    background-color: #273142;
 }
 
 QMenuBar::item:pressed {
-    background-color: #007acc;
+    background-color: #0a84ff;
 }
 
 QMenu {
-    background-color: #3c3c3c;
-    border: 1px solid #555555;
-    padding: 5px;
+    background-color: #202833;
+    border: 1px solid #39485d;
+    padding: 6px;
+    border-radius: 10px;
 }
 
 QMenu::item {
@@ -975,7 +1050,7 @@ QMenu::item:disabled {
 }
 
 QMenu::item:selected {
-    background-color: #007acc;
+    background-color: #0a84ff;
 }
 
 QMenu::separator {
@@ -985,26 +1060,27 @@ QMenu::separator {
 }
 
 QStatusBar {
-    background-color: #3c3c3c;
-    color: #f0f0f0;
+    background-color: #1a212c;
+    color: #c3ceda;
+    border-top: 1px solid #2f3b4b;
 }
 
 /* --- ScrollBars --- */
 QScrollBar:vertical {
     border: none;
-    background: #2d2d2d;
-    width: 12px;
-    margin: 15px 0 15px 0;
+    background: transparent;
+    width: 10px;
+    margin: 10px 0 10px 0;
 }
 
 QScrollBar::handle:vertical {
-    background: #555555;
+    background: #4a5a70;
     min-height: 20px;
-    border-radius: 6px;
+    border-radius: 5px;
 }
 
 QScrollBar::handle:vertical:hover {
-    background: #6a6a6a;
+    background: #60738d;
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
@@ -1015,19 +1091,19 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 
 QScrollBar:horizontal {
     border: none;
-    background: #2d2d2d;
-    height: 12px;
-    margin: 0 15px 0 15px;
+    background: transparent;
+    height: 10px;
+    margin: 0 10px 0 10px;
 }
 
 QScrollBar::handle:horizontal {
-    background: #555555;
+    background: #4a5a70;
     min-width: 20px;
-    border-radius: 6px;
+    border-radius: 5px;
 }
 
 QScrollBar::handle:horizontal:hover {
-    background: #6a6a6a;
+    background: #60738d;
 }
 
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
@@ -1073,29 +1149,31 @@ QSlider::handle:vertical {
 
 /* --- Tab Widget --- */
 QTabWidget::pane {
-    border: 1px solid #3a4657;
+    border: 1px solid #2f3b4b;
     border-top: none;
-    border-radius: 0 0 10px 10px;
+    border-radius: 0 0 12px 12px;
+    background: #18212b;
 }
 
 QTabBar::tab {
-    background: #243142;
-    border: 1px solid #334155;
+    background: #202833;
+    border: 1px solid #344255;
     border-bottom: none;
-    padding: 9px 16px;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    margin-right: 3px;
+    padding: 8px 16px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    margin-right: 6px;
+    font-weight: 600;
 }
 
 QTabBar::tab:hover {
-    background: #2d3b4f;
+    background: #2a3443;
 }
 
 QTabBar::tab:selected {
-    background: #1f2937;
-    border-color: #4b5b72;
-    margin-bottom: -1px; /* Pull tab down to connect with pane */
+    background: #18212b;
+    border-color: #46576f;
+    margin-bottom: -1px;
 }
 
 /* --- Progress Bar --- */
@@ -1148,30 +1226,30 @@ QProgressBar::chunk {
 
 #AlertFilterButton {
     min-width: 84px;
-    min-height: 24px;
-    background: #2b6ea5;
-    border: 1px solid #2b6ea5;
-    border-radius: 5px;
+    min-height: 26px;
+    background: #202833;
+    border: 1px solid #3b4a5f;
+    border-radius: 13px;
     color: #f8fafc;
-    font-weight: 700;
-    padding: 2px 8px;
+    font-weight: 600;
+    padding: 2px 10px;
 }
 
 #AlertFilterButton:hover {
-    background: #337cb9;
-    border-color: #337cb9;
+    background: #273142;
+    border-color: #50617a;
 }
 
 #AlertFilterButton:pressed, #AlertFilterButton:checked {
-    background: #1f5f98;
-    border-color: #1f5f98;
+    background: #0a84ff;
+    border-color: #369cff;
 }
 
 QGroupBox#AlertsPanel,
 QGroupBox#ForecastPanel {
     background: #18212b;
-    border: 1px solid #314152;
-    border-radius: 10px;
+    border: 1px solid #2f3b4b;
+    border-radius: 16px;
     margin-top: 16px;
 }
 
@@ -1181,32 +1259,43 @@ QGroupBox#ForecastPanel::title {
     subcontrol-position: top left;
     left: 10px;
     top: 0px;
-    padding: 1px 8px;
-    background: #22303d;
-    border-radius: 6px;
-    color: #8dc4ef;
-    font-weight: 800;
+    padding: 1px 10px;
+    background: #202b38;
+    border-radius: 8px;
+    color: #b7c6d9;
+    font-weight: 700;
 }
 
 #TopStatusStrip {
-    background: #16202a;
+    background: #18212b;
+    border: 1px solid #2f3b4b;
+    border-radius: 18px;
+}
+
+#TopToolbarSection {
+    background: #202833;
     border: 1px solid #334155;
     border-radius: 14px;
 }
 
+#TopToolbarIcon {
+    color: #9fb3c8;
+    padding: 0 2px;
+}
+
 #TopStatusChip {
-    background: #202c39;
-    border: 1px solid #324557;
-    border-radius: 10px;
-    padding: 4px 8px;
+    background: #202833;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 5px 10px;
     color: #e2ebf5;
-    font-weight: 700;
+    font-weight: 600;
 }
 
 QGroupBox#HourlyForecastCard, QGroupBox#DailyForecastCard {
     background: #1e2935;
-    border: 1px solid #354556;
-    border-radius: 8px;
+    border: 1px solid #334155;
+    border-radius: 14px;
     margin-top: 14px;
 }
 
@@ -1215,23 +1304,23 @@ QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
     subcontrol-position: top left;
     left: 8px;
     top: 0px;
-    padding: 1px 7px;
-    background: #273445;
-    border-radius: 5px;
-    color: #8dc4ef;
+    padding: 1px 9px;
+    background: #243140;
+    border-radius: 7px;
+    color: #b7c6d9;
     font-weight: 700;
 }
 
 QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
     background: #1b2530;
-    border: 1px solid #425366;
-    border-radius: 6px;
+    border: 1px solid #334155;
+    border-radius: 12px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
     background: #1b2530;
-    border: 1px solid #425366;
-    border-radius: 6px;
+    border: 1px solid #334155;
+    border-radius: 12px;
     padding: 4px;
 }
 
@@ -1247,6 +1336,52 @@ QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
 
 #AlertsDisplayArea::item:hover, #LifecycleDisplayArea::item:hover {
     background: #2b3a49;
+}
+
+QSplitter::handle {
+    background: transparent;
+}
+
+QSplitter::handle:horizontal {
+    width: 10px;
+}
+
+QSplitter::handle:vertical {
+    height: 10px;
+}
+
+#OverviewCard {
+    border: 1px solid #324255;
+    border-radius: 16px;
+    background: #1b2530;
+}
+
+#OverviewCard QLabel[role='value'] {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+#OverviewCard QLabel[role='title'] {
+    color: #9fb3c8;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+#OverviewCard QLabel[role='detail'] {
+    color: #c3ceda;
+}
+
+#LocationOverviewHeader {
+    color: #e5edf5;
+    font-weight: 700;
+}
+
+#ToolbarMuteButton {
+    min-width: 34px;
+    max-width: 34px;
+    padding: 4px;
 }
 '''
 
@@ -2456,6 +2591,36 @@ class SettingsDialog(QDialog):
         display_form_layout.addRow(self.show_daily_forecast_check)
 
         display_form_layout.addRow(QFrame(frameShape=QFrame.Shape.HLine, frameShadow=QFrame.Shadow.Sunken))
+        display_form_layout.addRow(QLabel("<b>Toolbar Items</b>"))
+        self.toolbar_location_check = QCheckBox("Show Location Picker")
+        self.toolbar_location_check.setChecked(self.current_settings.get("toolbar_show_location", FALLBACK_SHOW_TOOLBAR_LOCATION))
+        display_form_layout.addRow(self.toolbar_location_check)
+        self.toolbar_interval_check = QCheckBox("Show Interval Picker")
+        self.toolbar_interval_check.setChecked(self.current_settings.get("toolbar_show_interval", FALLBACK_SHOW_TOOLBAR_INTERVAL))
+        display_form_layout.addRow(self.toolbar_interval_check)
+        self.toolbar_sources_check = QCheckBox("Show Web Sources Button")
+        self.toolbar_sources_check.setChecked(self.current_settings.get("toolbar_show_sources", FALLBACK_SHOW_TOOLBAR_SOURCES))
+        display_form_layout.addRow(self.toolbar_sources_check)
+        self.toolbar_mute_check = QCheckBox("Show Mute Button")
+        self.toolbar_mute_check.setChecked(self.current_settings.get("toolbar_show_mute", FALLBACK_SHOW_TOOLBAR_MUTE))
+        display_form_layout.addRow(self.toolbar_mute_check)
+        self.toolbar_repeater_check = QCheckBox("Show Repeater Status")
+        self.toolbar_repeater_check.setChecked(self.current_settings.get("toolbar_show_repeater", FALLBACK_SHOW_TOOLBAR_REPEATER))
+        display_form_layout.addRow(self.toolbar_repeater_check)
+        self.toolbar_countdown_check = QCheckBox("Show Countdown Status")
+        self.toolbar_countdown_check.setChecked(self.current_settings.get("toolbar_show_countdown", FALLBACK_SHOW_TOOLBAR_COUNTDOWN))
+        display_form_layout.addRow(self.toolbar_countdown_check)
+        self.toolbar_temp_check = QCheckBox("Show Temperature Status")
+        self.toolbar_temp_check.setChecked(self.current_settings.get("toolbar_show_temp", FALLBACK_SHOW_TOOLBAR_TEMP))
+        display_form_layout.addRow(self.toolbar_temp_check)
+        self.toolbar_last_announcement_check = QCheckBox("Show Last Announcement Status")
+        self.toolbar_last_announcement_check.setChecked(self.current_settings.get("toolbar_show_last_announcement", FALLBACK_SHOW_TOOLBAR_LAST_ANNOUNCEMENT))
+        display_form_layout.addRow(self.toolbar_last_announcement_check)
+        self.toolbar_time_check = QCheckBox("Show Time Status")
+        self.toolbar_time_check.setChecked(self.current_settings.get("toolbar_show_time", FALLBACK_SHOW_TOOLBAR_TIME))
+        display_form_layout.addRow(self.toolbar_time_check)
+
+        display_form_layout.addRow(QFrame(frameShape=QFrame.Shape.HLine, frameShadow=QFrame.Shadow.Sunken))
         self.log_sort_combo = QComboBox()
         self.log_sort_combo.addItems(["Chronological", "Ascending", "Descending"])
         self.log_sort_combo.setCurrentText(
@@ -2606,6 +2771,15 @@ class SettingsDialog(QDialog):
             "show_forecasts_area": self.show_hourly_forecast_check.isChecked() or self.show_daily_forecast_check.isChecked(),
             "show_hourly_forecast": self.show_hourly_forecast_check.isChecked(),
             "show_daily_forecast": self.show_daily_forecast_check.isChecked(),
+            "toolbar_show_location": self.toolbar_location_check.isChecked(),
+            "toolbar_show_interval": self.toolbar_interval_check.isChecked(),
+            "toolbar_show_sources": self.toolbar_sources_check.isChecked(),
+            "toolbar_show_mute": self.toolbar_mute_check.isChecked(),
+            "toolbar_show_repeater": self.toolbar_repeater_check.isChecked(),
+            "toolbar_show_countdown": self.toolbar_countdown_check.isChecked(),
+            "toolbar_show_temp": self.toolbar_temp_check.isChecked(),
+            "toolbar_show_last_announcement": self.toolbar_last_announcement_check.isChecked(),
+            "toolbar_show_time": self.toolbar_time_check.isChecked(),
             "log_sort_order": self.log_sort_combo.currentText().lower(),
         }
 
@@ -2660,6 +2834,15 @@ class WeatherAlertApp(QMainWindow):
         self.current_show_forecasts_area_checked = FALLBACK_SHOW_FORECASTS_AREA_CHECKED
         self.current_show_hourly_forecast_checked = FALLBACK_SHOW_HOURLY_FORECAST_CHECKED
         self.current_show_daily_forecast_checked = FALLBACK_SHOW_DAILY_FORECAST_CHECKED
+        self.current_toolbar_show_location = FALLBACK_SHOW_TOOLBAR_LOCATION
+        self.current_toolbar_show_interval = FALLBACK_SHOW_TOOLBAR_INTERVAL
+        self.current_toolbar_show_sources = FALLBACK_SHOW_TOOLBAR_SOURCES
+        self.current_toolbar_show_mute = FALLBACK_SHOW_TOOLBAR_MUTE
+        self.current_toolbar_show_repeater = FALLBACK_SHOW_TOOLBAR_REPEATER
+        self.current_toolbar_show_countdown = FALLBACK_SHOW_TOOLBAR_COUNTDOWN
+        self.current_toolbar_show_temp = FALLBACK_SHOW_TOOLBAR_TEMP
+        self.current_toolbar_show_last_announcement = FALLBACK_SHOW_TOOLBAR_LAST_ANNOUNCEMENT
+        self.current_toolbar_show_time = FALLBACK_SHOW_TOOLBAR_TIME
         self.current_show_monitoring_status_checked = FALLBACK_SHOW_MONITORING_STATUS_CHECKED
         self.current_show_location_overview_checked = FALLBACK_SHOW_LOCATION_OVERVIEW_CHECKED
         self.current_auto_refresh_content_checked = FALLBACK_AUTO_REFRESH_CONTENT_CHECKED
@@ -2859,6 +3042,15 @@ class WeatherAlertApp(QMainWindow):
             "show_daily_forecast",
             self.current_show_forecasts_area_checked,
         )
+        self.current_toolbar_show_location = settings.get("toolbar_show_location", FALLBACK_SHOW_TOOLBAR_LOCATION)
+        self.current_toolbar_show_interval = settings.get("toolbar_show_interval", FALLBACK_SHOW_TOOLBAR_INTERVAL)
+        self.current_toolbar_show_sources = settings.get("toolbar_show_sources", FALLBACK_SHOW_TOOLBAR_SOURCES)
+        self.current_toolbar_show_mute = settings.get("toolbar_show_mute", FALLBACK_SHOW_TOOLBAR_MUTE)
+        self.current_toolbar_show_repeater = settings.get("toolbar_show_repeater", FALLBACK_SHOW_TOOLBAR_REPEATER)
+        self.current_toolbar_show_countdown = settings.get("toolbar_show_countdown", FALLBACK_SHOW_TOOLBAR_COUNTDOWN)
+        self.current_toolbar_show_temp = settings.get("toolbar_show_temp", FALLBACK_SHOW_TOOLBAR_TEMP)
+        self.current_toolbar_show_last_announcement = settings.get("toolbar_show_last_announcement", FALLBACK_SHOW_TOOLBAR_LAST_ANNOUNCEMENT)
+        self.current_toolbar_show_time = settings.get("toolbar_show_time", FALLBACK_SHOW_TOOLBAR_TIME)
         self.current_show_monitoring_status_checked = settings.get(
             "show_monitoring_status", FALLBACK_SHOW_MONITORING_STATUS_CHECKED
         )
@@ -2912,6 +3104,15 @@ class WeatherAlertApp(QMainWindow):
         self.current_show_forecasts_area_checked = FALLBACK_SHOW_FORECASTS_AREA_CHECKED
         self.current_show_hourly_forecast_checked = FALLBACK_SHOW_HOURLY_FORECAST_CHECKED
         self.current_show_daily_forecast_checked = FALLBACK_SHOW_DAILY_FORECAST_CHECKED
+        self.current_toolbar_show_location = FALLBACK_SHOW_TOOLBAR_LOCATION
+        self.current_toolbar_show_interval = FALLBACK_SHOW_TOOLBAR_INTERVAL
+        self.current_toolbar_show_sources = FALLBACK_SHOW_TOOLBAR_SOURCES
+        self.current_toolbar_show_mute = FALLBACK_SHOW_TOOLBAR_MUTE
+        self.current_toolbar_show_repeater = FALLBACK_SHOW_TOOLBAR_REPEATER
+        self.current_toolbar_show_countdown = FALLBACK_SHOW_TOOLBAR_COUNTDOWN
+        self.current_toolbar_show_temp = FALLBACK_SHOW_TOOLBAR_TEMP
+        self.current_toolbar_show_last_announcement = FALLBACK_SHOW_TOOLBAR_LAST_ANNOUNCEMENT
+        self.current_toolbar_show_time = FALLBACK_SHOW_TOOLBAR_TIME
         self.current_show_monitoring_status_checked = FALLBACK_SHOW_MONITORING_STATUS_CHECKED
         self.current_show_location_overview_checked = FALLBACK_SHOW_LOCATION_OVERVIEW_CHECKED
         self.current_auto_refresh_content_checked = FALLBACK_AUTO_REFRESH_CONTENT_CHECKED
@@ -2979,6 +3180,15 @@ class WeatherAlertApp(QMainWindow):
             "show_forecasts_area": self.show_hourly_forecast_action.isChecked() or self.show_daily_forecast_action.isChecked(),
             "show_hourly_forecast": self.show_hourly_forecast_action.isChecked(),
             "show_daily_forecast": self.show_daily_forecast_action.isChecked(),
+            "toolbar_show_location": self.current_toolbar_show_location,
+            "toolbar_show_interval": self.current_toolbar_show_interval,
+            "toolbar_show_sources": self.current_toolbar_show_sources,
+            "toolbar_show_mute": self.current_toolbar_show_mute,
+            "toolbar_show_repeater": self.current_toolbar_show_repeater,
+            "toolbar_show_countdown": self.current_toolbar_show_countdown,
+            "toolbar_show_temp": self.current_toolbar_show_temp,
+            "toolbar_show_last_announcement": self.current_toolbar_show_last_announcement,
+            "toolbar_show_time": self.current_toolbar_show_time,
             "show_monitoring_status": self.show_monitoring_status_action.isChecked(),
             "show_location_overview": self.show_location_overview_action.isChecked(),
             "log_sort_order": self.current_log_sort_order,
@@ -3000,10 +3210,6 @@ class WeatherAlertApp(QMainWindow):
         top_status_layout = self._create_top_status_bar()
         main_layout.addLayout(top_status_layout)
 
-        # --- Dashboard Overview ---
-        self.dashboard_overview_panel = self._create_dashboard_overview()
-        main_layout.addWidget(self.dashboard_overview_panel)
-
         # --- Menu Bar ---
         self._create_menu_bar()
         self.web_source_quick_select_button.setMenu(self.web_sources_menu)
@@ -3017,7 +3223,7 @@ class WeatherAlertApp(QMainWindow):
         self.alerts_forecasts_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.alerts_forecasts_splitter.setChildrenCollapsible(False)
         alerts_forecasts_layout.addWidget(self.alerts_forecasts_splitter)
-        main_layout.addWidget(self.alerts_forecasts_container, 2)
+        main_layout.addWidget(self.alerts_forecasts_container, 0)
 
         # Alerts Group
         self.alerts_group = QGroupBox("Current Alerts")
@@ -3141,7 +3347,7 @@ class WeatherAlertApp(QMainWindow):
         # --- Bottom Splitter (Web View & Log) ---
         self.bottom_splitter = QSplitter(Qt.Orientation.Vertical)
         self.bottom_splitter.setChildrenCollapsible(False)
-        main_layout.addWidget(self.bottom_splitter, 2)
+        main_layout.addWidget(self.bottom_splitter, 1)
 
         self.web_tabs = QTabWidget()
         self.web_tabs_fullscreen_button = QPushButton("Full Screen")
@@ -3198,7 +3404,7 @@ class WeatherAlertApp(QMainWindow):
             self._log_buffer.clear()
 
         self.bottom_splitter.setSizes([400, 200])
-        self.alerts_forecasts_splitter.setSizes([460, 900])
+        self.alerts_forecasts_splitter.setSizes([420, 780])
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -3285,60 +3491,83 @@ class WeatherAlertApp(QMainWindow):
         strip_layout.setContentsMargins(8, 6, 8, 6)
         strip_layout.setSpacing(6)
 
-        self.top_repeater_label = QLabel("Announcement: N/A")
+        controls_section = QFrame()
+        controls_section.setObjectName("TopToolbarSection")
+        controls_layout = QHBoxLayout(controls_section)
+        controls_layout.setContentsMargins(8, 4, 8, 4)
+        controls_layout.setSpacing(6)
+        controls_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+
+        status_section = QFrame()
+        status_section.setObjectName("TopToolbarSection")
+        status_layout = QHBoxLayout(status_section)
+        status_layout.setContentsMargins(8, 4, 8, 4)
+        status_layout.setSpacing(6)
+        status_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+
+        self.top_repeater_label = QLabel("Rpt N/A")
         self.top_repeater_label.setObjectName("TopStatusChip")
-        self.top_countdown_label = QLabel("Next Check: --:--")
+        self.top_countdown_label = QLabel("Next --:--")
         self.top_countdown_label.setObjectName("TopStatusChip")
         self.current_temperature_label = QLabel("Temp --")
         self.current_temperature_label.setObjectName("TopStatusChip")
-        self.last_announcement_label = QLabel("Last Announcement: --")
+        self.last_announcement_label = QLabel("Last --")
         self.last_announcement_label.setObjectName("TopStatusChip")
-        self.current_time_label = QLabel("Current Time: --:--:--")
+        self.current_time_label = QLabel("Time --:--:--")
         self.current_time_label.setObjectName("TopStatusChip")
 
         location_icon_label = QLabel()
         location_icon_label.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon).pixmap(14, 14))
-        strip_layout.addWidget(location_icon_label)
+        location_icon_label.setObjectName("TopToolbarIcon")
+        self.location_icon_label = location_icon_label
+        controls_layout.addWidget(location_icon_label)
 
         self.location_combo = QComboBox()
-        self.location_combo.setMinimumWidth(190)
+        self.location_combo.setMinimumWidth(210)
+        self.location_combo.setMaximumWidth(280)
         self.location_combo.setMinimumHeight(28)
         self.location_combo.setToolTip("Select a location to view")
         self.location_combo.currentIndexChanged.connect(self._on_location_selected)
-        strip_layout.addWidget(self.location_combo)
+        controls_layout.addWidget(self.location_combo)
 
         interval_icon_label = QLabel()
         interval_icon_label.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload).pixmap(14, 14))
-        strip_layout.addWidget(interval_icon_label)
+        interval_icon_label.setObjectName("TopToolbarIcon")
+        self.interval_icon_label = interval_icon_label
+        controls_layout.addWidget(interval_icon_label)
 
         self.top_interval_combo = QComboBox()
         self.top_interval_combo.addItems(CHECK_INTERVAL_OPTIONS.keys())
         self.top_interval_combo.setMinimumWidth(118)
+        self.top_interval_combo.setMaximumWidth(140)
         self.top_interval_combo.setMinimumHeight(28)
         self.top_interval_combo.setToolTip("Set check interval")
         self.top_interval_combo.currentTextChanged.connect(self._on_top_interval_changed)
-        strip_layout.addWidget(self.top_interval_combo)
+        controls_layout.addWidget(self.top_interval_combo)
 
-        self.web_source_quick_select_button = QPushButton("Web Source")
+        self.web_source_quick_select_button = QPushButton("Sources")
         self.web_source_quick_select_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
         self.web_source_quick_select_button.setToolTip("Quick select web source")
         self.web_source_quick_select_button.setMinimumHeight(28)
-        strip_layout.addWidget(self.web_source_quick_select_button)
+        controls_layout.addWidget(self.web_source_quick_select_button)
 
-        self.mute_button = QPushButton("Mute")
+        self.mute_button = QPushButton("")
+        self.mute_button.setObjectName("ToolbarMuteButton")
         self.mute_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolumeMuted))
         self.mute_button.setToolTip("Mute All Audio")
         self.mute_button.setCheckable(True)
         self.mute_button.setMinimumHeight(28)
         self.mute_button.toggled.connect(self._on_mute_toggled)
-        strip_layout.addWidget(self.mute_button)
+        controls_layout.addWidget(self.mute_button)
 
+        status_layout.addWidget(self.top_repeater_label)
+        status_layout.addWidget(self.top_countdown_label)
+        status_layout.addWidget(self.current_temperature_label)
+        status_layout.addWidget(self.last_announcement_label)
+        status_layout.addWidget(self.current_time_label)
+        strip_layout.addWidget(controls_section, 0)
+        strip_layout.addWidget(status_section, 0)
         strip_layout.addStretch(1)
-        strip_layout.addWidget(self.top_repeater_label)
-        strip_layout.addWidget(self.top_countdown_label)
-        strip_layout.addWidget(self.current_temperature_label)
-        strip_layout.addWidget(self.last_announcement_label)
-        strip_layout.addWidget(self.current_time_label)
 
         top_status_layout.addWidget(strip)
 
@@ -3347,20 +3576,15 @@ class WeatherAlertApp(QMainWindow):
     def _create_summary_card(self, title: str, accent: str) -> Tuple[QFrame, QLabel, QLabel]:
         card = QFrame()
         card.setObjectName("OverviewCard")
-        card.setStyleSheet(
-            f"#OverviewCard {{ border: 1px solid #c7d0d9; border-radius: 10px; background: #ffffff; }}"
-            f"#OverviewCard QLabel[role='value'] {{ color: {accent}; font-size: 20px; font-weight: bold; }}"
-            "#OverviewCard QLabel[role='title'] { color: #5b6773; text-transform: uppercase; font-size: 10px; font-weight: bold; }"
-            "#OverviewCard QLabel[role='detail'] { color: #334155; }"
-        )
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(14, 12, 14, 12)
-        layout.setSpacing(4)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.setSpacing(6)
 
         title_label = QLabel(title)
         title_label.setProperty("role", "title")
         value_label = QLabel("--")
         value_label.setProperty("role", "value")
+        value_label.setStyleSheet(f"color: {accent};")
         detail_label = QLabel("Waiting for data")
         detail_label.setWordWrap(True)
         detail_label.setProperty("role", "detail")
@@ -3402,7 +3626,8 @@ class WeatherAlertApp(QMainWindow):
         cards_layout.addWidget(delivery_card, 1)
         layout.addLayout(cards_layout)
 
-        self.location_overview_header = QLabel("<b>Location Overview</b>")
+        self.location_overview_header = QLabel("Location Overview")
+        self.location_overview_header.setObjectName("LocationOverviewHeader")
         footer_layout = QHBoxLayout()
         footer_layout.addWidget(self.location_overview_header)
         footer_layout.addStretch(1)
@@ -3466,6 +3691,10 @@ class WeatherAlertApp(QMainWindow):
         self.show_daily_forecast_action = QAction("Show &5-Day Forecast", self, checkable=True)
         self.show_daily_forecast_action.toggled.connect(self._on_show_daily_forecast_toggled)
         view_menu.addAction(self.show_daily_forecast_action)
+        view_menu.addSeparator()
+        customize_toolbar_action = QAction("Customize Toolbar...", self)
+        customize_toolbar_action.triggered.connect(lambda checked=False: self._open_preferences_dialog("Display"))
+        view_menu.addAction(customize_toolbar_action)
         self.show_monitoring_status_action = QAction("Show Monitoring Status", self, checkable=True)
         self.show_monitoring_status_action.toggled.connect(self._on_show_monitoring_status_toggled)
         view_menu.addAction(self.show_monitoring_status_action)
@@ -3631,8 +3860,7 @@ class WeatherAlertApp(QMainWindow):
             label.setToolTip(tooltip)
 
     def _is_forecast_layout_stacked(self) -> bool:
-        forecast_width = self.combined_forecast_widget.width() if hasattr(self, "combined_forecast_widget") else self.width()
-        return forecast_width < 1450
+        return False
 
     def _apply_forecast_layout_mode(self) -> None:
         if not hasattr(self, "combined_forecast_main_layout"):
@@ -4759,6 +4987,15 @@ class WeatherAlertApp(QMainWindow):
             "show_forecasts_area": self.show_hourly_forecast_action.isChecked() or self.show_daily_forecast_action.isChecked(),
             "show_hourly_forecast": self.show_hourly_forecast_action.isChecked(),
             "show_daily_forecast": self.show_daily_forecast_action.isChecked(),
+            "toolbar_show_location": self.current_toolbar_show_location,
+            "toolbar_show_interval": self.current_toolbar_show_interval,
+            "toolbar_show_sources": self.current_toolbar_show_sources,
+            "toolbar_show_mute": self.current_toolbar_show_mute,
+            "toolbar_show_repeater": self.current_toolbar_show_repeater,
+            "toolbar_show_countdown": self.current_toolbar_show_countdown,
+            "toolbar_show_temp": self.current_toolbar_show_temp,
+            "toolbar_show_last_announcement": self.current_toolbar_show_last_announcement,
+            "toolbar_show_time": self.current_toolbar_show_time,
             "log_sort_order": self.current_log_sort_order,
         }
 
@@ -4792,9 +5029,19 @@ class WeatherAlertApp(QMainWindow):
             self.current_discord_webhook_url = new_data["discord_webhook_url"]
             self.current_enable_slack_notifications = new_data["enable_slack_notifications"]
             self.current_slack_webhook_url = new_data["slack_webhook_url"]
+            self.current_toolbar_show_location = new_data["toolbar_show_location"]
+            self.current_toolbar_show_interval = new_data["toolbar_show_interval"]
+            self.current_toolbar_show_sources = new_data["toolbar_show_sources"]
+            self.current_toolbar_show_mute = new_data["toolbar_show_mute"]
+            self.current_toolbar_show_repeater = new_data["toolbar_show_repeater"]
+            self.current_toolbar_show_countdown = new_data["toolbar_show_countdown"]
+            self.current_toolbar_show_temp = new_data["toolbar_show_temp"]
+            self.current_toolbar_show_last_announcement = new_data["toolbar_show_last_announcement"]
+            self.current_toolbar_show_time = new_data["toolbar_show_time"]
 
             self._update_location_dropdown()
             self.top_interval_combo.setCurrentText(self.current_interval_key)
+            self._apply_toolbar_visibility()
             self._update_top_status_bar_display()
 
             if locations_changed:
@@ -5064,16 +5311,40 @@ class WeatherAlertApp(QMainWindow):
     # --- UI Update and State Management Methods ---
     def _update_current_time_display(self):
         if hasattr(self, 'current_time_label'):
-            self.current_time_label.setText(f"Local Time {time.strftime('%I:%M:%S %p')}")
+            self.current_time_label.setText(f"Time {time.strftime('%I:%M:%S %p')}")
 
     def _update_top_status_bar_display(self):
         if hasattr(self, 'top_repeater_label'):
             repeater_text = self._compact_text(self.current_repeater_info or "N/A", 36)
-            self.top_repeater_label.setText(f"Announcement {repeater_text}")
+            self.top_repeater_label.setText(f"Rpt {repeater_text}")
         if hasattr(self, 'current_temperature_label'):
             temp_text = self.latest_temperature_reading or "--"
             self.current_temperature_label.setText(f"Temp {temp_text}")
         self._update_dashboard_summary()
+
+    def _apply_toolbar_visibility(self) -> None:
+        if hasattr(self, "location_icon_label"):
+            self.location_icon_label.setVisible(self.current_toolbar_show_location)
+        if hasattr(self, "location_combo"):
+            self.location_combo.setVisible(self.current_toolbar_show_location)
+        if hasattr(self, "interval_icon_label"):
+            self.interval_icon_label.setVisible(self.current_toolbar_show_interval)
+        if hasattr(self, "top_interval_combo"):
+            self.top_interval_combo.setVisible(self.current_toolbar_show_interval)
+        if hasattr(self, "web_source_quick_select_button"):
+            self.web_source_quick_select_button.setVisible(self.current_toolbar_show_sources)
+        if hasattr(self, "mute_button"):
+            self.mute_button.setVisible(self.current_toolbar_show_mute)
+        if hasattr(self, "top_repeater_label"):
+            self.top_repeater_label.setVisible(self.current_toolbar_show_repeater)
+        if hasattr(self, "top_countdown_label"):
+            self.top_countdown_label.setVisible(self.current_toolbar_show_countdown)
+        if hasattr(self, "current_temperature_label"):
+            self.current_temperature_label.setVisible(self.current_toolbar_show_temp)
+        if hasattr(self, "last_announcement_label"):
+            self.last_announcement_label.setVisible(self.current_toolbar_show_last_announcement)
+        if hasattr(self, "current_time_label"):
+            self.current_time_label.setVisible(self.current_toolbar_show_time)
 
     def _refresh_location_overview(self) -> None:
         if not hasattr(self, "location_overview_list"):
@@ -5190,6 +5461,7 @@ class WeatherAlertApp(QMainWindow):
         self._update_location_dropdown()
         self.top_interval_combo.setCurrentText(self.current_interval_key)
 
+        self._apply_toolbar_visibility()
         self._update_top_status_bar_display()
         self._update_web_sources_menu()
         self._apply_color_scheme()
@@ -5226,7 +5498,7 @@ class WeatherAlertApp(QMainWindow):
             self.log_to_gui("Timed checks paused.", level="INFO")
             self.main_check_timer.stop()
             self.countdown_timer.stop()
-            self.top_countdown_label.setText("Next Check: --:-- (Paused)")
+            self.top_countdown_label.setText("Next --:-- (Paused)")
 
     def _reset_and_start_countdown(self, total_seconds: int):
         self.countdown_timer.stop()
@@ -5238,11 +5510,11 @@ class WeatherAlertApp(QMainWindow):
     def _update_countdown_display(self):
         is_active = self.announce_alerts_action.isChecked() or self.auto_refresh_action.isChecked()
         if not is_active:
-            self.top_countdown_label.setText("Next Check: --:-- (Paused)")
+            self.top_countdown_label.setText("Next --:-- (Paused)")
         else:
             remaining = max(self.remaining_time_seconds, 0)
             minutes, seconds = divmod(remaining, 60)
-            self.top_countdown_label.setText(f"Next Check: {minutes:02d}:{seconds:02d}")
+            self.top_countdown_label.setText(f"Next {minutes:02d}:{seconds:02d}")
             if self.remaining_time_seconds > 0:
                 self.remaining_time_seconds -= 1
 
@@ -5672,19 +5944,30 @@ class WeatherAlertApp(QMainWindow):
     def _apply_forecast_panel_sizes(self) -> None:
         window_height = max(self.height(), 820)
         is_stacked = self._is_forecast_layout_stacked() if hasattr(self, "combined_forecast_widget") else False
-        alerts_panel_height = max(170, min(260, int(window_height * 0.20)))
-        lifecycle_height = max(42, min(72, int(window_height * 0.055)))
-        forecast_panel_height = max(190, min(320, int(window_height * (0.21 if is_stacked else 0.25))))
+        alerts_panel_height = max(88, min(124, int(window_height * 0.11)))
+        lifecycle_height = max(26, min(42, int(window_height * 0.038)))
+        forecast_panel_height = max(96, min(150, int(window_height * (0.12 if is_stacked else 0.135))))
 
         self.alerts_display_area.setMinimumHeight(alerts_panel_height)
+        self.alerts_display_area.setMaximumHeight(alerts_panel_height)
         self.lifecycle_display_area.setMinimumHeight(lifecycle_height)
+        self.lifecycle_display_area.setMaximumHeight(lifecycle_height)
         self.hourly_forecast_scroll.setMinimumHeight(forecast_panel_height)
+        self.hourly_forecast_scroll.setMaximumHeight(forecast_panel_height)
         self.daily_forecast_scroll.setMinimumHeight(forecast_panel_height)
+        self.daily_forecast_scroll.setMaximumHeight(forecast_panel_height)
         self.alerts_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.hourly_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.daily_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.alerts_group.setMinimumHeight(alerts_panel_height + lifecycle_height + 48)
-        self.combined_forecast_widget.setMinimumHeight((forecast_panel_height * (2 if is_stacked else 1)) + (72 if is_stacked else 34))
+        self.hourly_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.daily_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        alerts_outer_height = alerts_panel_height + lifecycle_height + 66
+        forecast_outer_height = forecast_panel_height + 54
+        unified_outer_height = max(alerts_outer_height, forecast_outer_height)
+        self.alerts_group.setMinimumHeight(unified_outer_height)
+        self.alerts_group.setMaximumHeight(unified_outer_height)
+        combined_outer_height = (forecast_panel_height * (2 if is_stacked else 1)) + (84 if is_stacked else 54)
+        unified_combined_height = max(unified_outer_height, combined_outer_height)
+        self.combined_forecast_widget.setMinimumHeight(unified_combined_height)
+        self.combined_forecast_widget.setMaximumHeight(unified_combined_height)
 
     def _apply_color_scheme(self):
         stylesheet = DARK_STYLESHEET if self.current_dark_mode_enabled else LIGHT_STYLESHEET
