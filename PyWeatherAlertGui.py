@@ -3365,7 +3365,7 @@ class WeatherAlertApp(QMainWindow):
             self.web_tabs.addTab(self.map_view, "Alert Map")
             self.web_tabs.addTab(self.nws_view, "City variable, NWS")
             self.web_tabs.addTab(self.digital_forecast_view, "National Digital Graphic Forecast")
-            self.digital_forecast_view.setUrl(QUrl("https://digital.weather.gov/"))
+            self.digital_forecast_view.setUrl(QUrl("https://digital.weather.gov/?zoom=3&lat=44.94699&lon=-119.13184&layers=F00BTTTFFTT&region=0&element=0&mxmz=true&barbs=false&subl=TFFFFF&units=english&wunits=nautical&coords=latlon&tunits=localt"))
         else:
             self.web_view = QLabel("WebEngineView not available. Please install 'PySide6-WebEngine'.")
             self.web_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -3375,7 +3375,7 @@ class WeatherAlertApp(QMainWindow):
             self.nws_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.digital_forecast_view = QLabel(
                 "NWS Digital Forecast view unavailable without PySide6-WebEngine.\n\n"
-                "URL:\nhttps://digital.weather.gov/"
+                "URL:\nhttps://digital.weather.gov/?zoom=3&lat=44.94699&lon=-119.13184&layers=F00BTTTFFTT&region=0&element=0&mxmz=true&barbs=false&subl=TFFFFF&units=english&wunits=nautical&coords=latlon&tunits=localt"
             )
             self.digital_forecast_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.web_tabs.addTab(self.web_view, "Web Source")
