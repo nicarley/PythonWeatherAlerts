@@ -1,6 +1,13 @@
-import pandas
-
 from weather_alert.api import NwsApiClient
+
+
+class _FakeGeocodeRows:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def to_dict(self, orient=None):
+        assert orient == "records"
+        return list(self._rows)
 
 
 def test_parse_lat_lon_input_support():
@@ -47,14 +54,15 @@ def test_get_forecast_urls_includes_grid_data(monkeypatch):
 def test_city_state_abbreviation_resolves(monkeypatch):
     client = NwsApiClient("test-agent")
 
-    def fake_query_location(city, state_code=None):
-        assert city == "St Louis"
-        assert state_code == "MO"
-        return pandas.DataFrame(
-            [{"place_name": "St Louis", "latitude": 38.6270, "longitude": -90.1994}]
-        )
+    class FakePgeocodeClient:
+        def query_location(self, city, state_code=None):
+            assert city == "St Louis"
+            assert state_code == "MO"
+            return _FakeGeocodeRows(
+                [{"place_name": "St Louis", "latitude": 38.6270, "longitude": -90.1994}]
+            )
 
-    monkeypatch.setattr(client.pgeocode_client, "query_location", fake_query_location)
+    client.pgeocode_client = FakePgeocodeClient()
     coords = client.get_coordinates_for_location("St Louis, MO")
 
     assert coords == (38.6270, -90.1994)
@@ -63,14 +71,73 @@ def test_city_state_abbreviation_resolves(monkeypatch):
 def test_city_state_full_name_resolves(monkeypatch):
     client = NwsApiClient("test-agent")
 
-    def fake_query_location(city, state_code=None):
-        assert city == "St Louis"
-        assert state_code == "MO"
-        return pandas.DataFrame(
-            [{"place_name": "St Louis", "latitude": 38.6270, "longitude": -90.1994}]
-        )
+    class FakePgeocodeClient:
+        def query_location(self, city, state_code=None):
+            assert city == "St Louis"
+            assert state_code == "MO"
+            return _FakeGeocodeRows(
+                [{"place_name": "St Louis", "latitude": 38.6270, "longitude": -90.1994}]
+            )
 
-    monkeypatch.setattr(client.pgeocode_client, "query_location", fake_query_location)
+    client.pgeocode_client = FakePgeocodeClient()
     coords = client.get_coordinates_for_location("St Louis, Missouri")
 
     assert coords == (38.6270, -90.1994)
+
+
+def test_zone_polygon_resolves_to_first_coordinate(monkeypatch):
+    client = NwsApiClient("test-agent")
+
+    def fake_get_json(url, **_kwargs):
+        assert url.endswith("/zones/forecast/ILC163")
+        return {
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        [-90.310, 38.510],
+                        [-90.100, 38.520],
+                        [-90.120, 38.700],
+                        [-90.310, 38.510],
+                    ]
+                ],
+            }
+        }
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+    coords = client.get_coordinates_for_location("ILC163")
+
+    assert coords == (38.510, -90.310)
+
+
+def test_alert_query_is_encoded_and_normalized(monkeypatch):
+    client = NwsApiClient("test-agent")
+    called = {}
+
+    def fake_get_json(url, **_kwargs):
+        called["url"] = url
+        return {
+            "features": [
+                {
+                    "id": "alert-1",
+                    "geometry": None,
+                    "properties": {
+                        "event": "Severe Thunderstorm Warning",
+                        "headline": "Severe storms moving east",
+                        "description": "Damaging winds are possible.",
+                        "severity": "Severe",
+                        "urgency": "Immediate",
+                        "certainty": "Observed",
+                        "effective": "2026-05-28T10:00:00-05:00",
+                        "expires": "2026-05-28T11:00:00-05:00",
+                    },
+                }
+            ]
+        }
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+    alerts = client.get_alerts(38.51, -90.31)
+
+    assert "point=38.51%2C-90.31" in called["url"]
+    assert alerts[0]["headline"] == "Severe storms moving east"
+    assert alerts[0]["severity"] == "Severe"

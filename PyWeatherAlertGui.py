@@ -48,7 +48,7 @@ from weather_alert.dedup import AlertDeduplicator
 from weather_alert.exporter import export_incident_csv, export_incident_json
 
 # --- Application Version ---
-versionnumber = "26.04.11"
+versionnumber = "26.05.28"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -522,7 +522,7 @@ QHeaderView::section {
 /* These are preserved from your original file */
 
 #AlertsPanel, #ForecastPanel, #OperationalOverviewPanel {
-    border-radius: 10px;
+    border-radius: 8px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
@@ -559,7 +559,7 @@ QHeaderView::section {
     min-height: 26px;
     background: #ffffff;
     border: 1px solid #d4dae3;
-    border-radius: 13px;
+    border-radius: 8px;
     color: #425466;
     font-weight: 600;
     padding: 2px 10px;
@@ -580,7 +580,7 @@ QGroupBox#AlertsPanel,
 QGroupBox#ForecastPanel {
     background: #fcfcfd;
     border: 1px solid #dde4ee;
-    border-radius: 16px;
+    border-radius: 8px;
     margin-top: 16px;
 }
 
@@ -600,13 +600,13 @@ QGroupBox#ForecastPanel::title {
 #TopStatusStrip {
     background: #ffffff;
     border: 1px solid #e0e6ee;
-    border-radius: 18px;
+    border-radius: 8px;
 }
 
 #TopToolbarSection {
     background: #f7f9fc;
     border: 1px solid #e3e8ef;
-    border-radius: 14px;
+    border-radius: 8px;
 }
 
 #TopToolbarIcon {
@@ -617,7 +617,7 @@ QGroupBox#ForecastPanel::title {
 #TopStatusChip {
     background: #f6f8fb;
     border: 1px solid #e1e6ed;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 5px 10px;
     color: #334e68;
     font-weight: 600;
@@ -626,7 +626,7 @@ QGroupBox#ForecastPanel::title {
 QGroupBox#HourlyForecastCard, QGroupBox#DailyForecastCard {
     background: #f8fafc;
     border: 1px solid #e1e8f0;
-    border-radius: 14px;
+    border-radius: 8px;
     margin-top: 14px;
 }
 
@@ -645,24 +645,24 @@ QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
 QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
     background: #ffffff;
     border: 1px solid #e7edf4;
-    border-radius: 12px;
+    border-radius: 8px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
     background: #ffffff;
     border: 1px solid #e6ebf2;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 4px;
 }
 
 #AlertsDisplayArea::item, #LifecycleDisplayArea::item {
-    background: transparent;
-    border-radius: 0px;
-    padding: 1px 2px;
+    border-radius: 6px;
+    padding: 6px;
+    margin: 2px;
 }
 
 #AlertsDisplayArea::item:alternate, #LifecycleDisplayArea::item:alternate {
-    background: transparent;
+    border-color: transparent;
 }
 
 #AlertsDisplayArea::item:hover, #LifecycleDisplayArea::item:hover {
@@ -683,7 +683,7 @@ QSplitter::handle:vertical {
 
 #OverviewCard {
     border: 1px solid #e1e7ef;
-    border-radius: 16px;
+    border-radius: 8px;
     background: #ffffff;
 }
 
@@ -1192,7 +1192,7 @@ QProgressBar::chunk {
 }
 
 #AlertsPanel, #ForecastPanel, #OperationalOverviewPanel {
-    border-radius: 10px;
+    border-radius: 8px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
@@ -1229,7 +1229,7 @@ QProgressBar::chunk {
     min-height: 26px;
     background: #202833;
     border: 1px solid #3b4a5f;
-    border-radius: 13px;
+    border-radius: 8px;
     color: #f8fafc;
     font-weight: 600;
     padding: 2px 10px;
@@ -1249,7 +1249,7 @@ QGroupBox#AlertsPanel,
 QGroupBox#ForecastPanel {
     background: #18212b;
     border: 1px solid #2f3b4b;
-    border-radius: 16px;
+    border-radius: 8px;
     margin-top: 16px;
 }
 
@@ -1269,13 +1269,13 @@ QGroupBox#ForecastPanel::title {
 #TopStatusStrip {
     background: #18212b;
     border: 1px solid #2f3b4b;
-    border-radius: 18px;
+    border-radius: 8px;
 }
 
 #TopToolbarSection {
     background: #202833;
     border: 1px solid #334155;
-    border-radius: 14px;
+    border-radius: 8px;
 }
 
 #TopToolbarIcon {
@@ -1286,7 +1286,7 @@ QGroupBox#ForecastPanel::title {
 #TopStatusChip {
     background: #202833;
     border: 1px solid #334155;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 5px 10px;
     color: #e2ebf5;
     font-weight: 600;
@@ -1295,7 +1295,7 @@ QGroupBox#ForecastPanel::title {
 QGroupBox#HourlyForecastCard, QGroupBox#DailyForecastCard {
     background: #1e2935;
     border: 1px solid #334155;
-    border-radius: 14px;
+    border-radius: 8px;
     margin-top: 14px;
 }
 
@@ -1314,24 +1314,24 @@ QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
 QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
     background: #1b2530;
     border: 1px solid #334155;
-    border-radius: 12px;
+    border-radius: 8px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
     background: #1b2530;
     border: 1px solid #334155;
-    border-radius: 12px;
+    border-radius: 8px;
     padding: 4px;
 }
 
 #AlertsDisplayArea::item, #LifecycleDisplayArea::item {
-    background: transparent;
-    border-radius: 0px;
-    padding: 1px 2px;
+    border-radius: 6px;
+    padding: 6px;
+    margin: 2px;
 }
 
 #AlertsDisplayArea::item:alternate, #LifecycleDisplayArea::item:alternate {
-    background: transparent;
+    border-color: transparent;
 }
 
 #AlertsDisplayArea::item:hover, #LifecycleDisplayArea::item:hover {
@@ -1352,7 +1352,7 @@ QSplitter::handle:vertical {
 
 #OverviewCard {
     border: 1px solid #324255;
-    border-radius: 16px;
+    border-radius: 8px;
     background: #1b2530;
 }
 
@@ -2929,6 +2929,8 @@ class WeatherAlertApp(QMainWindow):
     def _describe_location_health(self, location_id: str) -> str:
         status = self.location_runtime_status.get(location_id, {})
         state = status.get("state", "idle")
+        if state == "loading":
+            return status.get("detail", "Refreshing from NWS")
         if state == "online":
             fetched_at = status.get("fetched_at")
             if fetched_at:
@@ -3805,12 +3807,13 @@ class WeatherAlertApp(QMainWindow):
         label.setMinimumWidth(0)
         line_height = label.fontMetrics().lineSpacing()
         if max_lines is None:
-            label.setMinimumHeight(line_height + 4)
+            label.setMinimumHeight(line_height + 10)
             label.setMaximumHeight(16777215)
         else:
             line_count = max(1, max_lines)
-            label.setMinimumHeight((line_height * line_count) + 2)
-            label.setMaximumHeight((line_height * line_count) + 5)
+            vertical_padding = 16 if not wrap else 12
+            label.setMinimumHeight((line_height * line_count) + vertical_padding)
+            label.setMaximumHeight((line_height * line_count) + vertical_padding + 4)
         if tooltip:
             label.setToolTip(tooltip)
         return label
@@ -3818,18 +3821,20 @@ class WeatherAlertApp(QMainWindow):
     def _forecast_theme_colors(self, row_index: int, is_header: bool = False) -> Dict[str, str]:
         if self.current_dark_mode_enabled:
             if is_header:
-                return {"bg": "transparent", "border": "transparent", "text": "#f8fafc"}
+                return {"bg": "#263445", "border": "#3b4a5f", "text": "#f8fafc"}
+            row_bg = "#1f2a36" if row_index % 2 else "#1b2530"
             return {
-                "bg": "transparent",
-                "border": "transparent",
+                "bg": row_bg,
+                "border": "#334155",
                 "text": "#edf4fb",
             }
 
         if is_header:
-            return {"bg": "transparent", "border": "transparent", "text": "#1f2937"}
+            return {"bg": "#edf4fb", "border": "#d5e1ee", "text": "#1f2937"}
+        row_bg = "#ffffff" if row_index % 2 else "#f8fbff"
         return {
-            "bg": "transparent",
-            "border": "transparent",
+            "bg": row_bg,
+            "border": "#e0e8f2",
             "text": "#1f2937",
         }
 
@@ -3839,16 +3844,19 @@ class WeatherAlertApp(QMainWindow):
         tooltip_text = "#102a43"
         tooltip_border = "#a9bfd3"
         if is_header:
+            line_height = label.fontMetrics().lineSpacing()
+            label.setMinimumHeight(max(label.minimumHeight(), line_height + 18))
+            label.setMaximumHeight(max(label.maximumHeight(), line_height + 22))
             label.setStyleSheet(
-                f"padding: 2px 0px 3px 0px; background-color: {colors['bg']}; color: {colors['text']}; "
-                f"border: none; font-weight: 700;"
+                f"padding: 5px 6px; background-color: {colors['bg']}; color: {colors['text']}; "
+                f"border: 1px solid {colors['border']}; font-weight: 700;"
                 f"QToolTip {{ background-color: {tooltip_bg}; color: {tooltip_text}; "
                 f"border: 1px solid {tooltip_border}; padding: 8px 10px; border-radius: 6px; }}"
             )
         else:
             label.setStyleSheet(
-                f"padding: 1px 0px; background-color: {colors['bg']}; color: {colors['text']}; "
-                f"border: none;"
+                f"padding: 4px 6px; background-color: {colors['bg']}; color: {colors['text']}; "
+                f"border-left: 1px solid {colors['border']}; border-bottom: 1px solid {colors['border']};"
                 f"QToolTip {{ background-color: {tooltip_bg}; color: {tooltip_text}; "
                 f"border: 1px solid {tooltip_border}; padding: 8px 10px; border-radius: 6px; }}"
             )
@@ -3860,7 +3868,9 @@ class WeatherAlertApp(QMainWindow):
             label.setToolTip(tooltip)
 
     def _is_forecast_layout_stacked(self) -> bool:
-        return False
+        if not hasattr(self, "combined_forecast_widget"):
+            return False
+        return self.combined_forecast_widget.width() < 960
 
     def _apply_forecast_layout_mode(self) -> None:
         if not hasattr(self, "combined_forecast_main_layout"):
@@ -3914,6 +3924,135 @@ class WeatherAlertApp(QMainWindow):
             "</div>"
         )
 
+    @staticmethod
+    def _format_nws_timestamp(value: Any) -> str:
+        if not value:
+            return "N/A"
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            if parsed.tzinfo is not None:
+                parsed = parsed.astimezone()
+            return parsed.strftime("%b %d, %I:%M %p").replace(" 0", " ")
+        except (TypeError, ValueError):
+            return str(value)
+
+    def _alert_time_window_text(self, alert: Dict[str, Any]) -> str:
+        effective = alert.get("effective") or alert.get("onset") or alert.get("sent")
+        expires = alert.get("ends") or alert.get("expires")
+        parts = []
+        if effective:
+            parts.append(f"Effective {self._format_nws_timestamp(effective)}")
+        if expires:
+            parts.append(f"Until {self._format_nws_timestamp(expires)}")
+        return " | ".join(parts)
+
+    def _alert_display_text(
+        self,
+        alert: Dict[str, Any],
+        distance_miles: Optional[float],
+        escalation: Dict[str, Any],
+    ) -> str:
+        title = alert.get("title", "N/A Title")
+        severity = alert.get("severity") or "Unknown"
+        urgency = alert.get("urgency") or "Unknown"
+        certainty = alert.get("certainty") or "Unknown"
+        summary = self._compact_text(alert.get("summary", "No summary available."), 280)
+        area_desc = self._compact_text(alert.get("area_desc", ""), 110)
+        instruction = self._compact_text(alert.get("instruction", ""), 180)
+
+        meta_parts = [f"Severity {severity}", f"Urgency {urgency}", f"Certainty {certainty}"]
+        if isinstance(distance_miles, (int, float)):
+            meta_parts.append(f"{distance_miles:.1f} mi from monitored point")
+        if area_desc:
+            meta_parts.append(f"Areas: {area_desc}")
+
+        timing = self._alert_time_window_text(alert)
+        if timing:
+            meta_parts.append(timing)
+
+        lines = [title, " | ".join(meta_parts), summary]
+        if instruction:
+            lines.append(f"Action: {instruction}")
+        if escalation.get("escalate"):
+            reasons = ", ".join(escalation.get("reasons", []))
+            lines.insert(1, f"Escalated: {reasons or 'rule matched'}")
+        return "\n".join(lines)
+
+    def _alert_tooltip_text(
+        self,
+        alert: Dict[str, Any],
+        distance_miles: Optional[float],
+        escalation: Dict[str, Any],
+    ) -> str:
+        fields = [
+            f"Title: {alert.get('title', 'Alert')}",
+            f"Event: {alert.get('event', 'Unknown')}",
+            f"Severity: {alert.get('severity', 'Unknown')}",
+            f"Urgency: {alert.get('urgency', 'Unknown')}",
+            f"Certainty: {alert.get('certainty', 'Unknown')}",
+            f"Status: {alert.get('status', 'Unknown')}",
+        ]
+        if isinstance(distance_miles, (int, float)):
+            fields.append(f"Distance from monitored point: {distance_miles:.1f} mi")
+        timing = self._alert_time_window_text(alert)
+        if timing:
+            fields.append(timing)
+        if escalation.get("escalate"):
+            fields.append(f"Escalation: {', '.join(escalation.get('reasons', [])) or 'rule matched'}")
+        if alert.get("area_desc"):
+            fields.extend(["", f"Areas: {alert.get('area_desc')}"])
+        fields.extend(["", alert.get("summary", "No summary available.")])
+        if alert.get("instruction"):
+            fields.extend(["", f"Action: {alert.get('instruction')}"])
+        return "\n".join(fields)
+
+    def _apply_alert_item_visuals(
+        self,
+        item: QListWidgetItem,
+        alert: Dict[str, Any],
+        alert_category: str,
+        escalated: bool,
+        newly_notified: bool,
+    ) -> None:
+        severity = str(alert.get("severity", "Unknown")).title()
+        if self.current_dark_mode_enabled:
+            colors = {
+                "Extreme": ("#49151d", "#ffd7df"),
+                "Severe": ("#3f1f1f", "#fecaca"),
+                "Moderate": ("#3b2d12", "#fde68a"),
+                "Minor": ("#14253d", "#bfdbfe"),
+                "Unknown": ("#1b2530", "#d8e2ee"),
+            }
+            category_colors = {
+                "warning": ("#3f1f1f", "#fecaca"),
+                "watch": ("#3b2d12", "#fde68a"),
+                "advisory": ("#14253d", "#bfdbfe"),
+                "generic": ("#1b2530", "#d8e2ee"),
+            }
+        else:
+            colors = {
+                "Extreme": ("#fee2e2", "#7f1d1d"),
+                "Severe": ("#fff1f2", "#991b1b"),
+                "Moderate": ("#fffbeb", "#92400e"),
+                "Minor": ("#eff6ff", "#1d4ed8"),
+                "Unknown": ("#f8fafc", "#334155"),
+            }
+            category_colors = {
+                "warning": ("#fff1f2", "#991b1b"),
+                "watch": ("#fffbeb", "#92400e"),
+                "advisory": ("#eff6ff", "#1d4ed8"),
+                "generic": ("#f8fafc", "#334155"),
+            }
+
+        background, foreground = colors.get(severity, category_colors.get(alert_category, category_colors["generic"]))
+        if newly_notified:
+            background = "#ffe4e6" if not self.current_dark_mode_enabled else "#4c1d2d"
+        if escalated:
+            background = "#fecdd3" if not self.current_dark_mode_enabled else "#5a1d24"
+            foreground = "#7f1d1d" if not self.current_dark_mode_enabled else "#ffe4e6"
+        item.setBackground(QColor(background))
+        item.setForeground(QColor(foreground))
+
     def _update_location_data(self, location_id):
         if self._check_in_progress:
             self._pending_location_id = location_id
@@ -3928,7 +4067,9 @@ class WeatherAlertApp(QMainWindow):
 
         worker = Worker(self._fetch_all_data_for_location, location_id)
         worker.signals.result.connect(self._on_location_data_loaded)
-        worker.signals.error.connect(self._on_data_load_error)
+        worker.signals.error.connect(
+            lambda e, failed_location_id=location_id: self._on_data_load_error(e, failed_location_id)
+        )
         self.thread_pool.start(worker)
 
     def _schedule_next_timed_check(self, immediate: bool = False):
@@ -4009,11 +4150,13 @@ class WeatherAlertApp(QMainWindow):
     def _on_location_data_loaded(self, result: Dict[str, Any]):
         self.network_status_indicator.setText("● Network OK")
         self.network_status_indicator.setStyleSheet("color: green; font-weight: bold;")
-        self.current_coords = result["coords"]
-        alerts = result["alerts"]
-        if self.current_coords:
-            alerts = rank_alerts_by_proximity(alerts, self.current_coords[0], self.current_coords[1])
         location_id = result["location_id"]
+        coords = result["coords"]
+        alerts = result["alerts"]
+        if coords:
+            alerts = rank_alerts_by_proximity(alerts, coords[0], coords[1])
+        result = dict(result)
+        result["alerts"] = alerts
         previous = self.last_active_alerts_by_location.get(location_id, {})
         lifecycle = summarize_lifecycle(previous, alerts)
         self.last_active_alerts_by_location[location_id] = lifecycle["active"]
@@ -4027,7 +4170,7 @@ class WeatherAlertApp(QMainWindow):
         }
         self._record_lifecycle_events(location_id, lifecycle)
 
-        self.log_to_gui(f"Successfully fetched data for {self.get_location_name_by_id(location_id)} at {self.current_coords}",
+        self.log_to_gui(f"Successfully fetched data for {self.get_location_name_by_id(location_id)} at {coords}",
                         level="INFO")
         if lifecycle["new"] or lifecycle["updated"] or lifecycle["expired"] or lifecycle["cancelled"]:
             self.log_to_gui(
@@ -4038,6 +4181,16 @@ class WeatherAlertApp(QMainWindow):
             for update in lifecycle["updated"][:3]:
                 self.log_to_gui(f"Updated alert: {update['title']} | {'; '.join(update['changes'])}", level="INFO")
 
+        if location_id != self.current_location_id:
+            self.log_to_gui(
+                f"Cached data for {self.get_location_name_by_id(location_id)}; current selection changed before render.",
+                level="DEBUG",
+            )
+            self._update_dashboard_summary()
+            self._finish_check_cycle()
+            return
+
+        self.current_coords = coords
         self._update_alerts_display_area(alerts, location_id, lifecycle)
         new_alert_titles = [alert.get("title", "N/A Title") for alert in lifecycle["new"] if alert.get("_notify_allowed")]
         self._update_lifecycle_display(lifecycle)
@@ -4053,12 +4206,23 @@ class WeatherAlertApp(QMainWindow):
         self._finish_check_cycle()
 
     @Slot(Exception)
-    def _on_data_load_error(self, e: Exception):
+    def _on_data_load_error(self, e: Exception, location_id: Optional[str] = None):
+        failed_location_id = location_id or self.current_location_id
+        self.log_to_gui(f"{self.get_location_name_by_id(failed_location_id)} refresh failed: {e}", level="ERROR")
+
+        if failed_location_id != self.current_location_id:
+            self.location_runtime_status[failed_location_id] = {
+                "state": "error",
+                "detail": str(e),
+            }
+            self._update_dashboard_summary()
+            self._finish_check_cycle()
+            return
+
         self.network_status_indicator.setText("● Network FAIL")
         self.network_status_indicator.setStyleSheet("color: red; font-weight: bold;")
-        self.log_to_gui(str(e), level="ERROR")
         self.update_status(f"Error: {e}. Showing last known data if available.")
-        cached = self.last_known_data_by_location.get(self.current_location_id)
+        cached = self.last_known_data_by_location.get(failed_location_id)
         if cached:
             fetched_at = cached.get("fetched_at")
             stale_text = ""
@@ -4068,12 +4232,12 @@ class WeatherAlertApp(QMainWindow):
             self.network_status_indicator.setText(f"● Offline (Using Cached Data{stale_text})")
             self.network_status_indicator.setStyleSheet("color: #b58900; font-weight: bold;")
             self.current_coords = cached.get("coords")
-            self.location_runtime_status[self.current_location_id] = {
+            self.location_runtime_status[failed_location_id] = {
                 "state": "cached",
                 "detail": f"Cached data in use{stale_text}",
                 "fetched_at": cached.get("fetched_at"),
             }
-            self._update_alerts_display_area(cached.get("alerts", []), self.current_location_id, None)
+            self._update_alerts_display_area(cached.get("alerts", []), failed_location_id, None)
             self._update_lifecycle_display(None)
             self._update_hourly_forecast_display(cached.get("hourly_forecast"), cached.get("grid_forecast"))
             self._update_daily_forecast_display(cached.get("daily_forecast"), cached.get("grid_forecast"))
@@ -4084,11 +4248,11 @@ class WeatherAlertApp(QMainWindow):
             return
 
         self.current_coords = None
-        self.location_runtime_status[self.current_location_id] = {
+        self.location_runtime_status[failed_location_id] = {
             "state": "error",
             "detail": str(e),
         }
-        self._update_alerts_display_area([], self.current_location_id, None)
+        self._update_alerts_display_area([], failed_location_id, None)
         self._update_lifecycle_display(None)
         self._update_hourly_forecast_display(None, None)
         self._update_daily_forecast_display(None, None)
@@ -4279,7 +4443,26 @@ class WeatherAlertApp(QMainWindow):
             return
         if not alerts:
             if self._last_map_empty_location_id != self.current_location_id:
-                self.map_view.setHtml("<html><body><h3>No active polygons for current location.</h3></body></html>")
+                self.map_view.setHtml(
+                    """
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body { margin: 0; font-family: Segoe UI, Arial, sans-serif; background: #f8fafc; color: #334155; }
+    .empty { height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; }
+    .panel { border: 1px solid #dbe4ef; border-radius: 8px; background: #ffffff; padding: 22px 28px; }
+    h3 { margin: 0 0 8px; color: #0f172a; }
+    p { margin: 0; }
+  </style>
+</head>
+<body>
+  <div class="empty"><div class="panel"><h3>No active alert polygons</h3><p>The selected location has no mapped NWS alert areas right now.</p></div></div>
+</body>
+</html>
+"""
+                )
                 self._last_map_empty_location_id = self.current_location_id
                 self._last_map_signature = ()
             return
@@ -4307,29 +4490,50 @@ class WeatherAlertApp(QMainWindow):
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <style>html, body, #map {{ height: 100%; margin: 0; }}</style>
+  <style>
+    html, body, #map {{ height: 100%; margin: 0; }}
+    body {{ font-family: Segoe UI, Arial, sans-serif; }}
+    .leaflet-popup-content {{ font-size: 13px; line-height: 1.4; }}
+  </style>
 </head>
 <body>
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     const map = L.map('map').setView([{lat}, {lon}], 8);
-    L.tileLayer('https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 12 }}).addTo(map);
+    L.tileLayer('https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
+      maxZoom: 12,
+      attribution: '&copy; OpenStreetMap contributors'
+    }}).addTo(map);
+    L.circleMarker([{lat}, {lon}], {{
+      radius: 6,
+      color: '#0f172a',
+      weight: 2,
+      fillColor: '#38bdf8',
+      fillOpacity: 0.95
+    }}).addTo(map).bindPopup('Monitored location');
     const geojson = {json.dumps(geojson)};
+    const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({{
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }}[char]));
     const styleBySeverity = {{
-      'Extreme': {{color: '#8b0000', weight: 2}},
-      'Severe': {{color: '#cc0000', weight: 2}},
-      'Moderate': {{color: '#ff9900', weight: 2}},
-      'Minor': {{color: '#0066cc', weight: 2}}
+      'Extreme': {{color: '#7f1d1d', fillColor: '#ef4444', weight: 2, fillOpacity: 0.28}},
+      'Severe': {{color: '#b91c1c', fillColor: '#f87171', weight: 2, fillOpacity: 0.24}},
+      'Moderate': {{color: '#b45309', fillColor: '#fbbf24', weight: 2, fillOpacity: 0.22}},
+      'Minor': {{color: '#1d4ed8', fillColor: '#60a5fa', weight: 2, fillOpacity: 0.20}}
     }};
     const layer = L.geoJSON(geojson, {{
       style: function(feature) {{
         const s = (feature.properties && feature.properties.severity) || 'Minor';
-        return styleBySeverity[s] || {{color: '#666', weight: 2}};
+        return styleBySeverity[s] || {{color: '#475569', fillColor: '#94a3b8', weight: 2, fillOpacity: 0.18}};
       }},
       onEachFeature: function(feature, lyr) {{
         const p = feature.properties || {{}};
-        lyr.bindPopup(`<b>${{p.title || 'Alert'}}</b><br/>Severity: ${{p.severity || 'Unknown'}}`);
+        lyr.bindPopup(`<b>${{escapeHtml(p.title || 'Alert')}}</b><br/>Severity: ${{escapeHtml(p.severity || 'Unknown')}}`);
       }}
     }}).addTo(map);
     if (layer.getLayers().length > 0) {{
@@ -4382,6 +4586,9 @@ class WeatherAlertApp(QMainWindow):
         if not alerts:
             item = QListWidgetItem(f"No active alerts for {self.get_location_name_by_id(location_id)}.")
             item.setData(Qt.ItemDataRole.UserRole + 1, "generic")
+            item.setData(Qt.ItemDataRole.UserRole + 3, True)
+            item.setData(Qt.ItemDataRole.UserRole + 4, "none")
+            item.setSizeHint(QSize(item.sizeHint().width(), 54))
             self.alerts_display_area.addItem(item)
             self.alerts_meta_label.setText(f"{self.get_location_name_by_id(location_id)}: no active alerts right now.")
             self._apply_alert_filters()
@@ -4396,6 +4603,7 @@ class WeatherAlertApp(QMainWindow):
         cooldown_s = int(rules.get("suppression_cooldown_seconds", 900))
 
         high_priority_keywords = ["tornado", "severe thunderstorm", "flash flood warning"]
+        rendered_alert_count = 0
         for alert in alerts:
             now = datetime.now()
             distance_miles = alert.get("distance_miles")
@@ -4417,13 +4625,13 @@ class WeatherAlertApp(QMainWindow):
 
             title = alert.get('title', 'N/A Title')
             summary = alert.get('summary', 'No summary available.')
-            distance_suffix = f" ({distance_miles:.1f} mi)" if isinstance(distance_miles, (int, float)) else ""
-            alert_text = f"{title}{distance_suffix}\n{summary}"
+            alert_text = self._alert_display_text(alert, distance_miles, escalation)
             item = QListWidgetItem(alert_text)
             alert_category = self._classify_alert_category(alert)
             item.setData(Qt.ItemDataRole.UserRole + 1, alert_category)
+            item.setData(Qt.ItemDataRole.UserRole + 3, False)
             item.setSizeHint(QSize(item.sizeHint().width(), self._alert_item_height_for_text(alert_text)))
-            item.setToolTip(f"{title}{distance_suffix}\n\n{summary}")
+            item.setToolTip(self._format_rich_tooltip(self._alert_tooltip_text(alert, distance_miles, escalation)))
             dedup_meta = self.alert_dedup.classify(alert)
 
             is_new = self.alert_history_manager.add_alert(
@@ -4442,6 +4650,7 @@ class WeatherAlertApp(QMainWindow):
                 }
             )
 
+            should_send = False
             if is_new:
                 should_send, send_reason = self.alert_dedup.should_send(
                     alert,
@@ -4451,10 +4660,20 @@ class WeatherAlertApp(QMainWindow):
                 alert["_notify_allowed"] = should_send
                 if not should_send:
                     self.log_to_gui(f"Suppressed duplicate notification: {title} [{send_reason}]", level="DEBUG")
-                    self.alerts_display_area.addItem(item)
-                    continue
+            else:
+                alert["_notify_allowed"] = False
 
-                item.setBackground(QColor("#ffcccc"))  # Light red for new alerts
+            self._apply_alert_item_visuals(
+                item,
+                alert,
+                alert_category,
+                bool(escalation.get("escalate", False)),
+                bool(is_new and should_send),
+            )
+            self.alerts_display_area.addItem(item)
+            rendered_alert_count += 1
+
+            if is_new and should_send:
                 if should_play_sound:
                     self._play_alert_sound(title.lower(), rules, escalation.get("escalate", False))
                 if should_notify_desktop:
@@ -4479,18 +4698,15 @@ class WeatherAlertApp(QMainWindow):
                         "location_name": self.get_location_name_by_id(location_id),
                         "location_id": location_id,
                     }
-            else:
-                alert["_notify_allowed"] = False
 
-            # Color coding by alert type
-            title_lower = title.lower()
-            if 'warning' in title_lower:
-                item.setForeground(QColor("#cc0000"))  # Red text
-            elif 'watch' in title_lower:
-                item.setForeground(QColor("#ff9900"))  # Orange text
-            elif 'advisory' in title_lower:
-                item.setForeground(QColor("#0066cc"))  # Blue text
-
+        if rendered_alert_count == 0:
+            item = QListWidgetItem(
+                "Active NWS alerts are present, but none match this location's severity, type, or quiet-hour rules."
+            )
+            item.setData(Qt.ItemDataRole.UserRole + 1, "generic")
+            item.setData(Qt.ItemDataRole.UserRole + 3, True)
+            item.setData(Qt.ItemDataRole.UserRole + 4, "suppressed")
+            item.setSizeHint(QSize(item.sizeHint().width(), 64))
             self.alerts_display_area.addItem(item)
         self._apply_alert_filters()
 
@@ -5401,6 +5617,7 @@ class WeatherAlertApp(QMainWindow):
         )
 
         state_value = {
+            "loading": "LOADING",
             "online": "ONLINE",
             "cached": "CACHED",
             "error": "ERROR",
@@ -5921,17 +6138,8 @@ class WeatherAlertApp(QMainWindow):
         return None
 
     def _apply_forecast_font_sizes(self) -> None:
-        width = self.combined_forecast_widget.width() if hasattr(self, "combined_forecast_widget") else self.width()
-        width = max(width, 900)
-        if width < 1200:
-            hourly_size = 7
-            daily_size = 7
-        elif width < 1550:
-            hourly_size = 8
-            daily_size = 8
-        else:
-            hourly_size = 9
-            daily_size = 9
+        hourly_size = 9
+        daily_size = 9
 
         hourly_font = self.hourly_forecast_widget.font()
         hourly_font.setPointSize(hourly_size)
@@ -5944,9 +6152,9 @@ class WeatherAlertApp(QMainWindow):
     def _apply_forecast_panel_sizes(self) -> None:
         window_height = max(self.height(), 820)
         is_stacked = self._is_forecast_layout_stacked() if hasattr(self, "combined_forecast_widget") else False
-        alerts_panel_height = max(88, min(124, int(window_height * 0.11)))
-        lifecycle_height = max(26, min(42, int(window_height * 0.038)))
-        forecast_panel_height = max(96, min(150, int(window_height * (0.12 if is_stacked else 0.135))))
+        alerts_panel_height = max(140, min(300 if is_stacked else 220, int(window_height * (0.23 if is_stacked else 0.17))))
+        lifecycle_height = max(42, min(70, int(window_height * 0.055)))
+        forecast_panel_height = max(160, min(240, int(window_height * (0.20 if is_stacked else 0.18))))
 
         self.alerts_display_area.setMinimumHeight(alerts_panel_height)
         self.alerts_display_area.setMaximumHeight(alerts_panel_height)
@@ -5964,7 +6172,7 @@ class WeatherAlertApp(QMainWindow):
         unified_outer_height = max(alerts_outer_height, forecast_outer_height)
         self.alerts_group.setMinimumHeight(unified_outer_height)
         self.alerts_group.setMaximumHeight(unified_outer_height)
-        combined_outer_height = (forecast_panel_height * (2 if is_stacked else 1)) + (84 if is_stacked else 54)
+        combined_outer_height = (forecast_panel_height * (2 if is_stacked else 1)) + (96 if is_stacked else 58)
         unified_combined_height = max(unified_outer_height, combined_outer_height)
         self.combined_forecast_widget.setMinimumHeight(unified_combined_height)
         self.combined_forecast_widget.setMaximumHeight(unified_combined_height)
@@ -6096,7 +6304,21 @@ class WeatherAlertApp(QMainWindow):
         )
         return max(56, rect.height() + 14)
 
-    def _update_alerts_meta_label(self, visible_count: int, total_count: int, location_name: str) -> None:
+    def _update_alerts_meta_label(
+        self,
+        visible_count: int,
+        total_count: int,
+        location_name: str,
+        placeholder_reason: str = "",
+    ) -> None:
+        if total_count == 0:
+            if placeholder_reason == "suppressed":
+                self.alerts_meta_label.setText(
+                    f"{location_name}: active alerts are present, but current rules suppress them."
+                )
+                return
+            self.alerts_meta_label.setText(f"{location_name}: no active alerts right now.")
+            return
         filter_bits = []
         if self.warning_button.isChecked():
             filter_bits.append("warnings")
@@ -6115,9 +6337,18 @@ class WeatherAlertApp(QMainWindow):
         show_watches = self.watch_button.isChecked()
         show_advisories = self.advisory_button.isChecked()
         visible_count = 0
+        total_alert_count = 0
+        placeholder_reason = ""
 
         for i in range(self.alerts_display_area.count()):
             item = self.alerts_display_area.item(i)
+            is_placeholder = bool(item.data(Qt.ItemDataRole.UserRole + 3))
+            if is_placeholder:
+                placeholder_reason = str(item.data(Qt.ItemDataRole.UserRole + 4) or placeholder_reason)
+                item.setHidden(False)
+                continue
+
+            total_alert_count += 1
             category = item.data(Qt.ItemDataRole.UserRole + 1) or "generic"
             if show_all or category == "generic":
                 item.setHidden(False)
@@ -6132,7 +6363,12 @@ class WeatherAlertApp(QMainWindow):
             item.setHidden(not show)
             if show:
                 visible_count += 1
-        self._update_alerts_meta_label(visible_count, self.alerts_display_area.count(), self.get_current_location_name())
+        self._update_alerts_meta_label(
+            visible_count,
+            total_alert_count,
+            self.get_current_location_name(),
+            placeholder_reason,
+        )
         self.alerts_display_area.viewport().update()
 
     def _filter_alerts(self):

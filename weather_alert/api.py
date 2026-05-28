@@ -2,12 +2,21 @@ import logging
 import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlencode
 
-import pandas
-import pgeocode
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+try:
+    import pandas
+except ImportError:  # pragma: no cover - optional dependency guard
+    pandas = None
+
+try:
+    import pgeocode
+except ImportError:  # pragma: no cover - optional dependency guard
+    pgeocode = None
 
 
 NWS_STATION_API_URL_TEMPLATE = "https://api.weather.gov/stations/{station_id}"
@@ -42,7 +51,7 @@ class NwsApiClient:
         self.forecast_ttl_s = forecast_ttl_s
         self.coords_ttl_s = coords_ttl_s
         self.headers = {"User-Agent": self.user_agent, "Accept": "application/geo+json"}
-        self.pgeocode_client = pgeocode.Nominatim("us")
+        self.pgeocode_client = pgeocode.Nominatim("us") if pgeocode else None
 
         self.session = requests.Session()
         retry = Retry(
@@ -92,18 +101,111 @@ class NwsApiClient:
             return lat, lon
         return None
 
+    @staticmethod
+    def _is_missing(value: Any) -> bool:
+        if value is None:
+            return True
+        if pandas is not None:
+            try:
+                return bool(pandas.isna(value))
+            except (TypeError, ValueError):
+                return False
+        try:
+            return value != value
+        except Exception:
+            return False
+
+    @staticmethod
+    def _row_value(row: Any, field_name: str) -> Any:
+        if isinstance(row, dict):
+            return row.get(field_name)
+        if hasattr(row, field_name):
+            return getattr(row, field_name)
+        if hasattr(row, "get"):
+            try:
+                return row.get(field_name)
+            except Exception:
+                return None
+        return None
+
+    @classmethod
+    def _iter_geocode_rows(cls, result: Any) -> List[Any]:
+        if result is None:
+            return []
+        if isinstance(result, list):
+            return result
+        if isinstance(result, tuple):
+            return list(result)
+        if isinstance(result, dict):
+            return [result]
+        if hasattr(result, "to_dict"):
+            try:
+                rows = result.to_dict("records")
+                return rows if isinstance(rows, list) else []
+            except TypeError:
+                try:
+                    return [result.to_dict()]
+                except Exception:
+                    return []
+            except Exception:
+                return []
+        return [result]
+
+    @classmethod
+    def _coordinates_from_geocode_result(cls, result: Any, preferred_city: str = "") -> Optional[Tuple[float, float]]:
+        rows = cls._iter_geocode_rows(result)
+        valid_rows = []
+        for row in rows:
+            lat = cls._row_value(row, "latitude")
+            lon = cls._row_value(row, "longitude")
+            if not cls._is_missing(lat) and not cls._is_missing(lon):
+                valid_rows.append(row)
+
+        if not valid_rows:
+            return None
+
+        selected = valid_rows[0]
+        if preferred_city:
+            normalized_city = preferred_city.strip().lower()
+            selected = next(
+                (
+                    row for row in valid_rows
+                    if str(cls._row_value(row, "place_name") or "").strip().lower() == normalized_city
+                ),
+                valid_rows[0],
+            )
+
+        return float(cls._row_value(selected, "latitude")), float(cls._row_value(selected, "longitude"))
+
+    @staticmethod
+    def _iter_geojson_positions(node: Any):
+        if isinstance(node, (list, tuple)):
+            if (
+                len(node) >= 2
+                and isinstance(node[0], (int, float))
+                and isinstance(node[1], (int, float))
+            ):
+                lon = float(node[0])
+                lat = float(node[1])
+                yield lat, lon
+                return
+            for child in node:
+                yield from NwsApiClient._iter_geojson_positions(child)
+
+    @classmethod
+    def _first_coordinate_from_geometry(cls, geometry: Optional[Dict[str, Any]]) -> Optional[Tuple[float, float]]:
+        if not geometry:
+            return None
+        return next(cls._iter_geojson_positions(geometry.get("coordinates")), None)
+
     def _get_coordinates_for_zone(self, zone_id: str) -> Optional[Tuple[float, float]]:
         for zone_type in ZONE_TYPES:
             zone_url = f"https://api.weather.gov/zones/{zone_type}/{zone_id}"
             try:
                 data = self._get_json(zone_url)
-                coords = data.get("geometry", {}).get("coordinates")
-                if not coords:
-                    continue
-                # Polygons are usually [[[lon,lat],...]]
-                first = coords[0][0][0] if isinstance(coords[0][0], list) else coords[0][0]
-                if isinstance(first, list) and len(first) >= 2:
-                    return float(first[1]), float(first[0])
+                coords = self._first_coordinate_from_geometry(data.get("geometry"))
+                if coords:
+                    return coords
             except requests.RequestException:
                 continue
             except (IndexError, TypeError, ValueError):
@@ -124,20 +226,10 @@ class NwsApiClient:
         return city_part, state_code
 
     def _resolve_city_state(self, city: str, state_code: str) -> Optional[Tuple[float, float]]:
-        city_df = self.pgeocode_client.query_location(city, state_code=state_code)
-        if city_df is None or city_df.empty:
+        if not self.pgeocode_client:
             return None
-
-        valid_rows = city_df.dropna(subset=["latitude", "longitude"])
-        if valid_rows.empty:
-            return None
-
-        normalized_city = city.strip().lower()
-        exact_matches = valid_rows[
-            valid_rows["place_name"].astype(str).str.strip().str.lower() == normalized_city
-        ]
-        row = exact_matches.iloc[0] if not exact_matches.empty else valid_rows.iloc[0]
-        return float(row.latitude), float(row.longitude)
+        city_result = self.pgeocode_client.query_location(city, state_code=state_code)
+        return self._coordinates_from_geocode_result(city_result, preferred_city=city)
 
     def get_coordinates_for_location(self, location_id: str) -> Optional[Tuple[float, float]]:
         """Supports zip, airport/station IDs, lat/lon, county/zone IDs, and city,state."""
@@ -156,9 +248,9 @@ class NwsApiClient:
             return lat_lon
 
         if processed_input.isdigit() and len(processed_input) == 5:
-            location_info = self.pgeocode_client.query_postal_code(processed_input)
-            if not location_info.empty and not pandas.isna(location_info.latitude):
-                coords = (float(location_info.latitude), float(location_info.longitude))
+            location_info = self.pgeocode_client.query_postal_code(processed_input) if self.pgeocode_client else None
+            coords = self._coordinates_from_geocode_result(location_info)
+            if coords:
                 self._cache_set(self._coords_cache, processed_input, coords, self.coords_ttl_s)
                 return coords
 
@@ -250,9 +342,13 @@ class NwsApiClient:
             "title": title,
             "summary": description,
             "link": props.get("@id") or props.get("uri") or "",
+            "headline": headline,
             "updated": props.get("updated"),
+            "sent": props.get("sent"),
+            "onset": props.get("onset"),
             "effective": props.get("effective"),
             "expires": props.get("expires"),
+            "ends": props.get("ends"),
             "severity": (props.get("severity") or "").title(),
             "urgency": (props.get("urgency") or "").title(),
             "certainty": (props.get("certainty") or "").title(),
@@ -265,13 +361,13 @@ class NwsApiClient:
         }
 
     def get_alerts(self, lat: float, lon: float) -> List[Dict[str, Any]]:
-        params = (
-            f"point={lat},{lon}"
-            "&certainty=Possible,Likely,Observed"
-            "&severity=Extreme,Severe,Moderate,Minor"
-            "&urgency=Immediate,Future,Expected"
-        )
-        url = f"{ALERTS_API_URL}?{params}"
+        params = {
+            "point": f"{lat},{lon}",
+            "certainty": "Possible,Likely,Observed",
+            "severity": "Extreme,Severe,Moderate,Minor",
+            "urgency": "Immediate,Future,Expected",
+        }
+        url = f"{ALERTS_API_URL}?{urlencode(params)}"
         try:
             data = self._get_json(url)
             features = data.get("features", [])
