@@ -38,6 +38,7 @@ def test_get_forecast_urls_includes_grid_data(monkeypatch):
                 "forecastHourly": "https://api.weather.gov/gridpoints/XXX/1,1/forecast/hourly",
                 "forecast": "https://api.weather.gov/gridpoints/XXX/1,1/forecast",
                 "forecastGridData": "https://api.weather.gov/gridpoints/XXX/1,1",
+                "observationStations": "https://api.weather.gov/gridpoints/XXX/1,1/stations",
             }
         }
 
@@ -48,6 +49,7 @@ def test_get_forecast_urls_includes_grid_data(monkeypatch):
         "hourly": "https://api.weather.gov/gridpoints/XXX/1,1/forecast/hourly",
         "daily": "https://api.weather.gov/gridpoints/XXX/1,1/forecast",
         "grid": "https://api.weather.gov/gridpoints/XXX/1,1",
+        "observations": "https://api.weather.gov/gridpoints/XXX/1,1/stations",
     }
 
 
@@ -141,3 +143,39 @@ def test_alert_query_is_encoded_and_normalized(monkeypatch):
     assert "point=38.51%2C-90.31" in called["url"]
     assert alerts[0]["headline"] == "Severe storms moving east"
     assert alerts[0]["severity"] == "Severe"
+
+
+def test_current_conditions_normalizes_latest_observation(monkeypatch):
+    client = NwsApiClient("test-agent")
+
+    def fake_get_json(url, **_kwargs):
+        if url.endswith("/stations"):
+            return {"features": [{"id": "https://api.weather.gov/stations/KSTL"}]}
+        if url.endswith("/stations/KSTL"):
+            return {"properties": {"stationIdentifier": "KSTL", "name": "St Louis Lambert"}}
+        if url.endswith("/stations/KSTL/observations/latest"):
+            return {
+                "properties": {
+                    "timestamp": "2026-05-28T15:00:00+00:00",
+                    "textDescription": "Mostly Cloudy",
+                    "temperature": {"value": 20.0, "unitCode": "wmoUnit:degC"},
+                    "dewpoint": {"value": 12.0, "unitCode": "wmoUnit:degC"},
+                    "relativeHumidity": {"value": 60.0},
+                    "windSpeed": {"value": 16.0, "unitCode": "wmoUnit:km_h-1"},
+                    "windGust": {"value": 32.0, "unitCode": "wmoUnit:km_h-1"},
+                    "windDirection": {"value": 180.0},
+                    "barometricPressure": {"value": 101500.0, "unitCode": "wmoUnit:Pa"},
+                    "visibility": {"value": 16093.4, "unitCode": "wmoUnit:m"},
+                }
+            }
+        raise AssertionError(url)
+
+    monkeypatch.setattr(client, "_get_json", fake_get_json)
+    conditions = client.get_current_conditions("https://api.weather.gov/gridpoints/XXX/1,1/stations")
+
+    assert conditions["station_id"] == "KSTL"
+    assert round(conditions["temperature_f"]) == 68
+    assert round(conditions["wind_mph"]) == 10
+    assert conditions["wind_direction"] == "S"
+    assert round(conditions["visibility_miles"], 1) == 10.0
+    assert round(conditions["pressure_inhg"], 2) == 29.97

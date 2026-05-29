@@ -68,6 +68,7 @@ class NwsApiClient:
         self._coords_cache: Dict[str, Tuple[float, Tuple[float, float]]] = {}
         self._forecast_url_cache: Dict[str, Tuple[float, Dict[str, str]]] = {}
         self._forecast_data_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+        self._observation_station_cache: Dict[str, Tuple[float, Optional[str]]] = {}
 
     def _get_json(self, url: str, *, headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         use_headers = headers if headers else self.headers
@@ -307,6 +308,7 @@ class NwsApiClient:
                 "hourly": props.get("forecastHourly"),
                 "daily": props.get("forecast"),
                 "grid": props.get("forecastGridData"),
+                "observations": props.get("observationStations"),
             }
             self._cache_set(self._forecast_url_cache, cache_key, data, self.forecast_ttl_s)
             return data
@@ -329,6 +331,160 @@ class NwsApiClient:
         except (requests.RequestException, ValueError) as e:
             logging.error("API error fetching forecast data from %s: %s", url, e)
             return None
+
+    @staticmethod
+    def _c_to_f(value_c: Optional[float]) -> Optional[float]:
+        if value_c is None:
+            return None
+        return (float(value_c) * 9.0 / 5.0) + 32.0
+
+    @staticmethod
+    def _format_number(value: Optional[float], decimals: int = 0) -> str:
+        if value is None:
+            return "N/A"
+        return f"{value:.{decimals}f}"
+
+    @staticmethod
+    def _extract_quantitative_value(container: Any) -> Optional[float]:
+        if isinstance(container, dict):
+            value = container.get("value")
+        else:
+            value = container
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _speed_to_mph(value: Optional[float], unit_code: str = "") -> Optional[float]:
+        if value is None:
+            return None
+        lower_unit = unit_code.lower()
+        if "km_h-1" in lower_unit:
+            return value * 0.621371
+        if "m_s-1" in lower_unit:
+            return value * 2.23694
+        return value
+
+    @staticmethod
+    def _pressure_to_inhg(value: Optional[float], unit_code: str = "") -> Optional[float]:
+        if value is None:
+            return None
+        lower_unit = unit_code.lower()
+        if lower_unit.endswith(":pa") or lower_unit.endswith("/pa") or lower_unit == "pa":
+            return value * 0.000295300
+        return value
+
+    @staticmethod
+    def _visibility_to_miles(value: Optional[float], unit_code: str = "") -> Optional[float]:
+        if value is None:
+            return None
+        lower_unit = unit_code.lower()
+        if lower_unit.endswith(":m") or lower_unit.endswith("/m") or lower_unit == "m":
+            return value * 0.000621371
+        return value
+
+    @staticmethod
+    def _degrees_to_compass(value: Optional[float]) -> str:
+        if value is None:
+            return ""
+        directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+        index = int((value + 11.25) / 22.5) % 16
+        return directions[index]
+
+    def _first_observation_station_url(self, stations_url: str) -> Optional[str]:
+        cached = self._cache_get(self._observation_station_cache, stations_url)
+        if cached is not None:
+            return cached
+
+        try:
+            data = self._get_json(stations_url)
+            features = data.get("features", [])
+            if not features:
+                self._cache_set(self._observation_station_cache, stations_url, None, self.forecast_ttl_s)
+                return None
+            station_url = features[0].get("id") or features[0].get("properties", {}).get("@id")
+            self._cache_set(self._observation_station_cache, stations_url, station_url, self.forecast_ttl_s)
+            return station_url
+        except (requests.RequestException, ValueError) as e:
+            logging.error("API error fetching observation stations from %s: %s", stations_url, e)
+            return None
+
+    def get_current_conditions(self, stations_url: str) -> Optional[Dict[str, Any]]:
+        if not stations_url:
+            return None
+
+        station_url = self._first_observation_station_url(stations_url)
+        if not station_url:
+            return None
+
+        observation_url = station_url.rstrip("/") + "/observations/latest"
+        try:
+            data = self._get_json(observation_url)
+        except (requests.RequestException, ValueError) as e:
+            logging.error("API error fetching latest observation from %s: %s", observation_url, e)
+            return None
+
+        props = data.get("properties", {})
+        station_props = {}
+        try:
+            station_props = self._get_json(station_url).get("properties", {})
+        except (requests.RequestException, ValueError):
+            station_props = {}
+
+        temp_c = self._extract_quantitative_value(props.get("temperature"))
+        dewpoint_c = self._extract_quantitative_value(props.get("dewpoint"))
+        heat_index_c = self._extract_quantitative_value(props.get("heatIndex"))
+        wind_chill_c = self._extract_quantitative_value(props.get("windChill"))
+        humidity = self._extract_quantitative_value(props.get("relativeHumidity"))
+        wind_speed = props.get("windSpeed", {})
+        wind_gust = props.get("windGust", {})
+        wind_dir = self._extract_quantitative_value(props.get("windDirection"))
+        pressure_source = props.get("barometricPressure") or props.get("seaLevelPressure")
+        visibility = props.get("visibility", {})
+
+        wind_mph = self._speed_to_mph(
+            self._extract_quantitative_value(wind_speed),
+            str(wind_speed.get("unitCode", "")) if isinstance(wind_speed, dict) else "",
+        )
+        gust_mph = self._speed_to_mph(
+            self._extract_quantitative_value(wind_gust),
+            str(wind_gust.get("unitCode", "")) if isinstance(wind_gust, dict) else "",
+        )
+        pressure_inhg = self._pressure_to_inhg(
+            self._extract_quantitative_value(pressure_source),
+            str(pressure_source.get("unitCode", "")) if isinstance(pressure_source, dict) else "",
+        )
+        visibility_miles = self._visibility_to_miles(
+            self._extract_quantitative_value(visibility),
+            str(visibility.get("unitCode", "")) if isinstance(visibility, dict) else "",
+        )
+        feels_like_c = heat_index_c if heat_index_c is not None else wind_chill_c
+
+        station_id = station_props.get("stationIdentifier") or station_url.rstrip("/").split("/")[-1]
+        station_name = station_props.get("name") or station_id
+        wind_compass = self._degrees_to_compass(wind_dir)
+        timestamp = props.get("timestamp")
+
+        return {
+            "station_id": station_id,
+            "station_name": station_name,
+            "timestamp": timestamp,
+            "description": props.get("textDescription") or "Observed conditions",
+            "temperature_f": self._c_to_f(temp_c),
+            "dewpoint_f": self._c_to_f(dewpoint_c),
+            "feels_like_f": self._c_to_f(feels_like_c),
+            "humidity": humidity,
+            "wind_mph": wind_mph,
+            "wind_gust_mph": gust_mph,
+            "wind_direction_degrees": wind_dir,
+            "wind_direction": wind_compass,
+            "pressure_inhg": pressure_inhg,
+            "visibility_miles": visibility_miles,
+            "raw": props,
+        }
 
     @staticmethod
     def _normalize_alert(feature: Dict[str, Any]) -> Dict[str, Any]:

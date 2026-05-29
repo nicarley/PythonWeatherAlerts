@@ -1,0 +1,9 @@
+PySide6>=6.6
+PySide6-WebEngine>=6.6
+requests>=2.31
+urllib3>=2.0
+feedparser>=6.0
+pyttsx3>=2.90
+pgeocode>=0.5
+pandas>=2.0
+pytest>=8.0

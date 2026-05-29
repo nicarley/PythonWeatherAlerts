@@ -48,7 +48,7 @@ from weather_alert.dedup import AlertDeduplicator
 from weather_alert.exporter import export_incident_csv, export_incident_json
 
 # --- Application Version ---
-versionnumber = "26.05.28"
+versionnumber = "26.05.29"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -1956,26 +1956,65 @@ class ManageSourcesDialog(QDialog):
 
 
 class AlertDetailsDialog(QDialog):
-    def __init__(self, alert_data: Dict[str, str], parent: Optional[QWidget] = None):
+    @staticmethod
+    def _format_timestamp(value: Any) -> str:
+        if not value:
+            return "N/A"
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            if parsed.tzinfo is not None:
+                parsed = parsed.astimezone()
+            return parsed.strftime("%Y-%m-%d %I:%M %p").replace(" 0", " ")
+        except (TypeError, ValueError):
+            return str(value)
+
+    @staticmethod
+    def _value_text(value: Any, fallback: str = "N/A") -> str:
+        if value is None or value == "":
+            return fallback
+        return str(value)
+
+    def __init__(self, alert_data: Dict[str, Any], parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setWindowTitle("Alert Details")
-        self.setMinimumWidth(500)
+        self.setMinimumSize(760, 580)
 
         layout = QVBoxLayout(self)
+        layout.setSpacing(10)
 
-        title_label = QLabel(f"<b>{alert_data.get('title', 'N/A')}</b>")
+        title_label = QLabel(f"<b>{html.escape(str(alert_data.get('title', 'N/A')))}</b>")
+        title_label.setObjectName("DashboardHeadline")
         title_label.setWordWrap(True)
         layout.addWidget(title_label)
 
-        layout.addSpacing(10)
+        badge_row = QHBoxLayout()
+        for label_text, value, color in [
+            ("Severity", alert_data.get("severity"), "#b91c1c"),
+            ("Urgency", alert_data.get("urgency"), "#c2410c"),
+            ("Certainty", alert_data.get("certainty"), "#0369a1"),
+            ("Status", alert_data.get("status"), "#475569"),
+        ]:
+            badge = QLabel(f"{label_text}: {self._value_text(value)}")
+            badge.setStyleSheet(
+                f"background: {color}; color: white; border-radius: 8px; "
+                "padding: 5px 9px; font-weight: 700;"
+            )
+            badge_row.addWidget(badge)
+        badge_row.addStretch(1)
+        layout.addLayout(badge_row)
 
         form_layout = QFormLayout()
-        form_layout.addRow("Time:", QLabel(alert_data.get('time', 'N/A')))
-        form_layout.addRow("Location:", QLabel(alert_data.get('location', 'N/A')))
-        form_layout.addRow("Type:", QLabel(alert_data.get('type', 'N/A')))
+        form_layout.addRow("Location:", QLabel(self._value_text(alert_data.get('location'))))
+        form_layout.addRow("Event:", QLabel(self._value_text(alert_data.get('event') or alert_data.get('type'))))
+        form_layout.addRow("Effective:", QLabel(self._format_timestamp(alert_data.get('effective') or alert_data.get('onset') or alert_data.get('time'))))
+        form_layout.addRow("Expires:", QLabel(self._format_timestamp(alert_data.get('ends') or alert_data.get('expires'))))
+        distance = alert_data.get("distance_miles")
+        distance_text = f"{distance:.1f} mi from monitored point" if isinstance(distance, (int, float)) else self._value_text(distance)
+        form_layout.addRow("Distance:", QLabel(distance_text))
+        area_label = QLabel(self._value_text(alert_data.get("area_desc"), "No affected area list provided."))
+        area_label.setWordWrap(True)
+        form_layout.addRow("Affected Areas:", area_label)
         layout.addLayout(form_layout)
-
-        layout.addSpacing(10)
 
         summary_group = QGroupBox("Summary")
         summary_layout = QVBoxLayout(summary_group)
@@ -1984,13 +2023,20 @@ class AlertDetailsDialog(QDialog):
         summary_text.setText(alert_data.get('summary', 'No summary available.'))
         summary_layout.addWidget(summary_text)
         layout.addWidget(summary_group)
-        
-        layout.addSpacing(10)
+
+        instruction_group = QGroupBox("Recommended Action")
+        instruction_layout = QVBoxLayout(instruction_group)
+        instruction_text = QTextEdit()
+        instruction_text.setReadOnly(True)
+        instruction_text.setText(alert_data.get("instruction") or "No specific instruction was provided by NWS.")
+        instruction_layout.addWidget(instruction_text)
+        layout.addWidget(instruction_group)
 
         link_label = QLabel()
         link = alert_data.get('link')
         if link:
-            link_label.setText(f'<a href="{link}">Open original alert in browser</a>')
+            escaped_link = html.escape(str(link), quote=True)
+            link_label.setText(f'<a href="{escaped_link}">Open original NWS alert in browser</a>')
             link_label.setOpenExternalLinks(True)
         else:
             link_label.setText("No web link available.")
@@ -2808,6 +2854,7 @@ class WeatherAlertApp(QMainWindow):
         self.alert_dedup = AlertDeduplicator(default_cooldown_s=900)
         self.last_escalated_alert_time: Dict[str, float] = {}
         self.current_alerts_by_location: Dict[str, List[Dict[str, Any]]] = {}
+        self.current_conditions_by_location: Dict[str, Dict[str, Any]] = {}
         self.escalation_repeat_state: Dict[str, Dict[str, Any]] = {}
         self.last_lifecycle_by_location: Dict[str, Dict[str, Any]] = {}
         self.location_runtime_status: Dict[str, Dict[str, Any]] = {}
@@ -3216,6 +3263,9 @@ class WeatherAlertApp(QMainWindow):
         self._create_menu_bar()
         self.web_source_quick_select_button.setMenu(self.web_sources_menu)
 
+        self.dashboard_overview_panel = self._create_dashboard_overview()
+        main_layout.addWidget(self.dashboard_overview_panel, 0)
+
         # --- Main Content Area (Alerts & Forecasts) ---
         self.alerts_forecasts_container = QWidget()
         self.alerts_forecasts_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -3263,6 +3313,7 @@ class WeatherAlertApp(QMainWindow):
         self.alerts_display_area.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.alerts_display_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.alerts_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.alerts_display_area.itemDoubleClicked.connect(self._show_current_alert_details)
         alerts_layout.addWidget(self.alerts_display_area)
 
         self.lifecycle_display_area = QListWidget(self.alerts_group)
@@ -3363,11 +3414,13 @@ class WeatherAlertApp(QMainWindow):
             self.map_view = QWebEngineView()
             self.nws_view = QWebEngineView()
             self.digital_forecast_view = QWebEngineView()
+            self.forecast_trends_view = QWebEngineView()
             self.web_tabs.addTab(self.web_view, "Web Source")
             self.web_tabs.addTab(self.map_view, "Alert Map")
             self.web_tabs.addTab(self.nws_view, "City variable, NWS")
             self.web_tabs.addTab(self.digital_forecast_view, "National Digital Graphic Forecast")
-            self.digital_forecast_view.setUrl(QUrl("https://digital.weather.gov/?zoom=3&lat=44.94699&lon=-119.13184&layers=F00BTTTFFTT&region=0&element=0&mxmz=true&barbs=false&subl=TFFFFF&units=english&wunits=nautical&coords=latlon&tunits=localt"))
+            self.web_tabs.addTab(self.forecast_trends_view, "Forecast Trends")
+            self.digital_forecast_view.setUrl(QUrl(self._build_digital_forecast_url(None)))
         else:
             self.web_view = QLabel("WebEngineView not available. Please install 'PySide6-WebEngine'.")
             self.web_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -3377,13 +3430,16 @@ class WeatherAlertApp(QMainWindow):
             self.nws_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.digital_forecast_view = QLabel(
                 "NWS Digital Forecast view unavailable without PySide6-WebEngine.\n\n"
-                "URL:\nhttps://digital.weather.gov/?zoom=3&lat=44.94699&lon=-119.13184&layers=F00BTTTFFTT&region=0&element=0&mxmz=true&barbs=false&subl=TFFFFF&units=english&wunits=nautical&coords=latlon&tunits=localt"
+                f"URL:\n{self._build_digital_forecast_url(None)}"
             )
             self.digital_forecast_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.forecast_trends_view = QLabel("Forecast trend charts unavailable without PySide6-WebEngine.")
+            self.forecast_trends_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.web_tabs.addTab(self.web_view, "Web Source")
             self.web_tabs.addTab(self.map_view, "Alert Map")
             self.web_tabs.addTab(self.nws_view, "City variable, NWS")
             self.web_tabs.addTab(self.digital_forecast_view, "National Digital Graphic Forecast")
+            self.web_tabs.addTab(self.forecast_trends_view, "Forecast Trends")
         self._update_web_tabs_fullscreen_button()
         self.bottom_splitter.addWidget(self.web_tabs)
 
@@ -3413,8 +3469,31 @@ class WeatherAlertApp(QMainWindow):
         self.network_status_indicator = QLabel("● Network OK")
         self.network_status_indicator.setStyleSheet("color: green; font-weight: bold;")
         self.status_bar.addPermanentWidget(self.network_status_indicator)
+        self.startup_health_indicator = QLabel("Setup OK")
+        self.startup_health_indicator.setStyleSheet("color: #047857; font-weight: bold;")
+        self.status_bar.addPermanentWidget(self.startup_health_indicator)
+        self._check_startup_health()
 
         self._init_system_tray()
+
+    def _check_startup_health(self) -> None:
+        warnings = []
+        if QWebEngineView is None:
+            warnings.append("PySide6-WebEngine missing")
+        if getattr(self.api_client, "pgeocode_client", None) is None:
+            warnings.append("offline ZIP/city geocoder unavailable")
+        user_data_path = self._get_user_data_path()
+        if not os.access(user_data_path, os.W_OK):
+            warnings.append("user-data folder is not writable")
+
+        if warnings:
+            self.startup_health_indicator.setText(f"Setup: {len(warnings)} warning(s)")
+            self.startup_health_indicator.setStyleSheet("color: #b45309; font-weight: bold;")
+            self.log_to_gui("Startup checks: " + "; ".join(warnings), level="WARNING")
+        else:
+            self.startup_health_indicator.setText("Setup OK")
+            self.startup_health_indicator.setStyleSheet("color: #047857; font-weight: bold;")
+            self.log_to_gui(f"Startup checks passed. User data path: {user_data_path}", level="DEBUG")
 
     def _toggle_web_tabs_fullscreen(self, checked: bool) -> None:
         self._web_tabs_fullscreen_active = checked
@@ -3609,23 +3688,31 @@ class WeatherAlertApp(QMainWindow):
         header_layout.setSpacing(4)
         self.dashboard_headline = QLabel("Now monitoring current location")
         self.dashboard_headline.setObjectName("DashboardHeadline")
-        self.dashboard_subheadline = QLabel("Alerts, escalation, and delivery health are summarized here.")
+        self.dashboard_subheadline = QLabel("Alerts, current observations, forecast trends, and delivery health are summarized here.")
         self.dashboard_subheadline.setWordWrap(True)
         self.dashboard_subheadline.setObjectName("DashboardSubheadline")
         header_layout.addWidget(self.dashboard_headline)
         header_layout.addWidget(self.dashboard_subheadline)
         layout.addWidget(self.dashboard_header_widget)
 
-        cards_layout = QHBoxLayout()
-        cards_layout.setSpacing(10)
+        cards_layout = QGridLayout()
+        cards_layout.setHorizontalSpacing(10)
+        cards_layout.setVerticalSpacing(10)
+        hazard_card, self.hazard_value_label, self.hazard_detail_label = self._create_summary_card("Primary Hazard", "#b91c1c")
+        conditions_card, self.conditions_value_label, self.conditions_detail_label = self._create_summary_card("Current Conditions", "#0f766e")
         active_card, self.active_alerts_value_label, self.active_alerts_detail_label = self._create_summary_card("Active Alerts", "#b91c1c")
         escalation_card, self.escalations_value_label, self.escalations_detail_label = self._create_summary_card("Escalations", "#c2410c")
         network_card, self.data_state_value_label, self.data_state_detail_label = self._create_summary_card("Data State", "#0369a1")
         delivery_card, self.delivery_value_label, self.delivery_detail_label = self._create_summary_card("Notifications", "#047857")
-        cards_layout.addWidget(active_card, 1)
-        cards_layout.addWidget(escalation_card, 1)
-        cards_layout.addWidget(network_card, 1)
-        cards_layout.addWidget(delivery_card, 1)
+        for row, card_row in enumerate(
+            [
+                [hazard_card, conditions_card, active_card],
+                [escalation_card, network_card, delivery_card],
+            ]
+        ):
+            for col, card in enumerate(card_row):
+                cards_layout.addWidget(card, row, col)
+                cards_layout.setColumnStretch(col, 1)
         layout.addLayout(cards_layout)
 
         self.location_overview_header = QLabel("Location Overview")
@@ -4122,6 +4209,7 @@ class WeatherAlertApp(QMainWindow):
         hourly_forecast = None
         daily_forecast = None
         grid_forecast = None
+        current_conditions = None
 
         if forecast_urls.get("hourly"):
             hourly_forecast = self.api_client.get_forecast_data(forecast_urls["hourly"])
@@ -4136,6 +4224,9 @@ class WeatherAlertApp(QMainWindow):
         if forecast_urls.get("grid"):
             grid_forecast = self.api_client.get_forecast_data(forecast_urls["grid"])
 
+        if forecast_urls.get("observations"):
+            current_conditions = self.api_client.get_current_conditions(forecast_urls["observations"])
+
         return {
             "location_id": location_id,
             "coords": coords,
@@ -4143,6 +4234,7 @@ class WeatherAlertApp(QMainWindow):
             "hourly_forecast": hourly_forecast,
             "daily_forecast": daily_forecast,
             "grid_forecast": grid_forecast,
+            "current_conditions": current_conditions,
             "fetched_at": time.time(),
         }
 
@@ -4161,6 +4253,7 @@ class WeatherAlertApp(QMainWindow):
         lifecycle = summarize_lifecycle(previous, alerts)
         self.last_active_alerts_by_location[location_id] = lifecycle["active"]
         self.current_alerts_by_location[location_id] = alerts
+        self.current_conditions_by_location[location_id] = result.get("current_conditions") or {}
         self.last_lifecycle_by_location[location_id] = lifecycle
         self.last_known_data_by_location[location_id] = result
         self.location_runtime_status[location_id] = {
@@ -4196,8 +4289,11 @@ class WeatherAlertApp(QMainWindow):
         self._update_lifecycle_display(lifecycle)
         self._update_hourly_forecast_display(result["hourly_forecast"], result.get("grid_forecast"))
         self._update_daily_forecast_display(result["daily_forecast"], result.get("grid_forecast"))
+        self._update_forecast_trends(result.get("hourly_forecast"), result.get("grid_forecast"))
         self._update_alert_map(alerts)
         self._update_nws_tab()
+        if QWebEngineView and self.web_view:
+            self._load_web_view_url(self.current_radar_url)
         self._update_dashboard_summary()
         self.update_status(f"Data for {self.get_location_name_by_id(location_id)} updated.")
 
@@ -4232,6 +4328,7 @@ class WeatherAlertApp(QMainWindow):
             self.network_status_indicator.setText(f"● Offline (Using Cached Data{stale_text})")
             self.network_status_indicator.setStyleSheet("color: #b58900; font-weight: bold;")
             self.current_coords = cached.get("coords")
+            self.current_conditions_by_location[failed_location_id] = cached.get("current_conditions") or {}
             self.location_runtime_status[failed_location_id] = {
                 "state": "cached",
                 "detail": f"Cached data in use{stale_text}",
@@ -4241,8 +4338,11 @@ class WeatherAlertApp(QMainWindow):
             self._update_lifecycle_display(None)
             self._update_hourly_forecast_display(cached.get("hourly_forecast"), cached.get("grid_forecast"))
             self._update_daily_forecast_display(cached.get("daily_forecast"), cached.get("grid_forecast"))
+            self._update_forecast_trends(cached.get("hourly_forecast"), cached.get("grid_forecast"))
             self._update_alert_map(cached.get("alerts", []))
             self._update_nws_tab()
+            if QWebEngineView and self.web_view:
+                self._load_web_view_url(self.current_radar_url)
             self._update_dashboard_summary()
             self._finish_check_cycle()
             return
@@ -4256,6 +4356,7 @@ class WeatherAlertApp(QMainWindow):
         self._update_lifecycle_display(None)
         self._update_hourly_forecast_display(None, None)
         self._update_daily_forecast_display(None, None)
+        self._update_forecast_trends(None, None)
         self._update_nws_tab()
         self._update_dashboard_summary()
         self._finish_check_cycle()
@@ -4267,11 +4368,13 @@ class WeatherAlertApp(QMainWindow):
         self.lifecycle_display_area.clear()
         self.lifecycle_display_area.addItem("Loading lifecycle...")
         self.latest_temperature_reading = None
+        self.current_conditions_by_location[self.current_location_id] = {}
         self._update_top_status_bar_display()
         self._clear_layout(self.hourly_forecast_layout)
         self.hourly_forecast_layout.addWidget(QLabel("Loading..."), 0, 0)
         self._clear_layout(self.daily_forecast_layout)
         self.daily_forecast_layout.addWidget(QLabel("Loading..."), 0, 0)
+        self._update_forecast_trends(None, None)
 
     def _get_location_config(self, location_id: str) -> Dict[str, Any]:
         for location in self.locations:
@@ -4547,11 +4650,31 @@ class WeatherAlertApp(QMainWindow):
         self._last_map_signature = map_signature
         self._last_map_empty_location_id = ""
 
+    def _build_digital_forecast_url(self, coords: Optional[Tuple[float, float]]) -> str:
+        lat, lon = coords if coords else (44.94699, -119.13184)
+        zoom = 7 if coords else 3
+        return (
+            f"https://digital.weather.gov/?zoom={zoom}&lat={lat}&lon={lon}"
+            "&layers=F00BTTTFFTT&region=0&element=0&mxmz=true&barbs=false"
+            "&subl=TFFFFF&units=english&wunits=nautical&coords=latlon&tunits=localt"
+        )
+
     def _build_nws_forecast_url(self, coords: Optional[Tuple[float, float]]) -> Optional[str]:
         if not coords:
             return None
         lat, lon = coords
         return f"https://forecast.weather.gov/MapClick.php?lat={lat}&lon={lon}"
+
+    def _location_aware_web_url(self, url_str: str) -> str:
+        if not self.current_coords:
+            return url_str
+        lat, lon = self.current_coords
+        lower = url_str.lower()
+        if "windy.com" in lower:
+            return f"https://www.windy.com/{lat}/{lon}?radar,{lat},{lon},8"
+        if "radar.weather.gov" in lower:
+            return f"https://radar.weather.gov/?lat={lat}&lon={lon}&zoom=8"
+        return url_str
 
     def _update_nws_tab(self) -> None:
         if hasattr(self, "web_tabs") and hasattr(self, "nws_view"):
@@ -4559,6 +4682,14 @@ class WeatherAlertApp(QMainWindow):
             if tab_index != -1:
                 self.web_tabs.setTabText(tab_index, f"{self.get_current_location_name()}, NWS")
         nws_url = self._build_nws_forecast_url(self.current_coords)
+        digital_url = self._build_digital_forecast_url(self.current_coords)
+        if QWebEngineView and hasattr(self, "digital_forecast_view") and self.digital_forecast_view:
+            self.digital_forecast_view.setUrl(QUrl(digital_url))
+        elif isinstance(getattr(self, "digital_forecast_view", None), QLabel):
+            self.digital_forecast_view.setText(
+                "NWS Digital Forecast view unavailable without PySide6-WebEngine.\n\n"
+                f"URL:\n{digital_url}"
+            )
         if QWebEngineView and self.nws_view:
             if nws_url:
                 if nws_url != self._last_loaded_nws_url:
@@ -4578,8 +4709,169 @@ class WeatherAlertApp(QMainWindow):
                     "NWS view unavailable without PySide6-WebEngine.\n\n"
                     f"Forecast URL:\n{nws_url}"
                 )
+        else:
+            self.nws_view.setText("NWS view unavailable without PySide6-WebEngine.")
+
+    @staticmethod
+    def _first_number_from_text(value: Any) -> Optional[float]:
+        match = re.search(r"-?\d+(?:\.\d+)?", str(value or ""))
+        return float(match.group(0)) if match else None
+
+    @staticmethod
+    def _scale_points(values: List[Optional[float]], width: int, height: int, pad: int) -> str:
+        numeric_values = [v for v in values if isinstance(v, (int, float))]
+        if not numeric_values:
+            return ""
+        low = min(numeric_values)
+        high = max(numeric_values)
+        if low == high:
+            low -= 1
+            high += 1
+        usable_width = max(width - (pad * 2), 1)
+        usable_height = max(height - (pad * 2), 1)
+        denom = max(len(values) - 1, 1)
+        points = []
+        for index, value in enumerate(values):
+            if not isinstance(value, (int, float)):
+                continue
+            x = pad + (usable_width * (index / denom))
+            y = pad + usable_height - (((value - low) / (high - low)) * usable_height)
+            points.append(f"{x:.1f},{y:.1f}")
+        return " ".join(points)
+
+    def _build_svg_chart(
+        self,
+        title: str,
+        values: List[Optional[float]],
+        labels: List[str],
+        color: str,
+        unit: str,
+    ) -> str:
+        width = 520
+        height = 170
+        pad = 34
+        numeric_values = [v for v in values if isinstance(v, (int, float))]
+        if not numeric_values:
+            return f"<section class='chart'><h3>{html.escape(title)}</h3><p>No trend data available.</p></section>"
+        points = self._scale_points(values, width, height, pad)
+        low = min(numeric_values)
+        high = max(numeric_values)
+        last = numeric_values[-1]
+        label_marks = []
+        if labels:
+            for index in range(0, len(labels), max(1, len(labels) // 4)):
+                x = pad + ((width - pad * 2) * (index / max(len(labels) - 1, 1)))
+                label_marks.append(
+                    f"<text x='{x:.1f}' y='{height - 8}' text-anchor='middle'>{html.escape(labels[index])}</text>"
+                )
+        return f"""
+<section class="chart">
+  <div class="chart-head"><h3>{html.escape(title)}</h3><span>latest {last:.0f}{html.escape(unit)} · range {low:.0f}-{high:.0f}{html.escape(unit)}</span></div>
+  <svg viewBox="0 0 {width} {height}" role="img" aria-label="{html.escape(title)} trend">
+    <line x1="{pad}" y1="{height - pad}" x2="{width - pad}" y2="{height - pad}" class="axis" />
+    <line x1="{pad}" y1="{pad}" x2="{pad}" y2="{height - pad}" class="axis" />
+    <text x="{pad - 8}" y="{pad + 4}" text-anchor="end">{high:.0f}</text>
+    <text x="{pad - 8}" y="{height - pad + 4}" text-anchor="end">{low:.0f}</text>
+    <polyline points="{points}" fill="none" stroke="{color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+    {''.join(label_marks)}
+  </svg>
+</section>
+"""
+
+    def _build_forecast_trends_html(
+        self,
+        forecast_json: Optional[Dict[str, Any]],
+        grid_json: Optional[Dict[str, Any]],
+    ) -> str:
+        periods = []
+        if forecast_json:
+            periods = forecast_json.get("properties", {}).get("periods", [])[:12]
+        if not periods:
+            return """
+<!DOCTYPE html><html><head><style>
+body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#334155; margin:0; }
+.empty { min-height:100vh; display:flex; align-items:center; justify-content:center; }
+.panel { background:white; border:1px solid #dbe4ef; border-radius:8px; padding:24px 30px; }
+</style></head><body><div class="empty"><div class="panel"><h2>Forecast trends unavailable</h2><p>Hourly forecast data has not loaded yet.</p></div></div></body></html>
+"""
+
+        labels: List[str] = []
+        temps: List[Optional[float]] = []
+        precip: List[Optional[float]] = []
+        gusts: List[Optional[float]] = []
+        thunder: List[Optional[float]] = []
+
+        for period in periods:
+            label, start_dt, end_dt = self._format_period_time(period)
+            labels.append(label)
+            temp = self._first_number_from_text(period.get("temperature"))
+            if temp is None:
+                temp = period.get("temperature")
+            temps.append(float(temp) if isinstance(temp, (int, float)) else None)
+            pop = period.get("probabilityOfPrecipitation", {}).get("value")
+            precip.append(float(pop) if isinstance(pop, (int, float)) else None)
+            wind_guess = self._first_number_from_text(period.get("windSpeed"))
+            gust_value = None
+            thunder_value = None
+            if start_dt and end_dt:
+                gust_value = self._grid_value_for_period(grid_json, "windGust", start_dt, end_dt, aggregate="max")
+                thunder_value = self._grid_value_for_period(grid_json, "probabilityOfThunder", start_dt, end_dt)
+            gusts.append(float(gust_value) if isinstance(gust_value, (int, float)) else wind_guess)
+            thunder.append(float(thunder_value) if isinstance(thunder_value, (int, float)) else None)
+
+        return f"""
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {{ margin:0; padding:18px; font-family: Segoe UI, Arial, sans-serif; background:#f5f7fb; color:#1f2937; }}
+    .grid {{ display:grid; grid-template-columns: repeat(2, minmax(280px, 1fr)); gap:14px; }}
+    .chart {{ background:#ffffff; border:1px solid #dbe4ef; border-radius:8px; padding:14px; }}
+    .chart-head {{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:6px; }}
+    h2 {{ margin:0 0 12px; font-size:20px; }}
+    h3 {{ margin:0; font-size:15px; }}
+    span {{ color:#64748b; font-size:12px; font-weight:700; }}
+    svg {{ width:100%; height:auto; }}
+    text {{ fill:#64748b; font-size:11px; font-weight:600; }}
+    .axis {{ stroke:#cbd5e1; stroke-width:1; }}
+    @media (max-width: 760px) {{ .grid {{ grid-template-columns: 1fr; }} }}
+  </style>
+</head>
+<body>
+  <h2>{html.escape(self.get_current_location_name())} Forecast Trends</h2>
+  <div class="grid">
+    {self._build_svg_chart("Temperature", temps, labels, "#dc2626", "°F")}
+    {self._build_svg_chart("Precipitation Chance", precip, labels, "#2563eb", "%")}
+    {self._build_svg_chart("Wind / Gust Potential", gusts, labels, "#c2410c", " mph")}
+    {self._build_svg_chart("Thunder Probability", thunder, labels, "#7c3aed", "%")}
+  </div>
+</body>
+</html>
+"""
+
+    def _update_forecast_trends(
+        self,
+        forecast_json: Optional[Dict[str, Any]],
+        grid_json: Optional[Dict[str, Any]],
+    ) -> None:
+        if not hasattr(self, "forecast_trends_view"):
+            return
+        html_text = self._build_forecast_trends_html(forecast_json, grid_json)
+        if QWebEngineView and self.forecast_trends_view:
+            self.forecast_trends_view.setHtml(html_text)
+            return
+        if isinstance(self.forecast_trends_view, QLabel):
+            periods = forecast_json.get("properties", {}).get("periods", []) if forecast_json else []
+            if not periods:
+                self.forecast_trends_view.setText("Forecast trend data unavailable.")
             else:
-                self.nws_view.setText("NWS view unavailable without PySide6-WebEngine.")
+                first = periods[0]
+                self.forecast_trends_view.setText(
+                    f"Forecast trends unavailable without PySide6-WebEngine.\n\n"
+                    f"Next period: {first.get('name', 'Now')} {first.get('temperature', 'N/A')}°"
+                    f"{first.get('temperatureUnit', '')}, {first.get('shortForecast', '')}"
+                )
 
     def _update_alerts_display_area(self, alerts: List[Any], location_id: str, lifecycle: Optional[Dict[str, Any]] = None):
         self.alerts_display_area.clear()
@@ -4628,7 +4920,11 @@ class WeatherAlertApp(QMainWindow):
             alert_text = self._alert_display_text(alert, distance_miles, escalation)
             item = QListWidgetItem(alert_text)
             alert_category = self._classify_alert_category(alert)
+            alert_detail = dict(alert)
+            alert_detail["location"] = self.get_location_name_by_id(location_id)
+            alert_detail["distance_miles"] = distance_miles if isinstance(distance_miles, (int, float)) else alert.get("distance_miles", "")
             item.setData(Qt.ItemDataRole.UserRole + 1, alert_category)
+            item.setData(Qt.ItemDataRole.UserRole + 2, alert_detail)
             item.setData(Qt.ItemDataRole.UserRole + 3, False)
             item.setSizeHint(QSize(item.sizeHint().width(), self._alert_item_height_for_text(alert_text)))
             item.setToolTip(self._format_rich_tooltip(self._alert_tooltip_text(alert, distance_miles, escalation)))
@@ -5534,7 +5830,13 @@ class WeatherAlertApp(QMainWindow):
             repeater_text = self._compact_text(self.current_repeater_info or "N/A", 36)
             self.top_repeater_label.setText(f"Rpt {repeater_text}")
         if hasattr(self, 'current_temperature_label'):
-            temp_text = self.latest_temperature_reading or "--"
+            conditions = self.current_conditions_by_location.get(self.current_location_id, {})
+            observed_temp = conditions.get("temperature_f")
+            temp_text = (
+                self._format_optional_number(observed_temp, "°F")
+                if observed_temp is not None
+                else (self.latest_temperature_reading or "--")
+            )
             self.current_temperature_label.setText(f"Temp {temp_text}")
         self._update_dashboard_summary()
 
@@ -5581,27 +5883,141 @@ class WeatherAlertApp(QMainWindow):
             self.location_overview_list.addItem(item)
         self.location_overview_list.blockSignals(False)
 
+    @staticmethod
+    def _format_optional_number(value: Any, suffix: str = "", decimals: int = 0) -> str:
+        if value is None or value == "":
+            return "N/A"
+        try:
+            return f"{float(value):.{decimals}f}{suffix}"
+        except (TypeError, ValueError):
+            return str(value)
+
+    def _observation_age_text(self, timestamp: Any) -> str:
+        if not timestamp:
+            return "observation time unavailable"
+        try:
+            observed_at = datetime.fromisoformat(str(timestamp).replace("Z", "+00:00"))
+            if observed_at.tzinfo is not None:
+                observed_at = observed_at.astimezone()
+            now = datetime.now(observed_at.tzinfo) if observed_at.tzinfo else datetime.now()
+            age_seconds = int(max((now - observed_at).total_seconds(), 0))
+            if age_seconds < 90:
+                return "observed just now"
+            if age_seconds < 3600:
+                return f"observed {age_seconds // 60}m ago"
+            return f"observed {age_seconds // 3600}h {(age_seconds % 3600) // 60}m ago"
+        except (TypeError, ValueError):
+            return f"observed {timestamp}"
+
+    def _condition_card_text(self, conditions: Optional[Dict[str, Any]]) -> Tuple[str, str]:
+        if not conditions:
+            return "--", "Current observation unavailable."
+
+        temp_text = self._format_optional_number(conditions.get("temperature_f"), "°F")
+        feels_like = conditions.get("feels_like_f")
+        dewpoint = self._format_optional_number(conditions.get("dewpoint_f"), "°F")
+        humidity = self._format_optional_number(conditions.get("humidity"), "%")
+        wind_direction = conditions.get("wind_direction") or ""
+        wind_speed = self._format_optional_number(conditions.get("wind_mph"), " mph")
+        gust = conditions.get("wind_gust_mph")
+        gust_text = self._format_optional_number(gust, " mph") if gust is not None else "N/A"
+        pressure = self._format_optional_number(conditions.get("pressure_inhg"), " inHg", decimals=2)
+        visibility = self._format_optional_number(conditions.get("visibility_miles"), " mi", decimals=1)
+        observed = self._observation_age_text(conditions.get("timestamp"))
+        station = conditions.get("station_id") or conditions.get("station_name") or "station"
+        description = conditions.get("description") or "Observed conditions"
+
+        if feels_like is not None:
+            temp_text = f"{temp_text} feels {self._format_optional_number(feels_like, '°F')}"
+
+        detail = (
+            f"{description} at {station}; dewpoint {dewpoint}, RH {humidity}, "
+            f"wind {wind_direction} {wind_speed}, gust {gust_text}, "
+            f"pressure {pressure}, visibility {visibility}; {observed}."
+        )
+        return temp_text, detail
+
+    def _top_hazard_alert(self, alerts: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if not alerts:
+            return None
+        urgency_order = {"Immediate": 3, "Expected": 2, "Future": 1, "Past": 0, "Unknown": 0}
+        certainty_order = {"Observed": 3, "Likely": 2, "Possible": 1, "Unknown": 0}
+
+        def hazard_key(alert: Dict[str, Any]) -> Tuple[int, int, int, float]:
+            distance = alert.get("distance_miles")
+            distance_score = -float(distance) if isinstance(distance, (int, float)) else -9999.0
+            return (
+                self._severity_rank(alert.get("severity", "Unknown")),
+                urgency_order.get(str(alert.get("urgency") or "Unknown"), 0),
+                certainty_order.get(str(alert.get("certainty") or "Unknown"), 0),
+                distance_score,
+            )
+
+        return max(alerts, key=hazard_key)
+
+    def _expiration_countdown_text(self, alert: Dict[str, Any]) -> str:
+        expires = alert.get("ends") or alert.get("expires")
+        if not expires:
+            return "expiration time unavailable"
+        try:
+            expires_at = datetime.fromisoformat(str(expires).replace("Z", "+00:00"))
+            if expires_at.tzinfo is not None:
+                expires_at = expires_at.astimezone()
+            now = datetime.now(expires_at.tzinfo) if expires_at.tzinfo else datetime.now()
+            seconds = int((expires_at - now).total_seconds())
+            if seconds <= 0:
+                return "expired"
+            if seconds < 3600:
+                return f"expires in {seconds // 60}m"
+            return f"expires in {seconds // 3600}h {(seconds % 3600) // 60}m"
+        except (TypeError, ValueError):
+            return f"expires {expires}"
+
+    def _hazard_card_text(self, alert: Optional[Dict[str, Any]]) -> Tuple[str, str]:
+        if not alert:
+            return "NONE", "No active NWS hazards for the selected location."
+
+        event = alert.get("event") or alert.get("title") or "Active alert"
+        severity = alert.get("severity", "Unknown")
+        urgency = alert.get("urgency", "Unknown")
+        certainty = alert.get("certainty", "Unknown")
+        distance = alert.get("distance_miles")
+        distance_text = f"{distance:.1f} mi away" if isinstance(distance, (int, float)) else "distance unavailable"
+        action = self._compact_text(alert.get("instruction") or alert.get("summary") or "Review the active alert.", 130)
+        detail = (
+            f"{event}; {severity}, {urgency}, {certainty}; {distance_text}; "
+            f"{self._expiration_countdown_text(alert)}. {action}"
+        )
+        return severity.upper(), detail
+
     def _update_dashboard_summary(self) -> None:
         if not hasattr(self, "dashboard_headline"):
             return
         alerts = self.current_alerts_by_location.get(self.current_location_id, [])
         lifecycle = self.last_lifecycle_by_location.get(self.current_location_id, {})
         status = self.location_runtime_status.get(self.current_location_id, {})
+        conditions = self.current_conditions_by_location.get(self.current_location_id, {})
         stats = self.delivery_health.stats()
         total_attempts = sum(int(data.get("attempts", 0)) for data in stats.values())
         total_failures = sum(int(data.get("failures", 0)) for data in stats.values())
-        worst_alert = None
-        if alerts:
-            worst_alert = max(alerts, key=lambda alert: self._severity_rank(alert.get("severity", "Unknown")))
+        worst_alert = self._top_hazard_alert(alerts)
 
         self.dashboard_headline.setText(f"Now monitoring {self.get_current_location_name()}")
         if worst_alert:
             self.dashboard_subheadline.setText(
-                f"Top risk is {worst_alert.get('title', 'active alert')} with severity "
-                f"{worst_alert.get('severity', 'Unknown')}."
+                f"Primary hazard is {worst_alert.get('title', 'active alert')} "
+                f"({self._expiration_countdown_text(worst_alert)})."
             )
         else:
-            self.dashboard_subheadline.setText("No active alerts. Forecast, map, and delivery health remain available.")
+            self.dashboard_subheadline.setText("No active alerts. Current conditions, forecast trends, and delivery health remain available.")
+
+        hazard_value, hazard_detail = self._hazard_card_text(worst_alert)
+        self.hazard_value_label.setText(hazard_value)
+        self.hazard_detail_label.setText(hazard_detail)
+
+        condition_value, condition_detail = self._condition_card_text(conditions)
+        self.conditions_value_label.setText(condition_value)
+        self.conditions_detail_label.setText(condition_detail)
 
         self.active_alerts_value_label.setText(str(len(alerts)))
         self.active_alerts_detail_label.setText(
@@ -6056,27 +6472,29 @@ class WeatherAlertApp(QMainWindow):
 
     def _load_web_view_url(self, url_str: str):
         if QWebEngineView and self.web_view:
-            if url_str.lower().endswith('.pdf'):
+            effective_url = self._location_aware_web_url(url_str)
+            if effective_url.lower().endswith('.pdf'):
                 self.web_view.setHtml(
                     f"<html><body><div style='text-align: center; margin-top: 50px; font-size: 18px; color: grey;'>"
-                    f"Loading PDF...<br><br>Opening <a href='{url_str}'>{url_str}</a> in default browser.</div></body></html>"
+                    f"Loading PDF...<br><br>Opening <a href='{effective_url}'>{effective_url}</a> in default browser.</div></body></html>"
                 )
-                QDesktopServices.openUrl(QUrl(url_str))
-                self._last_loaded_web_url = url_str
+                QDesktopServices.openUrl(QUrl(effective_url))
+                self._last_loaded_web_url = effective_url
             else:
-                if url_str == self._last_loaded_web_url:
-                    self.log_to_gui(f"Skipped reloading unchanged web view: {url_str}", level="DEBUG")
+                if effective_url == self._last_loaded_web_url:
+                    self.log_to_gui(f"Skipped reloading unchanged web view: {effective_url}", level="DEBUG")
                     return
-                self.web_view.setUrl(QUrl(url_str))
-                self._last_loaded_web_url = url_str
-            self.log_to_gui(f"Loaded web view: {url_str}", level="INFO")
+                self.web_view.setUrl(QUrl(effective_url))
+                self._last_loaded_web_url = effective_url
+            self.log_to_gui(f"Loaded web view: {effective_url}", level="INFO")
         else:
             self.log_to_gui("Web view not available.", level="WARNING")
 
     def _open_current_in_browser(self):
         if QWebEngineView and self.web_view:
-            QDesktopServices.openUrl(QUrl(self.current_radar_url))
-            self.log_to_gui(f"Opening {self.current_radar_url} in default browser.", level="INFO")
+            effective_url = self._location_aware_web_url(self.current_radar_url)
+            QDesktopServices.openUrl(QUrl(effective_url))
+            self.log_to_gui(f"Opening {effective_url} in default browser.", level="INFO")
         else:
             self.log_to_gui("No web view available to open in browser.", level="WARNING")
 
@@ -6191,6 +6609,7 @@ class WeatherAlertApp(QMainWindow):
         if cached:
             self._update_hourly_forecast_display(cached.get("hourly_forecast"), cached.get("grid_forecast"))
             self._update_daily_forecast_display(cached.get("daily_forecast"), cached.get("grid_forecast"))
+            self._update_forecast_trends(cached.get("hourly_forecast"), cached.get("grid_forecast"))
         self.log_to_gui(f"Applied {'dark' if self.current_dark_mode_enabled else 'light'} theme.", level="INFO")
 
     def _apply_log_sort(self):
@@ -6303,6 +6722,13 @@ class WeatherAlertApp(QMainWindow):
             text,
         )
         return max(56, rect.height() + 14)
+
+    def _show_current_alert_details(self, item: QListWidgetItem) -> None:
+        alert_data = item.data(Qt.ItemDataRole.UserRole + 2)
+        if not isinstance(alert_data, dict):
+            return
+        dialog = AlertDetailsDialog(alert_data, self)
+        dialog.exec()
 
     def _update_alerts_meta_label(
         self,
