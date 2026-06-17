@@ -534,7 +534,7 @@ class NwsApiClient:
 
     def build_alert_geojson(self, alerts: List[Dict[str, Any]]) -> Dict[str, Any]:
         features: List[Dict[str, Any]] = []
-        for alert in alerts:
+        for index, alert in enumerate(alerts):
             geometry = alert.get("geometry")
             if not geometry:
                 continue
@@ -546,6 +546,9 @@ class NwsApiClient:
                         "title": alert.get("title", ""),
                         "severity": alert.get("severity", ""),
                         "event": alert.get("event", ""),
+                        "area": alert.get("area_desc", ""),
+                        "expires": alert.get("ends") or alert.get("expires") or "",
+                        "index": index,
                     },
                     "geometry": geometry,
                 }

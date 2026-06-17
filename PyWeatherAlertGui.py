@@ -48,7 +48,7 @@ from weather_alert.dedup import AlertDeduplicator
 from weather_alert.exporter import export_incident_csv, export_incident_json
 
 # --- Application Version ---
-versionnumber = "26.05.29"
+versionnumber = "26.06.17"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -156,8 +156,8 @@ LIGHT_STYLESHEET = '''
 
 /* --- Global Styles --- */
 QWidget {
-    background-color: #f5f6f8;
-    color: #1f2933;
+    background-color: #eef2f6;
+    color: #18212f;
     font-family: "SF Pro Text", ".AppleSystemUIFont", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
     font-size: 10pt;
     border: none;
@@ -237,7 +237,7 @@ QListWidget::item:selected {
 QLineEdit, QComboBox {
     background-color: #ffffff;
     border: 1px solid #d5dae1;
-    border-radius: 10px;
+    border-radius: 6px;
     padding: 6px 10px;
     padding-right: 24px;
     min-height: 22px;
@@ -267,8 +267,8 @@ QComboBox::drop-down {
     border-left-width: 1px;
     border-left-color: #e5e7eb;
     border-left-style: solid;
-    border-top-right-radius: 10px;
-    border-bottom-right-radius: 10px;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
 }
 
 QComboBox::drop-down:hover {
@@ -294,9 +294,9 @@ QPushButton {
     background-color: #ffffff;
     color: #1f2937;
     border: 1px solid #d4dae3;
-    border-radius: 10px;
-    padding: 6px 12px;
-    min-height: 30px;
+    border-radius: 6px;
+    padding: 5px 11px;
+    min-height: 26px;
     min-width: 80px;
     font-weight: 600;
 }
@@ -378,8 +378,8 @@ QRadioButton::indicator:checked::after {
 
 /* --- Menu, Status, and Tool Bars --- */
 QMenuBar {
-    background-color: #f5f6f8;
-    color: #374151;
+    background-color: #eef2f6;
+    color: #344054;
 }
 
 QMenuBar::item {
@@ -425,9 +425,9 @@ QMenu::separator {
 }
 
 QStatusBar {
-    background-color: #eef1f5;
-    color: #52606d;
-    border-top: 1px solid #dde5ee;
+    background-color: #e7edf4;
+    color: #475467;
+    border-top: 1px solid #cfd8e3;
 }
 
 /* --- ScrollBars --- */
@@ -481,21 +481,21 @@ QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
 
 /* --- Tabs --- */
 QTabWidget::pane {
-    border: 1px solid #dde4ee;
-    border-radius: 12px;
-    padding: 10px;
-    background: #ffffff;
+    border: 1px solid #ccd6e2;
+    border-radius: 8px;
+    padding: 6px;
+    background: #f8fafc;
 }
 
 QTabBar::tab {
-    background: #eef2f7;
-    border: 1px solid #dde4ee;
+    background: #e6edf5;
+    border: 1px solid #ccd6e2;
     border-bottom: none;
-    padding: 8px 16px;
-    border-top-left-radius: 10px;
-    border-top-right-radius: 10px;
-    margin-right: 6px;
-    color: #52606d;
+    padding: 6px 13px;
+    border-top-left-radius: 7px;
+    border-top-right-radius: 7px;
+    margin-right: 3px;
+    color: #475467;
     font-weight: 600;
 }
 
@@ -504,10 +504,10 @@ QTabBar::tab:hover {
 }
 
 QTabBar::tab:selected {
-    background: #ffffff;
-    color: #111827;
+    background: #f8fafc;
+    color: #101828;
     font-weight: 700;
-    border-color: #d0dae5;
+    border-color: #b9c6d4;
 }
 
 /* --- Table / Tree Headers --- */
@@ -522,7 +522,7 @@ QHeaderView::section {
 /* These are preserved from your original file */
 
 #AlertsPanel, #ForecastPanel, #OperationalOverviewPanel {
-    border-radius: 8px;
+    border-radius: 6px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
@@ -531,8 +531,8 @@ QHeaderView::section {
 }
 
 #AlertMetaLabel {
-    color: #5b6773;
-    font-size: 10pt;
+    color: #667085;
+    font-size: 9pt;
     padding: 0px 1px 1px 1px;
 }
 
@@ -544,44 +544,44 @@ QHeaderView::section {
 }
 
 #DashboardHeadline {
-    font-size: 22px;
+    font-size: 16px;
     font-weight: 800;
-    color: #102a43;
+    color: #101828;
 }
 
 #DashboardSubheadline {
-    color: #486581;
-    font-size: 10pt;
+    color: #667085;
+    font-size: 9pt;
 }
 
 #AlertFilterButton {
-    min-width: 84px;
-    min-height: 26px;
-    background: #ffffff;
-    border: 1px solid #d4dae3;
-    border-radius: 8px;
-    color: #425466;
+    min-width: 76px;
+    min-height: 22px;
+    background: #f8fafc;
+    border: 1px solid #cfd8e3;
+    border-radius: 6px;
+    color: #344054;
     font-weight: 600;
-    padding: 2px 10px;
+    padding: 1px 8px;
 }
 
 #AlertFilterButton:hover {
-    background: #f5f7fa;
-    border-color: #c5ced8;
+    background: #ffffff;
+    border-color: #98a8ba;
 }
 
 #AlertFilterButton:pressed, #AlertFilterButton:checked {
-    background: #dbeafe;
-    border-color: #9ec5fe;
-    color: #0b5394;
+    background: #d9f3ee;
+    border-color: #74c7b8;
+    color: #075e54;
 }
 
 QGroupBox#AlertsPanel,
 QGroupBox#ForecastPanel {
-    background: #fcfcfd;
-    border: 1px solid #dde4ee;
-    border-radius: 8px;
-    margin-top: 16px;
+    background: #f8fafc;
+    border: 1px solid #cfd8e3;
+    border-radius: 6px;
+    margin-top: 10px;
 }
 
 QGroupBox#AlertsPanel::title,
@@ -590,23 +590,53 @@ QGroupBox#ForecastPanel::title {
     subcontrol-position: top left;
     left: 10px;
     top: 0px;
-    padding: 1px 10px;
-    background: #f0f4f8;
-    border-radius: 8px;
-    color: #486581;
+    padding: 0px 8px;
+    background: #e7edf4;
+    border-radius: 6px;
+    color: #475467;
     font-weight: 700;
 }
 
 #TopStatusStrip {
-    background: #ffffff;
-    border: 1px solid #e0e6ee;
-    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #cfd8e3;
+    border-radius: 6px;
+}
+
+#HeaderBrand {
+    background: transparent;
+}
+
+#HeaderTitle {
+    color: #101828;
+    font-size: 15px;
+    font-weight: 800;
+}
+
+#HeaderContext {
+    color: #667085;
+    font-size: 9pt;
+    font-weight: 600;
+}
+
+#HeaderDivider {
+    background: #cfd8e3;
+}
+
+#DecisionRail, #Workspace {
+    background: transparent;
+}
+
+#WorkbenchSplitter::handle {
+    background: #c4ceda;
+    border-radius: 2px;
+    margin: 2px 3px;
 }
 
 #TopToolbarSection {
-    background: #f7f9fc;
-    border: 1px solid #e3e8ef;
-    border-radius: 8px;
+    background: #eef2f6;
+    border: 1px solid #d5dee9;
+    border-radius: 6px;
 }
 
 #TopToolbarIcon {
@@ -615,19 +645,19 @@ QGroupBox#ForecastPanel::title {
 }
 
 #TopStatusChip {
-    background: #f6f8fb;
-    border: 1px solid #e1e6ed;
-    border-radius: 8px;
-    padding: 5px 10px;
-    color: #334e68;
+    background: #ffffff;
+    border: 1px solid #d5dee9;
+    border-radius: 6px;
+    padding: 3px 7px;
+    color: #344054;
     font-weight: 600;
 }
 
 QGroupBox#HourlyForecastCard, QGroupBox#DailyForecastCard {
-    background: #f8fafc;
-    border: 1px solid #e1e8f0;
-    border-radius: 8px;
-    margin-top: 14px;
+    background: #ffffff;
+    border: 1px solid #d5dee9;
+    border-radius: 6px;
+    margin-top: 10px;
 }
 
 QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
@@ -635,30 +665,30 @@ QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
     subcontrol-position: top left;
     left: 8px;
     top: 0px;
-    padding: 1px 9px;
-    background: #edf2f7;
-    border-radius: 7px;
-    color: #52606d;
+    padding: 0px 8px;
+    background: #eef2f6;
+    border-radius: 6px;
+    color: #475467;
     font-weight: 700;
 }
 
 QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
     background: #ffffff;
-    border: 1px solid #e7edf4;
-    border-radius: 8px;
+    border: 1px solid #dde5ef;
+    border-radius: 6px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
     background: #ffffff;
-    border: 1px solid #e6ebf2;
-    border-radius: 8px;
-    padding: 4px;
+    border: 1px solid #d9e2ec;
+    border-radius: 6px;
+    padding: 3px;
 }
 
 #AlertsDisplayArea::item, #LifecycleDisplayArea::item {
-    border-radius: 6px;
-    padding: 6px;
-    margin: 2px;
+    border-radius: 4px;
+    padding: 4px;
+    margin: 1px;
 }
 
 #AlertsDisplayArea::item:alternate, #LifecycleDisplayArea::item:alternate {
@@ -666,11 +696,11 @@ QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
 }
 
 #AlertsDisplayArea::item:hover, #LifecycleDisplayArea::item:hover {
-    background: #f2f7fd;
+    background: #eef7f5;
 }
 
 QSplitter::handle {
-    background: transparent;
+    background: #d4dde8;
 }
 
 QSplitter::handle:horizontal {
@@ -682,26 +712,31 @@ QSplitter::handle:vertical {
 }
 
 #OverviewCard {
-    border: 1px solid #e1e7ef;
-    border-radius: 8px;
+    border: 1px solid #d5dee9;
+    border-radius: 6px;
     background: #ffffff;
 }
 
+#OverviewCardAccent {
+    border-radius: 2px;
+}
+
 #OverviewCard QLabel[role='value'] {
-    font-size: 24px;
+    font-size: 17px;
     font-weight: 700;
 }
 
 #OverviewCard QLabel[role='title'] {
-    color: #7b8794;
-    font-size: 10px;
+    color: #667085;
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
 }
 
 #OverviewCard QLabel[role='detail'] {
-    color: #52606d;
+    color: #475467;
+    font-size: 8.5pt;
 }
 
 #LocationOverviewHeader {
@@ -710,9 +745,22 @@ QSplitter::handle:vertical {
 }
 
 #ToolbarMuteButton {
-    min-width: 34px;
-    max-width: 34px;
-    padding: 4px;
+    min-width: 30px;
+    max-width: 30px;
+    padding: 3px;
+}
+
+#SecondaryActionButton {
+    background: #ffffff;
+    color: #0f766e;
+    border-color: #a7d8ce;
+    min-height: 24px;
+    padding: 3px 9px;
+}
+
+#SecondaryActionButton:hover {
+    background: #edfdfa;
+    border-color: #6fc8b8;
 }
 
 #DailyForecastWidget {
@@ -791,7 +839,7 @@ DARK_STYLESHEET = '''
 
 /* --- Global Styles --- */
 QWidget {
-    background-color: #151a20;
+    background-color: #151922;
     color: #eef2f7;
     font-family: "SF Pro Text", ".AppleSystemUIFont", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
     font-size: 10pt;
@@ -880,7 +928,7 @@ QTableWidget::item, QTableView::item {
 QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QDateEdit, QTimeEdit {
     background-color: #202833;
     border: 1px solid #364152;
-    border-radius: 10px;
+    border-radius: 6px;
     padding: 6px 10px;
     min-height: 22px;
 }
@@ -907,8 +955,8 @@ QComboBox::drop-down {
     border-left-width: 1px;
     border-left-color: #364152;
     border-left-style: solid;
-    border-top-right-radius: 10px;
-    border-bottom-right-radius: 10px;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
 }
 
 QComboBox::drop-down:hover {
@@ -933,9 +981,9 @@ QPushButton {
     background-color: #202833;
     color: #f8fbff;
     border: 1px solid #3b4a5f;
-    border-radius: 10px;
-    padding: 6px 12px;
-    min-height: 30px;
+    border-radius: 6px;
+    padding: 5px 11px;
+    min-height: 26px;
     min-width: 80px;
     font-weight: 600;
 }
@@ -1015,7 +1063,7 @@ QRadioButton::indicator:checked {
 
 /* --- Menu, Status, and Tool Bars --- */
 QMenuBar {
-    background-color: #151a20;
+    background-color: #151922;
     color: #e6edf5;
 }
 
@@ -1060,7 +1108,7 @@ QMenu::separator {
 }
 
 QStatusBar {
-    background-color: #1a212c;
+    background-color: #1b2330;
     color: #c3ceda;
     border-top: 1px solid #2f3b4b;
 }
@@ -1149,20 +1197,20 @@ QSlider::handle:vertical {
 
 /* --- Tab Widget --- */
 QTabWidget::pane {
-    border: 1px solid #2f3b4b;
-    border-top: none;
-    border-radius: 0 0 12px 12px;
-    background: #18212b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 6px;
+    background: #18202b;
 }
 
 QTabBar::tab {
-    background: #202833;
-    border: 1px solid #344255;
+    background: #202938;
+    border: 1px solid #334155;
     border-bottom: none;
-    padding: 8px 16px;
-    border-top-left-radius: 10px;
-    border-top-right-radius: 10px;
-    margin-right: 6px;
+    padding: 6px 13px;
+    border-top-left-radius: 7px;
+    border-top-right-radius: 7px;
+    margin-right: 3px;
     font-weight: 600;
 }
 
@@ -1171,9 +1219,8 @@ QTabBar::tab:hover {
 }
 
 QTabBar::tab:selected {
-    background: #18212b;
-    border-color: #46576f;
-    margin-bottom: -1px;
+    background: #18202b;
+    border-color: #52647c;
 }
 
 /* --- Progress Bar --- */
@@ -1192,7 +1239,7 @@ QProgressBar::chunk {
 }
 
 #AlertsPanel, #ForecastPanel, #OperationalOverviewPanel {
-    border-radius: 8px;
+    border-radius: 6px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
@@ -1202,7 +1249,7 @@ QProgressBar::chunk {
 
 #AlertMetaLabel {
     color: #9fb3c8;
-    font-size: 10pt;
+    font-size: 9pt;
     padding: 0px 1px 1px 1px;
 }
 
@@ -1214,25 +1261,25 @@ QProgressBar::chunk {
 }
 
 #DashboardHeadline {
-    font-size: 22px;
+    font-size: 16px;
     font-weight: 800;
     color: #f8fafc;
 }
 
 #DashboardSubheadline {
     color: #b7c6d9;
-    font-size: 10pt;
+    font-size: 9pt;
 }
 
 #AlertFilterButton {
-    min-width: 84px;
-    min-height: 26px;
-    background: #202833;
+    min-width: 76px;
+    min-height: 22px;
+    background: #202938;
     border: 1px solid #3b4a5f;
-    border-radius: 8px;
+    border-radius: 6px;
     color: #f8fafc;
     font-weight: 600;
-    padding: 2px 10px;
+    padding: 1px 8px;
 }
 
 #AlertFilterButton:hover {
@@ -1241,16 +1288,16 @@ QProgressBar::chunk {
 }
 
 #AlertFilterButton:pressed, #AlertFilterButton:checked {
-    background: #0a84ff;
-    border-color: #369cff;
+    background: #0f766e;
+    border-color: #38b2a3;
 }
 
 QGroupBox#AlertsPanel,
 QGroupBox#ForecastPanel {
-    background: #18212b;
-    border: 1px solid #2f3b4b;
-    border-radius: 8px;
-    margin-top: 16px;
+    background: #18202b;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    margin-top: 10px;
 }
 
 QGroupBox#AlertsPanel::title,
@@ -1259,23 +1306,53 @@ QGroupBox#ForecastPanel::title {
     subcontrol-position: top left;
     left: 10px;
     top: 0px;
-    padding: 1px 10px;
-    background: #202b38;
-    border-radius: 8px;
+    padding: 0px 8px;
+    background: #202938;
+    border-radius: 6px;
     color: #b7c6d9;
     font-weight: 700;
 }
 
 #TopStatusStrip {
-    background: #18212b;
-    border: 1px solid #2f3b4b;
-    border-radius: 8px;
+    background: #18202b;
+    border: 1px solid #334155;
+    border-radius: 6px;
+}
+
+#HeaderBrand {
+    background: transparent;
+}
+
+#HeaderTitle {
+    color: #f8fafc;
+    font-size: 15px;
+    font-weight: 800;
+}
+
+#HeaderContext {
+    color: #9fb3c8;
+    font-size: 9pt;
+    font-weight: 600;
+}
+
+#HeaderDivider {
+    background: #334155;
+}
+
+#DecisionRail, #Workspace {
+    background: transparent;
+}
+
+#WorkbenchSplitter::handle {
+    background: #334155;
+    border-radius: 2px;
+    margin: 2px 3px;
 }
 
 #TopToolbarSection {
-    background: #202833;
+    background: #202938;
     border: 1px solid #334155;
-    border-radius: 8px;
+    border-radius: 6px;
 }
 
 #TopToolbarIcon {
@@ -1284,19 +1361,19 @@ QGroupBox#ForecastPanel::title {
 }
 
 #TopStatusChip {
-    background: #202833;
+    background: #111827;
     border: 1px solid #334155;
-    border-radius: 8px;
-    padding: 5px 10px;
+    border-radius: 6px;
+    padding: 3px 7px;
     color: #e2ebf5;
     font-weight: 600;
 }
 
 QGroupBox#HourlyForecastCard, QGroupBox#DailyForecastCard {
-    background: #1e2935;
+    background: #1e2938;
     border: 1px solid #334155;
-    border-radius: 8px;
-    margin-top: 14px;
+    border-radius: 6px;
+    margin-top: 10px;
 }
 
 QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
@@ -1304,30 +1381,30 @@ QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
     subcontrol-position: top left;
     left: 8px;
     top: 0px;
-    padding: 1px 9px;
-    background: #243140;
-    border-radius: 7px;
+    padding: 0px 8px;
+    background: #243142;
+    border-radius: 6px;
     color: #b7c6d9;
     font-weight: 700;
 }
 
 QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
-    background: #1b2530;
+    background: #111827;
     border: 1px solid #334155;
-    border-radius: 8px;
+    border-radius: 6px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
-    background: #1b2530;
+    background: #111827;
     border: 1px solid #334155;
-    border-radius: 8px;
-    padding: 4px;
+    border-radius: 6px;
+    padding: 3px;
 }
 
 #AlertsDisplayArea::item, #LifecycleDisplayArea::item {
-    border-radius: 6px;
-    padding: 6px;
-    margin: 2px;
+    border-radius: 4px;
+    padding: 4px;
+    margin: 1px;
 }
 
 #AlertsDisplayArea::item:alternate, #LifecycleDisplayArea::item:alternate {
@@ -1339,7 +1416,7 @@ QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
 }
 
 QSplitter::handle {
-    background: transparent;
+    background: #334155;
 }
 
 QSplitter::handle:horizontal {
@@ -1352,25 +1429,30 @@ QSplitter::handle:vertical {
 
 #OverviewCard {
     border: 1px solid #324255;
-    border-radius: 8px;
-    background: #1b2530;
+    border-radius: 6px;
+    background: #111827;
+}
+
+#OverviewCardAccent {
+    border-radius: 2px;
 }
 
 #OverviewCard QLabel[role='value'] {
-    font-size: 24px;
+    font-size: 17px;
     font-weight: 700;
 }
 
 #OverviewCard QLabel[role='title'] {
     color: #9fb3c8;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
 }
 
 #OverviewCard QLabel[role='detail'] {
     color: #c3ceda;
+    font-size: 8.5pt;
 }
 
 #LocationOverviewHeader {
@@ -1379,9 +1461,22 @@ QSplitter::handle:vertical {
 }
 
 #ToolbarMuteButton {
-    min-width: 34px;
-    max-width: 34px;
-    padding: 4px;
+    min-width: 30px;
+    max-width: 30px;
+    padding: 3px;
+}
+
+#SecondaryActionButton {
+    background: #111827;
+    color: #7dd3c7;
+    border-color: #2c746b;
+    min-height: 24px;
+    padding: 3px 9px;
+}
+
+#SecondaryActionButton:hover {
+    background: #123530;
+    border-color: #38b2a3;
 }
 '''
 
@@ -2835,8 +2930,8 @@ class WeatherAlertApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"Weather Alert Monitor v{versionnumber}")
-        self.setGeometry(100, 100, 1360, 920)
-        self.setMinimumSize(1180, 820)
+        self.setGeometry(80, 80, 1440, 900)
+        self.setMinimumSize(1100, 760)
 
         self._log_buffer: List[str] = []
 
@@ -2865,6 +2960,7 @@ class WeatherAlertApp(QMainWindow):
         self._last_nws_placeholder_location_id: str = ""
         self._web_tabs_fullscreen_active = False
         self._web_tabs_previous_splitter_sizes: List[int] = []
+        self._web_tabs_previous_workbench_sizes: List[int] = []
         self._web_tabs_was_maximized = False
 
         # Initialize application state variables
@@ -3252,8 +3348,8 @@ class WeatherAlertApp(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setSpacing(18)
-        main_layout.setContentsMargins(18, 18, 18, 18)
+        main_layout.setSpacing(8)
+        main_layout.setContentsMargins(10, 10, 10, 10)
 
         # --- Top Status Bar ---
         top_status_layout = self._create_top_status_bar()
@@ -3263,27 +3359,42 @@ class WeatherAlertApp(QMainWindow):
         self._create_menu_bar()
         self.web_source_quick_select_button.setMenu(self.web_sources_menu)
 
-        self.dashboard_overview_panel = self._create_dashboard_overview()
-        main_layout.addWidget(self.dashboard_overview_panel, 0)
+        self.workbench_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.workbench_splitter.setObjectName("WorkbenchSplitter")
+        self.workbench_splitter.setChildrenCollapsible(False)
+        main_layout.addWidget(self.workbench_splitter, 1)
 
-        # --- Main Content Area (Alerts & Forecasts) ---
-        self.alerts_forecasts_container = QWidget()
-        self.alerts_forecasts_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        alerts_forecasts_layout = QVBoxLayout(self.alerts_forecasts_container)
-        alerts_forecasts_layout.setContentsMargins(0, 0, 0, 0)
-        alerts_forecasts_layout.setSpacing(0)
-        self.alerts_forecasts_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.alerts_forecasts_splitter.setChildrenCollapsible(False)
-        alerts_forecasts_layout.addWidget(self.alerts_forecasts_splitter)
-        main_layout.addWidget(self.alerts_forecasts_container, 0)
+        self.left_rail = QWidget()
+        self.left_rail.setObjectName("DecisionRail")
+        self.left_rail.setMinimumWidth(360)
+        self.left_rail.setMaximumWidth(560)
+        left_rail_layout = QVBoxLayout(self.left_rail)
+        left_rail_layout.setContentsMargins(0, 0, 0, 0)
+        left_rail_layout.setSpacing(8)
+
+        self.right_workspace = QWidget()
+        self.right_workspace.setObjectName("Workspace")
+        right_workspace_layout = QVBoxLayout(self.right_workspace)
+        right_workspace_layout.setContentsMargins(0, 0, 0, 0)
+        right_workspace_layout.setSpacing(8)
+
+        self.workbench_splitter.addWidget(self.left_rail)
+        self.workbench_splitter.addWidget(self.right_workspace)
+
+        self.dashboard_overview_panel = self._create_dashboard_overview()
+        left_rail_layout.addWidget(self.dashboard_overview_panel, 0)
+
+        # Backward-compatible handle used by visibility code.
+        self.alerts_forecasts_container = self.left_rail
+        self.alerts_forecasts_splitter = self.workbench_splitter
 
         # Alerts Group
         self.alerts_group = QGroupBox("Current Alerts")
         self.alerts_group.setObjectName("AlertsPanel")
-        self.alerts_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.alerts_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         alerts_layout = QVBoxLayout(self.alerts_group)
-        alerts_layout.setContentsMargins(8, 8, 8, 8)
-        alerts_layout.setSpacing(4)
+        alerts_layout.setContentsMargins(8, 7, 8, 7)
+        alerts_layout.setSpacing(3)
         filter_layout = QHBoxLayout()
         filter_layout.setSpacing(3)
         self.all_alerts_button = QPushButton("All", checkable=True, checked=True)
@@ -3325,20 +3436,20 @@ class WeatherAlertApp(QMainWindow):
         self.lifecycle_display_area.setSpacing(0)
         self.lifecycle_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         alerts_layout.addWidget(self.lifecycle_display_area)
-        self.alerts_forecasts_splitter.addWidget(self.alerts_group)
+        left_rail_layout.addWidget(self.alerts_group, 1)
 
         # Combined Forecasts Group
         self.combined_forecast_widget = QGroupBox("Weather Forecast")
         self.combined_forecast_widget.setObjectName("ForecastPanel")
         self.combined_forecast_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.combined_forecast_main_layout = QBoxLayout(QBoxLayout.Direction.LeftToRight, self.combined_forecast_widget)
-        self.combined_forecast_main_layout.setContentsMargins(8, 8, 8, 8)
-        self.combined_forecast_main_layout.setSpacing(6)
+        self.combined_forecast_main_layout.setContentsMargins(7, 7, 7, 7)
+        self.combined_forecast_main_layout.setSpacing(5)
         self.hourly_forecast_group = QGroupBox("8-Hour Forecast")
         self.hourly_forecast_group.setObjectName("HourlyForecastCard")
         self.hourly_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         hourly_forecast_sub_group_layout = QVBoxLayout(self.hourly_forecast_group)
-        hourly_forecast_sub_group_layout.setContentsMargins(6, 6, 6, 6)
+        hourly_forecast_sub_group_layout.setContentsMargins(5, 5, 5, 5)
         hourly_forecast_sub_group_layout.setSpacing(2)
         self.hourly_forecast_widget = QWidget()
         self.hourly_forecast_widget.setObjectName("HourlyForecastGrid")
@@ -3369,7 +3480,7 @@ class WeatherAlertApp(QMainWindow):
         self.daily_forecast_group.setObjectName("DailyForecastCard")
         self.daily_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         daily_forecast_sub_group_layout = QVBoxLayout(self.daily_forecast_group)
-        daily_forecast_sub_group_layout.setContentsMargins(6, 6, 6, 6)
+        daily_forecast_sub_group_layout.setContentsMargins(5, 5, 5, 5)
         daily_forecast_sub_group_layout.setSpacing(2)
         self.daily_forecast_widget = QWidget()
         self.daily_forecast_widget.setObjectName("DailyForecastGrid")
@@ -3392,7 +3503,7 @@ class WeatherAlertApp(QMainWindow):
         self.daily_forecast_scroll.setWidget(self.daily_forecast_widget)
         daily_forecast_sub_group_layout.addWidget(self.daily_forecast_scroll)
         self.combined_forecast_main_layout.addWidget(self.daily_forecast_group, 1)
-        self.alerts_forecasts_splitter.addWidget(self.combined_forecast_widget)
+        right_workspace_layout.addWidget(self.combined_forecast_widget, 0)
         self._apply_forecast_layout_mode()
         self._apply_forecast_panel_sizes()
         self._apply_forecast_font_sizes()
@@ -3400,7 +3511,7 @@ class WeatherAlertApp(QMainWindow):
         # --- Bottom Splitter (Web View & Log) ---
         self.bottom_splitter = QSplitter(Qt.Orientation.Vertical)
         self.bottom_splitter.setChildrenCollapsible(False)
-        main_layout.addWidget(self.bottom_splitter, 1)
+        right_workspace_layout.addWidget(self.bottom_splitter, 1)
 
         self.web_tabs = QTabWidget()
         self.web_tabs_fullscreen_button = QPushButton("Full Screen")
@@ -3415,11 +3526,11 @@ class WeatherAlertApp(QMainWindow):
             self.nws_view = QWebEngineView()
             self.digital_forecast_view = QWebEngineView()
             self.forecast_trends_view = QWebEngineView()
-            self.web_tabs.addTab(self.web_view, "Web Source")
             self.web_tabs.addTab(self.map_view, "Alert Map")
-            self.web_tabs.addTab(self.nws_view, "City variable, NWS")
-            self.web_tabs.addTab(self.digital_forecast_view, "National Digital Graphic Forecast")
             self.web_tabs.addTab(self.forecast_trends_view, "Forecast Trends")
+            self.web_tabs.addTab(self.nws_view, "NWS Forecast")
+            self.web_tabs.addTab(self.digital_forecast_view, "Digital Forecast")
+            self.web_tabs.addTab(self.web_view, "Radar / Web")
             self.digital_forecast_view.setUrl(QUrl(self._build_digital_forecast_url(None)))
         else:
             self.web_view = QLabel("WebEngineView not available. Please install 'PySide6-WebEngine'.")
@@ -3435,11 +3546,11 @@ class WeatherAlertApp(QMainWindow):
             self.digital_forecast_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.forecast_trends_view = QLabel("Forecast trend charts unavailable without PySide6-WebEngine.")
             self.forecast_trends_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.web_tabs.addTab(self.web_view, "Web Source")
             self.web_tabs.addTab(self.map_view, "Alert Map")
-            self.web_tabs.addTab(self.nws_view, "City variable, NWS")
-            self.web_tabs.addTab(self.digital_forecast_view, "National Digital Graphic Forecast")
             self.web_tabs.addTab(self.forecast_trends_view, "Forecast Trends")
+            self.web_tabs.addTab(self.nws_view, "NWS Forecast")
+            self.web_tabs.addTab(self.digital_forecast_view, "Digital Forecast")
+            self.web_tabs.addTab(self.web_view, "Radar / Web")
         self._update_web_tabs_fullscreen_button()
         self.bottom_splitter.addWidget(self.web_tabs)
 
@@ -3461,8 +3572,8 @@ class WeatherAlertApp(QMainWindow):
             self.log_area.append("\n".join(self._log_buffer))
             self._log_buffer.clear()
 
-        self.bottom_splitter.setSizes([400, 200])
-        self.alerts_forecasts_splitter.setSizes([420, 780])
+        self.bottom_splitter.setSizes([620, 86])
+        self.workbench_splitter.setSizes([430, 970])
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -3500,6 +3611,9 @@ class WeatherAlertApp(QMainWindow):
 
         if checked:
             self._web_tabs_previous_splitter_sizes = self.bottom_splitter.sizes()
+            self._web_tabs_previous_workbench_sizes = (
+                self.workbench_splitter.sizes() if hasattr(self, "workbench_splitter") else []
+            )
             self._web_tabs_was_maximized = self.isMaximized()
             self.showFullScreen()
         else:
@@ -3512,9 +3626,13 @@ class WeatherAlertApp(QMainWindow):
         self._update_panel_visibility()
 
         if checked:
+            if hasattr(self, "workbench_splitter"):
+                self.workbench_splitter.setSizes([0, 1])
             self.bottom_splitter.setSizes([1, 0])
         elif self._web_tabs_previous_splitter_sizes:
             self.bottom_splitter.setSizes(self._web_tabs_previous_splitter_sizes)
+            if hasattr(self, "workbench_splitter") and self._web_tabs_previous_workbench_sizes:
+                self.workbench_splitter.setSizes(self._web_tabs_previous_workbench_sizes)
 
     def _update_web_tabs_fullscreen_button(self) -> None:
         if not hasattr(self, "web_tabs_fullscreen_button"):
@@ -3570,20 +3688,37 @@ class WeatherAlertApp(QMainWindow):
         strip.setObjectName("TopStatusStrip")
         strip_layout = QHBoxLayout(strip)
         strip_layout.setContentsMargins(8, 6, 8, 6)
-        strip_layout.setSpacing(6)
+        strip_layout.setSpacing(8)
+
+        brand_section = QFrame()
+        brand_section.setObjectName("HeaderBrand")
+        brand_layout = QVBoxLayout(brand_section)
+        brand_layout.setContentsMargins(8, 2, 12, 2)
+        brand_layout.setSpacing(0)
+        self.app_title_label = QLabel("PyWeatherAlert")
+        self.app_title_label.setObjectName("HeaderTitle")
+        self.header_context_label = QLabel("Weather operations desk")
+        self.header_context_label.setObjectName("HeaderContext")
+        brand_layout.addWidget(self.app_title_label)
+        brand_layout.addWidget(self.header_context_label)
+
+        divider = QFrame()
+        divider.setObjectName("HeaderDivider")
+        divider.setFrameShape(QFrame.Shape.VLine)
+        divider.setFixedWidth(1)
 
         controls_section = QFrame()
         controls_section.setObjectName("TopToolbarSection")
         controls_layout = QHBoxLayout(controls_section)
-        controls_layout.setContentsMargins(8, 4, 8, 4)
-        controls_layout.setSpacing(6)
+        controls_layout.setContentsMargins(6, 3, 6, 3)
+        controls_layout.setSpacing(5)
         controls_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         status_section = QFrame()
         status_section.setObjectName("TopToolbarSection")
         status_layout = QHBoxLayout(status_section)
-        status_layout.setContentsMargins(8, 4, 8, 4)
-        status_layout.setSpacing(6)
+        status_layout.setContentsMargins(6, 3, 6, 3)
+        status_layout.setSpacing(5)
         status_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
         self.top_repeater_label = QLabel("Rpt N/A")
@@ -3604,9 +3739,9 @@ class WeatherAlertApp(QMainWindow):
         controls_layout.addWidget(location_icon_label)
 
         self.location_combo = QComboBox()
-        self.location_combo.setMinimumWidth(210)
-        self.location_combo.setMaximumWidth(280)
-        self.location_combo.setMinimumHeight(28)
+        self.location_combo.setMinimumWidth(190)
+        self.location_combo.setMaximumWidth(250)
+        self.location_combo.setMinimumHeight(26)
         self.location_combo.setToolTip("Select a location to view")
         self.location_combo.currentIndexChanged.connect(self._on_location_selected)
         controls_layout.addWidget(self.location_combo)
@@ -3619,9 +3754,9 @@ class WeatherAlertApp(QMainWindow):
 
         self.top_interval_combo = QComboBox()
         self.top_interval_combo.addItems(CHECK_INTERVAL_OPTIONS.keys())
-        self.top_interval_combo.setMinimumWidth(118)
-        self.top_interval_combo.setMaximumWidth(140)
-        self.top_interval_combo.setMinimumHeight(28)
+        self.top_interval_combo.setMinimumWidth(108)
+        self.top_interval_combo.setMaximumWidth(128)
+        self.top_interval_combo.setMinimumHeight(26)
         self.top_interval_combo.setToolTip("Set check interval")
         self.top_interval_combo.currentTextChanged.connect(self._on_top_interval_changed)
         controls_layout.addWidget(self.top_interval_combo)
@@ -3629,7 +3764,7 @@ class WeatherAlertApp(QMainWindow):
         self.web_source_quick_select_button = QPushButton("Sources")
         self.web_source_quick_select_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
         self.web_source_quick_select_button.setToolTip("Quick select web source")
-        self.web_source_quick_select_button.setMinimumHeight(28)
+        self.web_source_quick_select_button.setMinimumHeight(26)
         controls_layout.addWidget(self.web_source_quick_select_button)
 
         self.mute_button = QPushButton("")
@@ -3637,7 +3772,7 @@ class WeatherAlertApp(QMainWindow):
         self.mute_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolumeMuted))
         self.mute_button.setToolTip("Mute All Audio")
         self.mute_button.setCheckable(True)
-        self.mute_button.setMinimumHeight(28)
+        self.mute_button.setMinimumHeight(26)
         self.mute_button.toggled.connect(self._on_mute_toggled)
         controls_layout.addWidget(self.mute_button)
 
@@ -3646,6 +3781,8 @@ class WeatherAlertApp(QMainWindow):
         status_layout.addWidget(self.current_temperature_label)
         status_layout.addWidget(self.last_announcement_label)
         status_layout.addWidget(self.current_time_label)
+        strip_layout.addWidget(brand_section, 0)
+        strip_layout.addWidget(divider, 0)
         strip_layout.addWidget(controls_section, 0)
         strip_layout.addWidget(status_section, 0)
         strip_layout.addStretch(1)
@@ -3658,8 +3795,14 @@ class WeatherAlertApp(QMainWindow):
         card = QFrame()
         card.setObjectName("OverviewCard")
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(16, 14, 16, 14)
-        layout.setSpacing(6)
+        layout.setContentsMargins(10, 7, 10, 7)
+        layout.setSpacing(2)
+
+        accent_bar = QFrame()
+        accent_bar.setObjectName("OverviewCardAccent")
+        accent_bar.setStyleSheet(f"background-color: {accent};")
+        accent_bar.setFixedHeight(3)
+        layout.addWidget(accent_bar)
 
         title_label = QLabel(title)
         title_label.setProperty("role", "title")
@@ -3679,16 +3822,16 @@ class WeatherAlertApp(QMainWindow):
         panel = QGroupBox("Operational Overview")
         panel.setObjectName("OperationalOverviewPanel")
         layout = QVBoxLayout(panel)
-        layout.setSpacing(12)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(6)
+        layout.setContentsMargins(8, 7, 8, 8)
 
         self.dashboard_header_widget = QWidget()
         header_layout = QVBoxLayout(self.dashboard_header_widget)
         header_layout.setContentsMargins(0, 0, 0, 0)
-        header_layout.setSpacing(4)
+        header_layout.setSpacing(1)
         self.dashboard_headline = QLabel("Now monitoring current location")
         self.dashboard_headline.setObjectName("DashboardHeadline")
-        self.dashboard_subheadline = QLabel("Alerts, current observations, forecast trends, and delivery health are summarized here.")
+        self.dashboard_subheadline = QLabel("Alerts, observations, forecast trends, and notification health summarized for rapid scan.")
         self.dashboard_subheadline.setWordWrap(True)
         self.dashboard_subheadline.setObjectName("DashboardSubheadline")
         header_layout.addWidget(self.dashboard_headline)
@@ -3696,8 +3839,8 @@ class WeatherAlertApp(QMainWindow):
         layout.addWidget(self.dashboard_header_widget)
 
         cards_layout = QGridLayout()
-        cards_layout.setHorizontalSpacing(10)
-        cards_layout.setVerticalSpacing(10)
+        cards_layout.setHorizontalSpacing(6)
+        cards_layout.setVerticalSpacing(6)
         hazard_card, self.hazard_value_label, self.hazard_detail_label = self._create_summary_card("Primary Hazard", "#b91c1c")
         conditions_card, self.conditions_value_label, self.conditions_detail_label = self._create_summary_card("Current Conditions", "#0f766e")
         active_card, self.active_alerts_value_label, self.active_alerts_detail_label = self._create_summary_card("Active Alerts", "#b91c1c")
@@ -3706,8 +3849,9 @@ class WeatherAlertApp(QMainWindow):
         delivery_card, self.delivery_value_label, self.delivery_detail_label = self._create_summary_card("Notifications", "#047857")
         for row, card_row in enumerate(
             [
-                [hazard_card, conditions_card, active_card],
-                [escalation_card, network_card, delivery_card],
+                [hazard_card, active_card],
+                [conditions_card, network_card],
+                [escalation_card, delivery_card],
             ]
         ):
             for col, card in enumerate(card_row):
@@ -3721,13 +3865,15 @@ class WeatherAlertApp(QMainWindow):
         footer_layout.addWidget(self.location_overview_header)
         footer_layout.addStretch(1)
         incident_button = QPushButton("Open Incident Center")
+        incident_button.setObjectName("SecondaryActionButton")
         incident_button.clicked.connect(lambda checked=False: self._show_incident_center())
         footer_layout.addWidget(incident_button)
         layout.addLayout(footer_layout)
 
         self.location_overview_list = QListWidget()
         self.location_overview_list.setObjectName("LocationOverviewList")
-        self.location_overview_list.setMinimumHeight(170)
+        self.location_overview_list.setMinimumHeight(92)
+        self.location_overview_list.setMaximumHeight(138)
         self.location_overview_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.location_overview_list.itemClicked.connect(self._on_location_overview_clicked)
         layout.addWidget(self.location_overview_list)
@@ -4541,52 +4687,65 @@ class WeatherAlertApp(QMainWindow):
                     self.log_to_gui(f"{channel_name.capitalize()} notification delivery failed.", level="WARNING")
         self._update_dashboard_summary()
 
-    def _update_alert_map(self, alerts: List[Dict[str, Any]]) -> None:
-        if not (QWebEngineView and self.map_view):
-            return
-        if not alerts:
-            if self._last_map_empty_location_id != self.current_location_id:
-                self.map_view.setHtml(
-                    """
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <style>
-    body { margin: 0; font-family: Segoe UI, Arial, sans-serif; background: #f8fafc; color: #334155; }
-    .empty { height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; }
-    .panel { border: 1px solid #dbe4ef; border-radius: 8px; background: #ffffff; padding: 22px 28px; }
-    h3 { margin: 0 0 8px; color: #0f172a; }
-    p { margin: 0; }
-  </style>
-</head>
-<body>
-  <div class="empty"><div class="panel"><h3>No active alert polygons</h3><p>The selected location has no mapped NWS alert areas right now.</p></div></div>
-</body>
-</html>
-"""
+    def _map_alert_payload(self, alerts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        payload = []
+        for index, alert in enumerate(alerts):
+            distance = alert.get("distance_miles")
+            if distance is None and self.current_coords:
+                distance = distance_point_to_geometry_miles(
+                    self.current_coords[0], self.current_coords[1], alert.get("geometry")
                 )
-                self._last_map_empty_location_id = self.current_location_id
-                self._last_map_signature = ()
-            return
+            distance_text = f"{distance:.1f} mi" if isinstance(distance, (int, float)) else "n/a"
+            timing = self._alert_time_window_text(alert)
+            payload.append(
+                {
+                    "index": index,
+                    "id": alert.get("id", ""),
+                    "title": alert.get("title") or alert.get("event") or "Weather alert",
+                    "event": alert.get("event") or "Alert",
+                    "severity": alert.get("severity") or "Unknown",
+                    "urgency": alert.get("urgency") or "Unknown",
+                    "certainty": alert.get("certainty") or "Unknown",
+                    "status": alert.get("status") or "",
+                    "area": self._compact_text(alert.get("area_desc", ""), 130),
+                    "summary": self._compact_text(alert.get("summary", ""), 240),
+                    "instruction": self._compact_text(alert.get("instruction", ""), 180),
+                    "expires": self._format_nws_timestamp(alert.get("ends") or alert.get("expires")),
+                    "timing": timing,
+                    "distance": distance_text,
+                    "hasGeometry": bool(alert.get("geometry")),
+                    "link": alert.get("link", ""),
+                }
+            )
+        return payload
 
-        if not self.current_coords:
-            return
-
-        map_signature = (
-            round(self.current_coords[0], 4),
-            round(self.current_coords[1], 4),
-            tuple(
-                (str(alert.get("id", "")), str(alert.get("updated", "")), str(alert.get("severity", "")))
-                for alert in alerts
-            ),
+    def _alert_map_shell_html(
+        self,
+        alerts: List[Dict[str, Any]],
+        geojson: Optional[Dict[str, Any]],
+        coords: Optional[Tuple[float, float]],
+    ) -> str:
+        alert_payload = self._map_alert_payload(alerts)
+        location_name = self.get_current_location_name()
+        has_coords = bool(coords)
+        lat, lon = coords if coords else (39.5, -98.35)
+        map_zoom = "8" if coords else "4"
+        polygon_count = len((geojson or {}).get("features", []))
+        missing_geometry_count = max(len(alert_payload) - polygon_count, 0)
+        active_count_text = f"{len(alert_payload)} active"
+        polygon_count_text = f"{polygon_count} mapped"
+        missing_count_text = f"{missing_geometry_count} listed only"
+        status_text = (
+            "No active alerts for this location."
+            if not alert_payload
+            else (
+                f"{polygon_count} alert area(s) drawn. {missing_geometry_count} alert(s) listed without polygons."
+                if missing_geometry_count
+                else f"{polygon_count} alert area(s) drawn."
+            )
         )
-        if map_signature == self._last_map_signature:
-            return
-
-        geojson = self.api_client.build_alert_geojson(alerts)
-        lat, lon = self.current_coords
-        html = f"""
+        body_class = "theme-dark" if self.current_dark_mode_enabled else "theme-light"
+        html_template = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -4594,61 +4753,388 @@ class WeatherAlertApp(QMainWindow):
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
-    html, body, #map {{ height: 100%; margin: 0; }}
-    body {{ font-family: Segoe UI, Arial, sans-serif; }}
-    .leaflet-popup-content {{ font-size: 13px; line-height: 1.4; }}
+    :root {
+      --bg: #eef3f8;
+      --panel: #ffffff;
+      --panel-2: #f8fbff;
+      --line: #d8e2ef;
+      --text: #172033;
+      --muted: #5f6f82;
+      --accent: #0f766e;
+      --shadow: rgba(15, 23, 42, 0.14);
+    }
+    body.theme-dark {
+      --bg: #111923;
+      --panel: #18212b;
+      --panel-2: #202b38;
+      --line: #314155;
+      --text: #edf4fb;
+      --muted: #a7b8ca;
+      --accent: #38bdf8;
+      --shadow: rgba(0, 0, 0, 0.28);
+    }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: Segoe UI, Arial, sans-serif;
+      overflow: hidden;
+    }
+    .shell {
+      height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(420px, 1fr) 390px;
+    }
+    #map {
+      position: relative;
+      min-height: 100vh;
+      background: #dce9f5;
+    }
+    .map-fallback {
+      position: absolute;
+      inset: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: #475569;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .side {
+      border-left: 1px solid var(--line);
+      background: var(--panel);
+      box-shadow: -8px 0 24px var(--shadow);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .head {
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel-2);
+    }
+    .kicker {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 3px 0 8px;
+      font-size: 19px;
+      line-height: 1.18;
+    }
+    .chips {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .chip {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 6px 7px;
+      min-width: 0;
+    }
+    .chip b {
+      display: block;
+      font-size: 16px;
+      line-height: 1.1;
+    }
+    .chip span {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .status {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .legend span {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 3px 7px;
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--panel-2);
+    }
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: 1px;
+    }
+    .list {
+      overflow: auto;
+      padding: 8px;
+    }
+    .alert {
+      border: 1px solid var(--line);
+      border-left: 5px solid #64748b;
+      border-radius: 7px;
+      background: var(--panel-2);
+      padding: 9px 10px;
+      margin-bottom: 7px;
+      cursor: pointer;
+    }
+    .alert:hover {
+      border-color: #94a3b8;
+    }
+    .alert h2 {
+      margin: 0 0 5px;
+      font-size: 14px;
+      line-height: 1.25;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.35;
+      font-weight: 700;
+    }
+    .summary {
+      margin-top: 6px;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .action {
+      margin-top: 6px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .empty {
+      margin: 10px;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      color: var(--muted);
+      background: var(--panel-2);
+      line-height: 1.4;
+    }
+    .leaflet-popup-content {
+      font-size: 13px;
+      line-height: 1.35;
+      min-width: 220px;
+    }
+    @media (max-width: 900px) {
+      .shell { grid-template-columns: 1fr; grid-template-rows: 58vh 42vh; }
+      #map { min-height: 58vh; }
+      .side { border-left: 0; border-top: 1px solid var(--line); }
+    }
   </style>
 </head>
-<body>
-  <div id="map"></div>
+<body class="__BODY_CLASS__">
+  <div class="shell">
+    <div id="map"><div class="map-fallback">Loading alert map tiles and overlays...</div></div>
+    <aside class="side">
+      <header class="head">
+        <div class="kicker">Alert Map Desk</div>
+        <h1>__LOCATION__</h1>
+        <div class="chips">
+          <div class="chip"><b>__ACTIVE_COUNT__</b><span>alerts</span></div>
+          <div class="chip"><b>__POLYGON_COUNT__</b><span>polygons</span></div>
+          <div class="chip"><b>__MISSING_COUNT__</b><span>fallbacks</span></div>
+        </div>
+        <div class="status">__STATUS_TEXT__</div>
+      </header>
+      <div class="legend">
+        <span><i class="dot" style="background:#ef4444"></i>Extreme</span>
+        <span><i class="dot" style="background:#f87171"></i>Severe</span>
+        <span><i class="dot" style="background:#fbbf24"></i>Moderate</span>
+        <span><i class="dot" style="background:#60a5fa"></i>Minor</span>
+      </div>
+      <div class="list" id="alert-list"></div>
+    </aside>
+  </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    const map = L.map('map').setView([{lat}, {lon}], 8);
-    L.tileLayer('https://tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
-      maxZoom: 12,
-      attribution: '&copy; OpenStreetMap contributors'
-    }}).addTo(map);
-    L.circleMarker([{lat}, {lon}], {{
-      radius: 6,
-      color: '#0f172a',
-      weight: 2,
-      fillColor: '#38bdf8',
-      fillOpacity: 0.95
-    }}).addTo(map).bindPopup('Monitored location');
-    const geojson = {json.dumps(geojson)};
-    const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({{
+    const lat = __LAT__;
+    const lon = __LON__;
+    const zoom = __ZOOM__;
+    const hasCoords = __HAS_COORDS__;
+    const geojson = __GEOJSON__;
+    const alerts = __ALERTS__;
+    const escapeHtml = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({
       '&': '&amp;',
       '<': '&lt;',
       '>': '&gt;',
       '"': '&quot;',
       "'": '&#39;'
-    }}[char]));
-    const styleBySeverity = {{
-      'Extreme': {{color: '#7f1d1d', fillColor: '#ef4444', weight: 2, fillOpacity: 0.28}},
-      'Severe': {{color: '#b91c1c', fillColor: '#f87171', weight: 2, fillOpacity: 0.24}},
-      'Moderate': {{color: '#b45309', fillColor: '#fbbf24', weight: 2, fillOpacity: 0.22}},
-      'Minor': {{color: '#1d4ed8', fillColor: '#60a5fa', weight: 2, fillOpacity: 0.20}}
-    }};
-    const layer = L.geoJSON(geojson, {{
-      style: function(feature) {{
-        const s = (feature.properties && feature.properties.severity) || 'Minor';
-        return styleBySeverity[s] || {{color: '#475569', fillColor: '#94a3b8', weight: 2, fillOpacity: 0.18}};
-      }},
-      onEachFeature: function(feature, lyr) {{
-        const p = feature.properties || {{}};
-        lyr.bindPopup(`<b>${{escapeHtml(p.title || 'Alert')}}</b><br/>Severity: ${{escapeHtml(p.severity || 'Unknown')}}`);
-      }}
-    }}).addTo(map);
-    if (layer.getLayers().length > 0) {{
-      map.fitBounds(layer.getBounds(), {{padding:[20,20]}});
-    }}
+    }[char]));
+    const severityColor = (severity) => ({
+      Extreme: '#ef4444',
+      Severe: '#f87171',
+      Moderate: '#fbbf24',
+      Minor: '#60a5fa'
+    }[severity] || '#94a3b8');
+    const severityStroke = (severity) => ({
+      Extreme: '#7f1d1d',
+      Severe: '#b91c1c',
+      Moderate: '#b45309',
+      Minor: '#1d4ed8'
+    }[severity] || '#475569');
+    const popupHtml = (p) => `
+      <b>${escapeHtml(p.title || p.event || 'Alert')}</b><br>
+      Severity: ${escapeHtml(p.severity || 'Unknown')}<br>
+      ${p.event ? `Event: ${escapeHtml(p.event)}<br>` : ''}
+      ${p.area ? `Area: ${escapeHtml(p.area)}<br>` : ''}
+      ${p.expires ? `Expires: ${escapeHtml(p.expires)}` : ''}
+    `;
+    const list = document.getElementById('alert-list');
+    if (!alerts.length) {
+      list.innerHTML = '<div class="empty"><b>No active alerts.</b><br>The map remains centered on the selected monitoring point so you can keep spatial context while conditions are quiet.</div>';
+    } else {
+      list.innerHTML = alerts.map((alert) => `
+        <article class="alert" data-alert-index="${alert.index}" style="border-left-color:${severityColor(alert.severity)}">
+          <h2>${escapeHtml(alert.title)}</h2>
+          <div class="meta">${escapeHtml(alert.severity)} | ${escapeHtml(alert.urgency)} | ${escapeHtml(alert.certainty)} | ${escapeHtml(alert.distance)} from point</div>
+          <div class="meta">${escapeHtml(alert.timing || ('Expires ' + alert.expires))}</div>
+          ${alert.area ? `<div class="meta">Areas: ${escapeHtml(alert.area)}</div>` : ''}
+          ${alert.summary ? `<div class="summary">${escapeHtml(alert.summary)}</div>` : ''}
+          ${alert.instruction ? `<div class="action">${escapeHtml(alert.instruction)}</div>` : ''}
+          ${alert.hasGeometry ? '' : '<div class="meta">No polygon supplied by NWS - shown as a point fallback.</div>'}
+        </article>
+      `).join('');
+    }
+    if (window.L) {
+      document.querySelector('.map-fallback').style.display = 'none';
+      const map = L.map('map', { zoomControl: true }).setView([lat, lon], zoom);
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 13,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+      const locationMarker = L.circleMarker([lat, lon], {
+        radius: 7,
+        color: '#0f172a',
+        weight: 2,
+        fillColor: '#38bdf8',
+        fillOpacity: 0.95
+      }).addTo(map).bindPopup('Monitored location');
+      const layerByIndex = {};
+      const boundsItems = [locationMarker];
+      const polygonLayer = L.geoJSON(geojson, {
+        style: (feature) => {
+          const s = (feature.properties && feature.properties.severity) || 'Unknown';
+          return {
+            color: severityStroke(s),
+            fillColor: severityColor(s),
+            weight: 2,
+            fillOpacity: 0.28
+          };
+        },
+        onEachFeature: (feature, layer) => {
+          const p = feature.properties || {};
+          layer.bindPopup(popupHtml(p));
+          if (Number.isInteger(p.index)) {
+            layerByIndex[p.index] = layer;
+          }
+        }
+      }).addTo(map);
+      polygonLayer.eachLayer((layer) => boundsItems.push(layer));
+      alerts.filter((alert) => !alert.hasGeometry).forEach((alert, idx) => {
+        const angle = (idx / Math.max(alerts.length, 1)) * Math.PI * 2;
+        const radius = 0.08 + (idx % 4) * 0.025;
+        const marker = L.circleMarker(
+          [lat + Math.sin(angle) * radius, lon + Math.cos(angle) * radius],
+          {
+            radius: 8,
+            color: severityStroke(alert.severity),
+            weight: 2,
+            fillColor: severityColor(alert.severity),
+            fillOpacity: 0.88,
+            dashArray: '3 3'
+          }
+        ).addTo(map).bindPopup(popupHtml(alert));
+        layerByIndex[alert.index] = marker;
+        boundsItems.push(marker);
+      });
+      if (boundsItems.length > 1) {
+        const group = L.featureGroup(boundsItems);
+        map.fitBounds(group.getBounds(), { padding: [24, 24], maxZoom: hasCoords ? 9 : 5 });
+      }
+      document.querySelectorAll('.alert').forEach((card) => {
+        card.addEventListener('click', () => {
+          const idx = Number(card.getAttribute('data-alert-index'));
+          const layer = layerByIndex[idx];
+          if (!layer) return;
+          if (layer.getBounds) {
+            map.fitBounds(layer.getBounds(), { padding: [28, 28], maxZoom: 10 });
+          } else if (layer.getLatLng) {
+            map.setView(layer.getLatLng(), 9);
+          }
+          layer.openPopup();
+        });
+      });
+    } else {
+      document.querySelector('.map-fallback').textContent = 'Map library could not load. Alert details are still available in the side panel.';
+    }
   </script>
 </body>
 </html>
 """
+        replacements = {
+            "__BODY_CLASS__": body_class,
+            "__LOCATION__": html.escape(location_name),
+            "__ACTIVE_COUNT__": html.escape(active_count_text),
+            "__POLYGON_COUNT__": html.escape(polygon_count_text),
+            "__MISSING_COUNT__": html.escape(missing_count_text),
+            "__STATUS_TEXT__": html.escape(status_text),
+            "__LAT__": json.dumps(lat),
+            "__LON__": json.dumps(lon),
+            "__ZOOM__": map_zoom,
+            "__HAS_COORDS__": "true" if has_coords else "false",
+            "__GEOJSON__": json.dumps(geojson or {"type": "FeatureCollection", "features": []}),
+            "__ALERTS__": json.dumps(alert_payload),
+        }
+        for key, value in replacements.items():
+            html_template = html_template.replace(key, value)
+        return html_template
+
+    def _update_alert_map(self, alerts: List[Dict[str, Any]]) -> None:
+        if not (QWebEngineView and self.map_view):
+            return
+
+        map_signature = (
+            round(self.current_coords[0], 4) if self.current_coords else None,
+            round(self.current_coords[1], 4) if self.current_coords else None,
+            self.current_dark_mode_enabled,
+            tuple(
+                (
+                    str(alert.get("id", "")),
+                    str(alert.get("updated", "")),
+                    str(alert.get("severity", "")),
+                    bool(alert.get("geometry")),
+                )
+                for alert in alerts
+            ),
+        )
+        if map_signature == self._last_map_signature:
+            return
+
+        geojson = self.api_client.build_alert_geojson(alerts)
+        html = self._alert_map_shell_html(alerts, geojson, self.current_coords)
         self.map_view.setHtml(html)
         self._last_map_signature = map_signature
-        self._last_map_empty_location_id = ""
+        self._last_map_empty_location_id = self.current_location_id if not alerts else ""
 
     def _build_digital_forecast_url(self, coords: Optional[Tuple[float, float]]) -> str:
         lat, lon = coords if coords else (44.94699, -119.13184)
@@ -5990,6 +6476,14 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         )
         return severity.upper(), detail
 
+    def _set_metric_card(self, value_label: QLabel, detail_label: QLabel, value: str, detail: str, limit: int = 86) -> None:
+        compact_detail = self._compact_text(detail, limit)
+        value_label.setText(value)
+        detail_label.setText(compact_detail)
+        tooltip = self._format_rich_tooltip(f"{value}\n{detail}")
+        value_label.setToolTip(tooltip)
+        detail_label.setToolTip(tooltip)
+
     def _update_dashboard_summary(self) -> None:
         if not hasattr(self, "dashboard_headline"):
             return
@@ -6003,6 +6497,10 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         worst_alert = self._top_hazard_alert(alerts)
 
         self.dashboard_headline.setText(f"Now monitoring {self.get_current_location_name()}")
+        if hasattr(self, "header_context_label"):
+            self.header_context_label.setText(
+                f"{self.get_current_location_name()} | {len(alerts)} active | {self._describe_location_health(self.current_location_id)}"
+            )
         if worst_alert:
             self.dashboard_subheadline.setText(
                 f"Primary hazard is {worst_alert.get('title', 'active alert')} "
@@ -6012,25 +6510,23 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
             self.dashboard_subheadline.setText("No active alerts. Current conditions, forecast trends, and delivery health remain available.")
 
         hazard_value, hazard_detail = self._hazard_card_text(worst_alert)
-        self.hazard_value_label.setText(hazard_value)
-        self.hazard_detail_label.setText(hazard_detail)
+        self._set_metric_card(self.hazard_value_label, self.hazard_detail_label, hazard_value, hazard_detail, 78)
 
         condition_value, condition_detail = self._condition_card_text(conditions)
-        self.conditions_value_label.setText(condition_value)
-        self.conditions_detail_label.setText(condition_detail)
+        self._set_metric_card(self.conditions_value_label, self.conditions_detail_label, condition_value, condition_detail, 86)
 
-        self.active_alerts_value_label.setText(str(len(alerts)))
-        self.active_alerts_detail_label.setText(
+        active_detail = (
             "No active alerts." if not alerts else
             f"Highest severity: {worst_alert.get('severity', 'Unknown')} · {len(lifecycle.get('new', []))} new this cycle"
         )
+        self._set_metric_card(self.active_alerts_value_label, self.active_alerts_detail_label, str(len(alerts)), active_detail)
 
         escalation_count = self._active_escalation_count(self.current_location_id)
-        self.escalations_value_label.setText(str(escalation_count))
-        self.escalations_detail_label.setText(
+        escalation_detail = (
             "No repeating escalations armed." if escalation_count == 0 else
             f"{escalation_count} escalated alert(s) still repeating."
         )
+        self._set_metric_card(self.escalations_value_label, self.escalations_detail_label, str(escalation_count), escalation_detail)
 
         state_value = {
             "loading": "LOADING",
@@ -6038,15 +6534,19 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
             "cached": "CACHED",
             "error": "ERROR",
         }.get(status.get("state", "idle"), "IDLE")
-        self.data_state_value_label.setText(state_value)
-        self.data_state_detail_label.setText(self._describe_location_health(self.current_location_id))
+        self._set_metric_card(
+            self.data_state_value_label,
+            self.data_state_detail_label,
+            state_value,
+            self._describe_location_health(self.current_location_id),
+        )
 
         success_rate = 100.0 if total_attempts == 0 else ((total_attempts - total_failures) / total_attempts) * 100.0
-        self.delivery_value_label.setText(f"{success_rate:.0f}%")
-        self.delivery_detail_label.setText(
+        delivery_detail = (
             "No notification traffic yet." if total_attempts == 0 else
             f"{total_failures} failed of {total_attempts} recent attempts."
         )
+        self._set_metric_card(self.delivery_value_label, self.delivery_detail_label, f"{success_rate:.0f}%", delivery_detail)
 
         self._refresh_location_overview()
 
@@ -6166,7 +6666,14 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         self.combined_forecast_widget.setVisible(show_forecasts and not tabs_fullscreen)
         self.hourly_forecast_group.setVisible(show_hourly_forecast and not tabs_fullscreen)
         self.daily_forecast_group.setVisible(show_daily_forecast and not tabs_fullscreen)
-        self.alerts_forecasts_container.setVisible((show_alerts or show_forecasts) and not tabs_fullscreen)
+        if hasattr(self, "left_rail"):
+            self.left_rail.setVisible((show_alerts or show_monitoring_status) and not tabs_fullscreen)
+        if hasattr(self, "right_workspace"):
+            self.right_workspace.setVisible(True)
+        if hasattr(self, "web_tabs"):
+            self.web_tabs.setVisible(True)
+        if hasattr(self, "bottom_splitter"):
+            self.bottom_splitter.setVisible(True)
         self.log_widget.setVisible(show_log and not tabs_fullscreen)
         if hasattr(self, "dashboard_overview_panel"):
             self.dashboard_overview_panel.setVisible(show_monitoring_status and not tabs_fullscreen)
@@ -6594,6 +7101,11 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         unified_combined_height = max(unified_outer_height, combined_outer_height)
         self.combined_forecast_widget.setMinimumHeight(unified_combined_height)
         self.combined_forecast_widget.setMaximumHeight(unified_combined_height)
+        if hasattr(self, "workbench_splitter"):
+            self.alerts_display_area.setMinimumHeight(max(220, int(window_height * 0.28)))
+            self.alerts_display_area.setMaximumHeight(16777215)
+            self.alerts_group.setMinimumHeight(260)
+            self.alerts_group.setMaximumHeight(16777215)
 
     def _apply_color_scheme(self):
         stylesheet = DARK_STYLESHEET if self.current_dark_mode_enabled else LIGHT_STYLESHEET
