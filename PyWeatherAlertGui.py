@@ -2,6 +2,7 @@ import sys
 import pyttsx3
 import time
 import logging
+import math
 import os
 import json
 import shutil
@@ -9,6 +10,9 @@ import re
 import html
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Tuple, Callable
+from urllib.parse import urlencode, urlparse
+
+import requests
 
 # PySide6 imports
 from PySide6.QtWidgets import (
@@ -48,7 +52,7 @@ from weather_alert.dedup import AlertDeduplicator
 from weather_alert.exporter import export_incident_csv, export_incident_json
 
 # --- Application Version ---
-versionnumber = "26.06.17"
+versionnumber = "26.06.23"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -115,6 +119,10 @@ CHECK_INTERVAL_OPTIONS = {
 
 NWS_STATION_API_URL_TEMPLATE = "https://api.weather.gov/stations/{station_id}"
 NWS_POINTS_API_URL_TEMPLATE = "https://api.weather.gov/points/{latitude},{longitude}"
+COOPS_DATA_API_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+COOPS_MAP_URL = "https://tidesandcurrents.noaa.gov/map/index.html"
+COOPS_STATION_HOME_URL_TEMPLATE = "https://tidesandcurrents.noaa.gov/stationhome.html?id={station_id}"
+COOPS_STATIONS_API_URL = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json"
 WEATHER_URL_PREFIX = "https://api.weather.gov/alerts/active.atom?point="
 WEATHER_URL_SUFFIX = "&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2CSevere%2CModerate%2CMinor&urgency=Immediate%2CFuture%2CExpected"
 
@@ -522,7 +530,7 @@ QHeaderView::section {
 /* These are preserved from your original file */
 
 #AlertsPanel, #ForecastPanel, #OperationalOverviewPanel {
-    border-radius: 6px;
+    border-radius: 8px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
@@ -544,43 +552,43 @@ QHeaderView::section {
 }
 
 #DashboardHeadline {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 800;
-    color: #101828;
+    color: #172033;
 }
 
 #DashboardSubheadline {
-    color: #667085;
+    color: #5d6b7c;
     font-size: 9pt;
 }
 
 #AlertFilterButton {
     min-width: 76px;
-    min-height: 22px;
-    background: #f8fafc;
-    border: 1px solid #cfd8e3;
-    border-radius: 6px;
-    color: #344054;
-    font-weight: 600;
-    padding: 1px 8px;
+    min-height: 26px;
+    background: #f7f9fb;
+    border: 1px solid #ccd6df;
+    border-radius: 8px;
+    color: #263242;
+    font-weight: 700;
+    padding: 3px 9px;
 }
 
 #AlertFilterButton:hover {
     background: #ffffff;
-    border-color: #98a8ba;
+    border-color: #9eacba;
 }
 
 #AlertFilterButton:pressed, #AlertFilterButton:checked {
-    background: #d9f3ee;
-    border-color: #74c7b8;
-    color: #075e54;
+    background: #ecf7f1;
+    border-color: #67b58d;
+    color: #116044;
 }
 
 QGroupBox#AlertsPanel,
 QGroupBox#ForecastPanel {
-    background: #f8fafc;
-    border: 1px solid #cfd8e3;
-    border-radius: 6px;
+    background: #f7f9fb;
+    border: 1px solid #cbd6e2;
+    border-radius: 8px;
     margin-top: 10px;
 }
 
@@ -591,16 +599,16 @@ QGroupBox#ForecastPanel::title {
     left: 10px;
     top: 0px;
     padding: 0px 8px;
-    background: #e7edf4;
-    border-radius: 6px;
-    color: #475467;
+    background: #eef3f7;
+    border-radius: 8px;
+    color: #334155;
     font-weight: 700;
 }
 
 #TopStatusStrip {
-    background: #f8fafc;
-    border: 1px solid #cfd8e3;
-    border-radius: 6px;
+    background: #fbfcfd;
+    border: 1px solid #ccd7e2;
+    border-radius: 8px;
 }
 
 #HeaderBrand {
@@ -608,13 +616,13 @@ QGroupBox#ForecastPanel::title {
 }
 
 #HeaderTitle {
-    color: #101828;
-    font-size: 15px;
+    color: #142033;
+    font-size: 16px;
     font-weight: 800;
 }
 
 #HeaderContext {
-    color: #667085;
+    color: #637083;
     font-size: 9pt;
     font-weight: 600;
 }
@@ -634,9 +642,9 @@ QGroupBox#ForecastPanel::title {
 }
 
 #TopToolbarSection {
-    background: #eef2f6;
-    border: 1px solid #d5dee9;
-    border-radius: 6px;
+    background: #f2f5f8;
+    border: 1px solid #d8e0e8;
+    border-radius: 8px;
 }
 
 #TopToolbarIcon {
@@ -646,17 +654,37 @@ QGroupBox#ForecastPanel::title {
 
 #TopStatusChip {
     background: #ffffff;
-    border: 1px solid #d5dee9;
-    border-radius: 6px;
-    padding: 3px 7px;
-    color: #344054;
+    border: 1px solid #d7e0e8;
+    border-radius: 8px;
+    padding: 4px 8px;
+    color: #263242;
     font-weight: 600;
+}
+
+#HeaderIconButton {
+    min-width: 30px;
+    max-width: 30px;
+    min-height: 28px;
+    max-height: 28px;
+    padding: 3px;
+    background: #ffffff;
+    border: 1px solid #d5dee7;
+    border-radius: 8px;
+}
+
+#HeaderIconButton:hover {
+    background: #f6faf8;
+    border-color: #8bbda2;
+}
+
+#HeaderIconButton:pressed {
+    background: #e6f4ed;
 }
 
 QGroupBox#HourlyForecastCard, QGroupBox#DailyForecastCard {
     background: #ffffff;
-    border: 1px solid #d5dee9;
-    border-radius: 6px;
+    border: 1px solid #d5dee8;
+    border-radius: 8px;
     margin-top: 10px;
 }
 
@@ -666,22 +694,22 @@ QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
     left: 8px;
     top: 0px;
     padding: 0px 8px;
-    background: #eef2f6;
-    border-radius: 6px;
-    color: #475467;
+    background: #eef3f7;
+    border-radius: 8px;
+    color: #334155;
     font-weight: 700;
 }
 
 QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
     background: #ffffff;
     border: 1px solid #dde5ef;
-    border-radius: 6px;
+    border-radius: 8px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
     background: #ffffff;
     border: 1px solid #d9e2ec;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 3px;
 }
 
@@ -712,8 +740,8 @@ QSplitter::handle:vertical {
 }
 
 #OverviewCard {
-    border: 1px solid #d5dee9;
-    border-radius: 6px;
+    border: 1px solid #d4dee8;
+    border-radius: 8px;
     background: #ffffff;
 }
 
@@ -727,40 +755,46 @@ QSplitter::handle:vertical {
 }
 
 #OverviewCard QLabel[role='title'] {
-    color: #667085;
+    color: #687687;
     font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
     text-transform: uppercase;
 }
 
 #OverviewCard QLabel[role='detail'] {
-    color: #475467;
+    color: #435267;
     font-size: 8.5pt;
 }
 
 #LocationOverviewHeader {
-    color: #334e68;
+    color: #334155;
     font-weight: 700;
 }
 
 #ToolbarMuteButton {
     min-width: 30px;
     max-width: 30px;
+    min-height: 28px;
+    max-height: 28px;
     padding: 3px;
+    background: #ffffff;
+    border: 1px solid #d5dee7;
+    border-radius: 8px;
 }
 
 #SecondaryActionButton {
     background: #ffffff;
-    color: #0f766e;
-    border-color: #a7d8ce;
-    min-height: 24px;
-    padding: 3px 9px;
+    color: #116044;
+    border-color: #9fcbb5;
+    border-radius: 8px;
+    min-height: 26px;
+    padding: 4px 10px;
 }
 
 #SecondaryActionButton:hover {
-    background: #edfdfa;
-    border-color: #6fc8b8;
+    background: #edf8f1;
+    border-color: #69ae89;
 }
 
 #DailyForecastWidget {
@@ -1239,7 +1273,7 @@ QProgressBar::chunk {
 }
 
 #AlertsPanel, #ForecastPanel, #OperationalOverviewPanel {
-    border-radius: 6px;
+    border-radius: 8px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
@@ -1261,7 +1295,7 @@ QProgressBar::chunk {
 }
 
 #DashboardHeadline {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 800;
     color: #f8fafc;
 }
@@ -1273,30 +1307,30 @@ QProgressBar::chunk {
 
 #AlertFilterButton {
     min-width: 76px;
-    min-height: 22px;
-    background: #202938;
-    border: 1px solid #3b4a5f;
-    border-radius: 6px;
+    min-height: 26px;
+    background: #242a32;
+    border: 1px solid #414b57;
+    border-radius: 8px;
     color: #f8fafc;
-    font-weight: 600;
-    padding: 1px 8px;
+    font-weight: 700;
+    padding: 3px 9px;
 }
 
 #AlertFilterButton:hover {
-    background: #273142;
-    border-color: #50617a;
+    background: #2d3540;
+    border-color: #6b7887;
 }
 
 #AlertFilterButton:pressed, #AlertFilterButton:checked {
-    background: #0f766e;
-    border-color: #38b2a3;
+    background: #12634a;
+    border-color: #57b486;
 }
 
 QGroupBox#AlertsPanel,
 QGroupBox#ForecastPanel {
-    background: #18202b;
-    border: 1px solid #334155;
-    border-radius: 6px;
+    background: #1b2027;
+    border: 1px solid #394551;
+    border-radius: 8px;
     margin-top: 10px;
 }
 
@@ -1307,16 +1341,16 @@ QGroupBox#ForecastPanel::title {
     left: 10px;
     top: 0px;
     padding: 0px 8px;
-    background: #202938;
-    border-radius: 6px;
-    color: #b7c6d9;
+    background: #242a32;
+    border-radius: 8px;
+    color: #d7e1eb;
     font-weight: 700;
 }
 
 #TopStatusStrip {
-    background: #18202b;
-    border: 1px solid #334155;
-    border-radius: 6px;
+    background: #1c2128;
+    border: 1px solid #394551;
+    border-radius: 8px;
 }
 
 #HeaderBrand {
@@ -1325,7 +1359,7 @@ QGroupBox#ForecastPanel::title {
 
 #HeaderTitle {
     color: #f8fafc;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 800;
 }
 
@@ -1336,7 +1370,7 @@ QGroupBox#ForecastPanel::title {
 }
 
 #HeaderDivider {
-    background: #334155;
+    background: #394551;
 }
 
 #DecisionRail, #Workspace {
@@ -1344,15 +1378,15 @@ QGroupBox#ForecastPanel::title {
 }
 
 #WorkbenchSplitter::handle {
-    background: #334155;
+    background: #394551;
     border-radius: 2px;
     margin: 2px 3px;
 }
 
 #TopToolbarSection {
-    background: #202938;
-    border: 1px solid #334155;
-    border-radius: 6px;
+    background: #242a32;
+    border: 1px solid #394551;
+    border-radius: 8px;
 }
 
 #TopToolbarIcon {
@@ -1361,18 +1395,38 @@ QGroupBox#ForecastPanel::title {
 }
 
 #TopStatusChip {
-    background: #111827;
-    border: 1px solid #334155;
-    border-radius: 6px;
-    padding: 3px 7px;
+    background: #151a20;
+    border: 1px solid #394551;
+    border-radius: 8px;
+    padding: 4px 8px;
     color: #e2ebf5;
     font-weight: 600;
 }
 
+#HeaderIconButton {
+    min-width: 30px;
+    max-width: 30px;
+    min-height: 28px;
+    max-height: 28px;
+    padding: 3px;
+    background: #151a20;
+    border: 1px solid #394551;
+    border-radius: 8px;
+}
+
+#HeaderIconButton:hover {
+    background: #1f2d27;
+    border-color: #57b486;
+}
+
+#HeaderIconButton:pressed {
+    background: #123829;
+}
+
 QGroupBox#HourlyForecastCard, QGroupBox#DailyForecastCard {
-    background: #1e2938;
-    border: 1px solid #334155;
-    border-radius: 6px;
+    background: #20262e;
+    border: 1px solid #394551;
+    border-radius: 8px;
     margin-top: 10px;
 }
 
@@ -1382,22 +1436,22 @@ QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
     left: 8px;
     top: 0px;
     padding: 0px 8px;
-    background: #243142;
-    border-radius: 6px;
-    color: #b7c6d9;
+    background: #28303a;
+    border-radius: 8px;
+    color: #d7e1eb;
     font-weight: 700;
 }
 
 QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
-    background: #111827;
-    border: 1px solid #334155;
-    border-radius: 6px;
+    background: #151a20;
+    border: 1px solid #394551;
+    border-radius: 8px;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
-    background: #111827;
-    border: 1px solid #334155;
-    border-radius: 6px;
+    background: #151a20;
+    border: 1px solid #394551;
+    border-radius: 8px;
     padding: 3px;
 }
 
@@ -1416,7 +1470,7 @@ QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
 }
 
 QSplitter::handle {
-    background: #334155;
+    background: #394551;
 }
 
 QSplitter::handle:horizontal {
@@ -1428,9 +1482,9 @@ QSplitter::handle:vertical {
 }
 
 #OverviewCard {
-    border: 1px solid #324255;
-    border-radius: 6px;
-    background: #111827;
+    border: 1px solid #394551;
+    border-radius: 8px;
+    background: #151a20;
 }
 
 #OverviewCardAccent {
@@ -1446,7 +1500,7 @@ QSplitter::handle:vertical {
     color: #9fb3c8;
     font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.04em;
+    letter-spacing: 0;
     text-transform: uppercase;
 }
 
@@ -1463,20 +1517,26 @@ QSplitter::handle:vertical {
 #ToolbarMuteButton {
     min-width: 30px;
     max-width: 30px;
+    min-height: 28px;
+    max-height: 28px;
     padding: 3px;
+    background: #151a20;
+    border: 1px solid #394551;
+    border-radius: 8px;
 }
 
 #SecondaryActionButton {
-    background: #111827;
-    color: #7dd3c7;
-    border-color: #2c746b;
-    min-height: 24px;
-    padding: 3px 9px;
+    background: #151a20;
+    color: #98e0b8;
+    border-color: #3d8060;
+    border-radius: 8px;
+    min-height: 26px;
+    padding: 4px 10px;
 }
 
 #SecondaryActionButton:hover {
-    background: #123530;
-    border-color: #38b2a3;
+    background: #1d3328;
+    border-color: #57b486;
 }
 '''
 
@@ -1550,10 +1610,10 @@ class NwsApiClient(ModularNwsApiClient):
 class AboutDialog(QDialog):
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
-        self.setWindowTitle("About Weather Alert Monitor")
+        self.setWindowTitle("About Weather Alert Station")
         self.setMinimumWidth(400)
         layout = QVBoxLayout(self)
-        title_label = QLabel(f"<b>Weather Alert Monitor</b>")
+        title_label = QLabel(f"<b>Weather Alert Station</b>")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_font = title_label.font()
         title_font.setPointSize(16)
@@ -1564,9 +1624,9 @@ class AboutDialog(QDialog):
         layout.addWidget(version_label)
         layout.addSpacing(10)
         description_text = (
-            "This application monitors National Weather Service (NWS) alerts "
-            "for a specified location, displays current weather forecasts, "
-            "and provides a web view for weather-related sites."
+            "This station monitors National Weather Service (NWS) alerts, "
+            "current conditions, forecast trends, and weather intelligence "
+            "sources for the selected watch location."
         )
         description_label = QLabel(description_text)
         description_label.setWordWrap(True)
@@ -2705,8 +2765,8 @@ class SettingsDialog(QDialog):
         self.show_log_check.setChecked(self.current_settings.get("show_log", FALLBACK_SHOW_LOG_CHECKED))
         display_form_layout.addRow(self.show_log_check)
 
-        self.show_alerts_check = QCheckBox("Show Current Alerts Area on Startup")
-        self.show_alerts_check.setToolTip("Show or hide the Current Alerts panel.")
+        self.show_alerts_check = QCheckBox("Show Alert Stack on Startup")
+        self.show_alerts_check.setToolTip("Show or hide the Alert Stack panel.")
         self.show_alerts_check.setChecked(
             self.current_settings.get("show_alerts_area", FALLBACK_SHOW_ALERTS_AREA_CHECKED))
         display_form_layout.addRow(self.show_alerts_check)
@@ -2739,7 +2799,7 @@ class SettingsDialog(QDialog):
         self.toolbar_interval_check = QCheckBox("Show Interval Picker")
         self.toolbar_interval_check.setChecked(self.current_settings.get("toolbar_show_interval", FALLBACK_SHOW_TOOLBAR_INTERVAL))
         display_form_layout.addRow(self.toolbar_interval_check)
-        self.toolbar_sources_check = QCheckBox("Show Web Sources Button")
+        self.toolbar_sources_check = QCheckBox("Show Sources Button")
         self.toolbar_sources_check.setChecked(self.current_settings.get("toolbar_show_sources", FALLBACK_SHOW_TOOLBAR_SOURCES))
         display_form_layout.addRow(self.toolbar_sources_check)
         self.toolbar_mute_check = QCheckBox("Show Mute Button")
@@ -2929,9 +2989,9 @@ class SettingsDialog(QDialog):
 class WeatherAlertApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle(f"Weather Alert Monitor v{versionnumber}")
-        self.setGeometry(80, 80, 1440, 900)
-        self.setMinimumSize(1100, 760)
+        self.setWindowTitle(f"Weather Alert Station v{versionnumber}")
+        self.setGeometry(70, 70, 1500, 920)
+        self.setMinimumSize(1180, 780)
 
         self._log_buffer: List[str] = []
 
@@ -2950,9 +3010,11 @@ class WeatherAlertApp(QMainWindow):
         self.last_escalated_alert_time: Dict[str, float] = {}
         self.current_alerts_by_location: Dict[str, List[Dict[str, Any]]] = {}
         self.current_conditions_by_location: Dict[str, Dict[str, Any]] = {}
+        self.current_marine_data_by_location: Dict[str, Dict[str, Any]] = {}
         self.escalation_repeat_state: Dict[str, Dict[str, Any]] = {}
         self.last_lifecycle_by_location: Dict[str, Dict[str, Any]] = {}
         self.location_runtime_status: Dict[str, Dict[str, Any]] = {}
+        self._coops_station_cache: Dict[str, List[Dict[str, Any]]] = {}
         self._last_loaded_web_url: str = ""
         self._last_loaded_nws_url: str = ""
         self._last_map_signature: Tuple[Any, ...] = ()
@@ -3348,8 +3410,8 @@ class WeatherAlertApp(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setSpacing(8)
-        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(12, 12, 12, 12)
 
         # --- Top Status Bar ---
         top_status_layout = self._create_top_status_bar()
@@ -3366,8 +3428,8 @@ class WeatherAlertApp(QMainWindow):
 
         self.left_rail = QWidget()
         self.left_rail.setObjectName("DecisionRail")
-        self.left_rail.setMinimumWidth(360)
-        self.left_rail.setMaximumWidth(560)
+        self.left_rail.setMinimumWidth(380)
+        self.left_rail.setMaximumWidth(540)
         left_rail_layout = QVBoxLayout(self.left_rail)
         left_rail_layout.setContentsMargins(0, 0, 0, 0)
         left_rail_layout.setSpacing(8)
@@ -3389,7 +3451,7 @@ class WeatherAlertApp(QMainWindow):
         self.alerts_forecasts_splitter = self.workbench_splitter
 
         # Alerts Group
-        self.alerts_group = QGroupBox("Current Alerts")
+        self.alerts_group = QGroupBox("Alert Stack")
         self.alerts_group.setObjectName("AlertsPanel")
         self.alerts_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         alerts_layout = QVBoxLayout(self.alerts_group)
@@ -3403,7 +3465,8 @@ class WeatherAlertApp(QMainWindow):
         self.advisory_button = QPushButton("Advisories", checkable=True)
         for btn in [self.all_alerts_button, self.warning_button, self.watch_button, self.advisory_button]:
             btn.clicked.connect(self._filter_alerts)
-            btn.setMaximumHeight(22)
+            btn.setMinimumHeight(26)
+            btn.setMaximumHeight(28)
             btn.setObjectName("AlertFilterButton")
             filter_layout.addWidget(btn)
         alerts_layout.addLayout(filter_layout)
@@ -3439,25 +3502,25 @@ class WeatherAlertApp(QMainWindow):
         left_rail_layout.addWidget(self.alerts_group, 1)
 
         # Combined Forecasts Group
-        self.combined_forecast_widget = QGroupBox("Weather Forecast")
+        self.combined_forecast_widget = QGroupBox("Forecast Board")
         self.combined_forecast_widget.setObjectName("ForecastPanel")
         self.combined_forecast_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.combined_forecast_main_layout = QBoxLayout(QBoxLayout.Direction.LeftToRight, self.combined_forecast_widget)
-        self.combined_forecast_main_layout.setContentsMargins(7, 7, 7, 7)
-        self.combined_forecast_main_layout.setSpacing(5)
+        self.combined_forecast_main_layout.setContentsMargins(6, 5, 6, 6)
+        self.combined_forecast_main_layout.setSpacing(6)
         self.hourly_forecast_group = QGroupBox("8-Hour Forecast")
         self.hourly_forecast_group.setObjectName("HourlyForecastCard")
         self.hourly_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         hourly_forecast_sub_group_layout = QVBoxLayout(self.hourly_forecast_group)
-        hourly_forecast_sub_group_layout.setContentsMargins(5, 5, 5, 5)
-        hourly_forecast_sub_group_layout.setSpacing(2)
+        hourly_forecast_sub_group_layout.setContentsMargins(4, 4, 4, 4)
+        hourly_forecast_sub_group_layout.setSpacing(1)
         self.hourly_forecast_widget = QWidget()
         self.hourly_forecast_widget.setObjectName("HourlyForecastGrid")
         self.hourly_forecast_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.hourly_forecast_layout = QGridLayout(self.hourly_forecast_widget)
-        self.hourly_forecast_layout.setContentsMargins(4, 4, 4, 4)
-        self.hourly_forecast_layout.setHorizontalSpacing(5)
-        self.hourly_forecast_layout.setVerticalSpacing(2)
+        self.hourly_forecast_layout.setContentsMargins(3, 3, 3, 3)
+        self.hourly_forecast_layout.setHorizontalSpacing(4)
+        self.hourly_forecast_layout.setVerticalSpacing(1)
         self.hourly_forecast_layout.setColumnStretch(0, 0)
         self.hourly_forecast_layout.setColumnStretch(1, 2)
         self.hourly_forecast_layout.setColumnStretch(2, 2)
@@ -3467,7 +3530,7 @@ class WeatherAlertApp(QMainWindow):
         self.hourly_forecast_layout.setColumnStretch(6, 2)
         self.hourly_forecast_layout.setColumnStretch(7, 2)
         self.hourly_forecast_layout.setColumnStretch(8, 5)
-        hourly_font = QFont(); hourly_font.setPointSize(9); self.hourly_forecast_widget.setFont(hourly_font)
+        hourly_font = QFont(); hourly_font.setPointSize(8); self.hourly_forecast_widget.setFont(hourly_font)
         self.hourly_forecast_scroll = QScrollArea()
         self.hourly_forecast_scroll.setWidgetResizable(True)
         self.hourly_forecast_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -3480,21 +3543,21 @@ class WeatherAlertApp(QMainWindow):
         self.daily_forecast_group.setObjectName("DailyForecastCard")
         self.daily_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         daily_forecast_sub_group_layout = QVBoxLayout(self.daily_forecast_group)
-        daily_forecast_sub_group_layout.setContentsMargins(5, 5, 5, 5)
-        daily_forecast_sub_group_layout.setSpacing(2)
+        daily_forecast_sub_group_layout.setContentsMargins(4, 4, 4, 4)
+        daily_forecast_sub_group_layout.setSpacing(1)
         self.daily_forecast_widget = QWidget()
         self.daily_forecast_widget.setObjectName("DailyForecastGrid")
         self.daily_forecast_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.daily_forecast_layout = QGridLayout(self.daily_forecast_widget)
-        self.daily_forecast_layout.setContentsMargins(4, 4, 4, 4)
-        self.daily_forecast_layout.setHorizontalSpacing(5)
-        self.daily_forecast_layout.setVerticalSpacing(2)
+        self.daily_forecast_layout.setContentsMargins(3, 3, 3, 3)
+        self.daily_forecast_layout.setHorizontalSpacing(4)
+        self.daily_forecast_layout.setVerticalSpacing(1)
         self.daily_forecast_layout.setColumnStretch(0, 2)
         self.daily_forecast_layout.setColumnStretch(1, 1)
         self.daily_forecast_layout.setColumnStretch(2, 2)
         self.daily_forecast_layout.setColumnStretch(3, 1)
         self.daily_forecast_layout.setColumnStretch(4, 4)
-        daily_font = QFont(); daily_font.setPointSize(9); self.daily_forecast_widget.setFont(daily_font)
+        daily_font = QFont(); daily_font.setPointSize(8); self.daily_forecast_widget.setFont(daily_font)
         self.daily_forecast_scroll = QScrollArea()
         self.daily_forecast_scroll.setWidgetResizable(True)
         self.daily_forecast_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -3514,23 +3577,58 @@ class WeatherAlertApp(QMainWindow):
         right_workspace_layout.addWidget(self.bottom_splitter, 1)
 
         self.web_tabs = QTabWidget()
-        self.web_tabs_fullscreen_button = QPushButton("Full Screen")
+        self.web_nav_widget = QWidget()
+        web_nav_layout = QHBoxLayout(self.web_nav_widget)
+        web_nav_layout.setContentsMargins(0, 0, 0, 0)
+        web_nav_layout.setSpacing(4)
+        self.web_back_button = QPushButton("")
+        self.web_back_button.setObjectName("HeaderIconButton")
+        self.web_back_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowBack))
+        self.web_back_button.setToolTip("Go back in the active web tab")
+        self.web_back_button.clicked.connect(self._go_active_web_back)
+        web_nav_layout.addWidget(self.web_back_button)
+        self.web_forward_button = QPushButton("")
+        self.web_forward_button.setObjectName("HeaderIconButton")
+        self.web_forward_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowForward))
+        self.web_forward_button.setToolTip("Go forward in the active web tab")
+        self.web_forward_button.clicked.connect(self._go_active_web_forward)
+        web_nav_layout.addWidget(self.web_forward_button)
+        self.web_reload_button = QPushButton("")
+        self.web_reload_button.setObjectName("HeaderIconButton")
+        self.web_reload_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
+        self.web_reload_button.setToolTip("Reload the active web tab")
+        self.web_reload_button.clicked.connect(self._reload_active_web_view)
+        web_nav_layout.addWidget(self.web_reload_button)
+        self.web_tabs_fullscreen_button = QPushButton("Focus")
         self.web_tabs_fullscreen_button.setCheckable(True)
         self.web_tabs_fullscreen_button.setMaximumHeight(26)
-        self.web_tabs_fullscreen_button.setToolTip("Show the web tabs in fullscreen mode")
+        self.web_tabs_fullscreen_button.setToolTip("Focus the live intelligence workspace")
         self.web_tabs_fullscreen_button.clicked.connect(self._toggle_web_tabs_fullscreen)
-        self.web_tabs.setCornerWidget(self.web_tabs_fullscreen_button, Qt.Corner.TopRightCorner)
+        web_nav_layout.addWidget(self.web_tabs_fullscreen_button)
+        self.web_tabs.currentChanged.connect(self._update_web_navigation_buttons)
+        self.web_tabs.setCornerWidget(self.web_nav_widget, Qt.Corner.TopRightCorner)
         if QWebEngineView:
             self.web_view = QWebEngineView()
             self.map_view = QWebEngineView()
             self.nws_view = QWebEngineView()
             self.digital_forecast_view = QWebEngineView()
             self.forecast_trends_view = QWebEngineView()
-            self.web_tabs.addTab(self.map_view, "Alert Map")
-            self.web_tabs.addTab(self.forecast_trends_view, "Forecast Trends")
+            self.fishing_view = QWebEngineView()
+            for view in [
+                self.web_view,
+                self.map_view,
+                self.nws_view,
+                self.digital_forecast_view,
+                self.forecast_trends_view,
+                self.fishing_view,
+            ]:
+                view.loadFinished.connect(lambda _ok=False: self._update_web_navigation_buttons())
+            self.web_tabs.addTab(self.map_view, "Map")
+            self.web_tabs.addTab(self.forecast_trends_view, "Trends")
             self.web_tabs.addTab(self.nws_view, "NWS Forecast")
             self.web_tabs.addTab(self.digital_forecast_view, "Digital Forecast")
-            self.web_tabs.addTab(self.web_view, "Radar / Web")
+            self.web_tabs.addTab(self.web_view, "Radar")
+            self.web_tabs.addTab(self.fishing_view, "Fishing")
             self.digital_forecast_view.setUrl(QUrl(self._build_digital_forecast_url(None)))
         else:
             self.web_view = QLabel("WebEngineView not available. Please install 'PySide6-WebEngine'.")
@@ -3546,11 +3644,15 @@ class WeatherAlertApp(QMainWindow):
             self.digital_forecast_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.forecast_trends_view = QLabel("Forecast trend charts unavailable without PySide6-WebEngine.")
             self.forecast_trends_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.web_tabs.addTab(self.map_view, "Alert Map")
-            self.web_tabs.addTab(self.forecast_trends_view, "Forecast Trends")
+            self.fishing_view = QLabel("Fishing conditions unavailable until a location loads.")
+            self.fishing_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.fishing_view.setWordWrap(True)
+            self.web_tabs.addTab(self.map_view, "Map")
+            self.web_tabs.addTab(self.forecast_trends_view, "Trends")
             self.web_tabs.addTab(self.nws_view, "NWS Forecast")
             self.web_tabs.addTab(self.digital_forecast_view, "Digital Forecast")
-            self.web_tabs.addTab(self.web_view, "Radar / Web")
+            self.web_tabs.addTab(self.web_view, "Radar")
+            self.web_tabs.addTab(self.fishing_view, "Fishing")
         self._update_web_tabs_fullscreen_button()
         self.bottom_splitter.addWidget(self.web_tabs)
 
@@ -3558,12 +3660,12 @@ class WeatherAlertApp(QMainWindow):
         log_layout = QVBoxLayout(self.log_widget)
         log_layout.setContentsMargins(0, 0, 0, 0)
         log_toolbar = QHBoxLayout()
-        log_toolbar.addWidget(QLabel("<b>Application Log</b>"))
+        log_toolbar.addWidget(QLabel("<b>Event Log</b>"))
         log_toolbar.addStretch()
         style = self.style()
-        sort_asc_button = QPushButton("Sort Asc"); sort_asc_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ArrowUp)); sort_asc_button.setToolTip("Sort log ascending (A-Z)"); sort_asc_button.clicked.connect(self._sort_log_ascending); log_toolbar.addWidget(sort_asc_button)
-        sort_desc_button = QPushButton("Sort Desc"); sort_desc_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ArrowDown)); sort_desc_button.setToolTip("Sort log descending (Z-A)"); sort_desc_button.clicked.connect(self._sort_log_descending); log_toolbar.addWidget(sort_desc_button)
-        clear_log_button = QPushButton("Clear Log"); clear_log_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DialogResetButton)); clear_log_button.clicked.connect(lambda: self.log_area.clear()); log_toolbar.addWidget(clear_log_button)
+        sort_asc_button = QPushButton(""); sort_asc_button.setObjectName("HeaderIconButton"); sort_asc_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ArrowUp)); sort_asc_button.setToolTip("Sort log ascending (A-Z)"); sort_asc_button.clicked.connect(self._sort_log_ascending); log_toolbar.addWidget(sort_asc_button)
+        sort_desc_button = QPushButton(""); sort_desc_button.setObjectName("HeaderIconButton"); sort_desc_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ArrowDown)); sort_desc_button.setToolTip("Sort log descending (Z-A)"); sort_desc_button.clicked.connect(self._sort_log_descending); log_toolbar.addWidget(sort_desc_button)
+        clear_log_button = QPushButton(""); clear_log_button.setObjectName("HeaderIconButton"); clear_log_button.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_DialogResetButton)); clear_log_button.setToolTip("Clear event log"); clear_log_button.clicked.connect(lambda: self.log_area.clear()); log_toolbar.addWidget(clear_log_button)
         log_layout.addLayout(log_toolbar)
         self.log_area = QTextEdit(); self.log_area.setReadOnly(True); log_layout.addWidget(self.log_area)
         self.bottom_splitter.addWidget(self.log_widget)
@@ -3572,8 +3674,8 @@ class WeatherAlertApp(QMainWindow):
             self.log_area.append("\n".join(self._log_buffer))
             self._log_buffer.clear()
 
-        self.bottom_splitter.setSizes([620, 86])
-        self.workbench_splitter.setSizes([430, 970])
+        self.bottom_splitter.setSizes([760, 1])
+        self.workbench_splitter.setSizes([440, 1060])
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -3640,7 +3742,7 @@ class WeatherAlertApp(QMainWindow):
 
         self.web_tabs_fullscreen_button.blockSignals(True)
         self.web_tabs_fullscreen_button.setChecked(self._web_tabs_fullscreen_active)
-        self.web_tabs_fullscreen_button.setText("Exit Full Screen" if self._web_tabs_fullscreen_active else "Full Screen")
+        self.web_tabs_fullscreen_button.setText("Exit Focus" if self._web_tabs_fullscreen_active else "Focus")
         icon_type = (
             QStyle.StandardPixmap.SP_TitleBarNormalButton
             if self._web_tabs_fullscreen_active
@@ -3648,11 +3750,47 @@ class WeatherAlertApp(QMainWindow):
         )
         self.web_tabs_fullscreen_button.setIcon(self.style().standardIcon(icon_type))
         self.web_tabs_fullscreen_button.setToolTip(
-            "Return to the standard dashboard layout"
+            "Return to the station desk"
             if self._web_tabs_fullscreen_active
-            else "Show the web tabs in fullscreen mode"
+            else "Focus the live intelligence workspace"
         )
         self.web_tabs_fullscreen_button.blockSignals(False)
+        self._update_web_navigation_buttons()
+
+    def _active_web_view(self) -> Optional[QWidget]:
+        if not hasattr(self, "web_tabs"):
+            return None
+        widget = self.web_tabs.currentWidget()
+        if QWebEngineView and isinstance(widget, QWebEngineView):
+            return widget
+        return None
+
+    def _update_web_navigation_buttons(self) -> None:
+        web_view = self._active_web_view()
+        can_navigate = bool(web_view)
+        for button_name in ["web_back_button", "web_forward_button", "web_reload_button"]:
+            if hasattr(self, button_name):
+                getattr(self, button_name).setEnabled(can_navigate)
+        if not can_navigate:
+            return
+        history = web_view.history()
+        self.web_back_button.setEnabled(history.canGoBack())
+        self.web_forward_button.setEnabled(history.canGoForward())
+
+    def _go_active_web_back(self) -> None:
+        web_view = self._active_web_view()
+        if web_view and web_view.history().canGoBack():
+            web_view.back()
+
+    def _go_active_web_forward(self) -> None:
+        web_view = self._active_web_view()
+        if web_view and web_view.history().canGoForward():
+            web_view.forward()
+
+    def _reload_active_web_view(self) -> None:
+        web_view = self._active_web_view()
+        if web_view:
+            web_view.reload()
 
     def _init_system_tray(self):
         """Initializes the system tray icon and menu."""
@@ -3695,9 +3833,9 @@ class WeatherAlertApp(QMainWindow):
         brand_layout = QVBoxLayout(brand_section)
         brand_layout.setContentsMargins(8, 2, 12, 2)
         brand_layout.setSpacing(0)
-        self.app_title_label = QLabel("PyWeatherAlert")
+        self.app_title_label = QLabel("Weather Alert Station")
         self.app_title_label.setObjectName("HeaderTitle")
-        self.header_context_label = QLabel("Weather operations desk")
+        self.header_context_label = QLabel("Monitoring desk")
         self.header_context_label.setObjectName("HeaderContext")
         brand_layout.addWidget(self.app_title_label)
         brand_layout.addWidget(self.header_context_label)
@@ -3723,14 +3861,19 @@ class WeatherAlertApp(QMainWindow):
 
         self.top_repeater_label = QLabel("Rpt N/A")
         self.top_repeater_label.setObjectName("TopStatusChip")
+        self.top_repeater_label.setMaximumWidth(180)
         self.top_countdown_label = QLabel("Next --:--")
         self.top_countdown_label.setObjectName("TopStatusChip")
+        self.top_countdown_label.setMaximumWidth(150)
         self.current_temperature_label = QLabel("Temp --")
         self.current_temperature_label.setObjectName("TopStatusChip")
+        self.current_temperature_label.setMaximumWidth(130)
         self.last_announcement_label = QLabel("Last --")
         self.last_announcement_label.setObjectName("TopStatusChip")
+        self.last_announcement_label.setMaximumWidth(170)
         self.current_time_label = QLabel("Time --:--:--")
         self.current_time_label.setObjectName("TopStatusChip")
+        self.current_time_label.setMaximumWidth(150)
 
         location_icon_label = QLabel()
         location_icon_label.setPixmap(style.standardIcon(QStyle.StandardPixmap.SP_DirHomeIcon).pixmap(14, 14))
@@ -3761,10 +3904,19 @@ class WeatherAlertApp(QMainWindow):
         self.top_interval_combo.currentTextChanged.connect(self._on_top_interval_changed)
         controls_layout.addWidget(self.top_interval_combo)
 
-        self.web_source_quick_select_button = QPushButton("Sources")
+        self.refresh_now_button = QPushButton("")
+        self.refresh_now_button.setObjectName("HeaderIconButton")
+        self.refresh_now_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
+        self.refresh_now_button.setToolTip("Refresh current location now")
+        self.refresh_now_button.setMinimumHeight(28)
+        self.refresh_now_button.clicked.connect(self._refresh_current_location)
+        controls_layout.addWidget(self.refresh_now_button)
+
+        self.web_source_quick_select_button = QPushButton("")
+        self.web_source_quick_select_button.setObjectName("HeaderIconButton")
         self.web_source_quick_select_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
-        self.web_source_quick_select_button.setToolTip("Quick select web source")
-        self.web_source_quick_select_button.setMinimumHeight(26)
+        self.web_source_quick_select_button.setToolTip("Choose radar or web source")
+        self.web_source_quick_select_button.setMinimumHeight(28)
         controls_layout.addWidget(self.web_source_quick_select_button)
 
         self.mute_button = QPushButton("")
@@ -3775,6 +3927,22 @@ class WeatherAlertApp(QMainWindow):
         self.mute_button.setMinimumHeight(26)
         self.mute_button.toggled.connect(self._on_mute_toggled)
         controls_layout.addWidget(self.mute_button)
+
+        self.incident_center_button = QPushButton("")
+        self.incident_center_button.setObjectName("HeaderIconButton")
+        self.incident_center_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView))
+        self.incident_center_button.setToolTip("Open incident center")
+        self.incident_center_button.setMinimumHeight(28)
+        self.incident_center_button.clicked.connect(lambda checked=False: self._show_incident_center())
+        controls_layout.addWidget(self.incident_center_button)
+
+        self.preferences_button = QPushButton("")
+        self.preferences_button.setObjectName("HeaderIconButton")
+        self.preferences_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView))
+        self.preferences_button.setToolTip("Open preferences")
+        self.preferences_button.setMinimumHeight(28)
+        self.preferences_button.clicked.connect(lambda checked=False: self._open_preferences_dialog("General"))
+        controls_layout.addWidget(self.preferences_button)
 
         status_layout.addWidget(self.top_repeater_label)
         status_layout.addWidget(self.top_countdown_label)
@@ -3819,7 +3987,7 @@ class WeatherAlertApp(QMainWindow):
         return card, value_label, detail_label
 
     def _create_dashboard_overview(self) -> QWidget:
-        panel = QGroupBox("Operational Overview")
+        panel = QGroupBox("Station Overview")
         panel.setObjectName("OperationalOverviewPanel")
         layout = QVBoxLayout(panel)
         layout.setSpacing(6)
@@ -3829,9 +3997,9 @@ class WeatherAlertApp(QMainWindow):
         header_layout = QVBoxLayout(self.dashboard_header_widget)
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setSpacing(1)
-        self.dashboard_headline = QLabel("Now monitoring current location")
+        self.dashboard_headline = QLabel("Awaiting station data")
         self.dashboard_headline.setObjectName("DashboardHeadline")
-        self.dashboard_subheadline = QLabel("Alerts, observations, forecast trends, and notification health summarized for rapid scan.")
+        self.dashboard_subheadline = QLabel("Alerts, conditions, forecast trends, and notification health are summarized for rapid scan.")
         self.dashboard_subheadline.setWordWrap(True)
         self.dashboard_subheadline.setObjectName("DashboardSubheadline")
         header_layout.addWidget(self.dashboard_headline)
@@ -3859,13 +4027,14 @@ class WeatherAlertApp(QMainWindow):
                 cards_layout.setColumnStretch(col, 1)
         layout.addLayout(cards_layout)
 
-        self.location_overview_header = QLabel("Location Overview")
+        self.location_overview_header = QLabel("Watch Locations")
         self.location_overview_header.setObjectName("LocationOverviewHeader")
         footer_layout = QHBoxLayout()
         footer_layout.addWidget(self.location_overview_header)
         footer_layout.addStretch(1)
-        incident_button = QPushButton("Open Incident Center")
+        incident_button = QPushButton("Incidents")
         incident_button.setObjectName("SecondaryActionButton")
+        incident_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView))
         incident_button.clicked.connect(lambda checked=False: self._show_incident_center())
         footer_layout.addWidget(incident_button)
         layout.addLayout(footer_layout)
@@ -3884,15 +4053,13 @@ class WeatherAlertApp(QMainWindow):
         style = self.style()
 
         # File Menu
-        file_menu = menu_bar.addMenu("&File")
+        file_menu = menu_bar.addMenu("&Station")
         preferences_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView),
                                      "&Preferences...", self)
         preferences_action.triggered.connect(lambda _checked=False: self._open_preferences_dialog("General"))
         file_menu.addAction(preferences_action)
-        file_menu.addSeparator()
         self.file_show_monitoring_status_action = QAction("Show Operational Status", self, checkable=True)
         self.file_show_monitoring_status_action.toggled.connect(self._on_show_monitoring_status_toggled)
-        file_menu.addAction(self.file_show_monitoring_status_action)
         file_menu.addSeparator()
         self.backup_settings_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton),
                                               "&Backup Settings...", self)
@@ -3909,15 +4076,15 @@ class WeatherAlertApp(QMainWindow):
         file_menu.addAction(exit_action)
 
         # View Menu
-        view_menu = menu_bar.addMenu("&View")
-        self.web_sources_menu = view_menu.addMenu("&Web Sources")
+        view_menu = menu_bar.addMenu("&Desk")
+        self.web_sources_menu = view_menu.addMenu("&Sources")
         self.web_sources_menu.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
         self.web_sources_menu.aboutToShow.connect(self._update_web_sources_menu)
         view_menu.addSeparator()
-        self.show_log_action = QAction("Show &Log Panel", self, checkable=True)
+        self.show_log_action = QAction("Show &Event Log", self, checkable=True)
         self.show_log_action.toggled.connect(self._on_show_log_toggled)
         view_menu.addAction(self.show_log_action)
-        self.show_alerts_area_action = QAction("Show Current &Alerts Area", self, checkable=True)
+        self.show_alerts_area_action = QAction("Show &Alert Stack", self, checkable=True)
         self.show_alerts_area_action.toggled.connect(self._on_show_alerts_toggled)
         view_menu.addAction(self.show_alerts_area_action)
         self.show_hourly_forecast_action = QAction("Show &8-Hour Forecast", self, checkable=True)
@@ -3927,13 +4094,13 @@ class WeatherAlertApp(QMainWindow):
         self.show_daily_forecast_action.toggled.connect(self._on_show_daily_forecast_toggled)
         view_menu.addAction(self.show_daily_forecast_action)
         view_menu.addSeparator()
-        customize_toolbar_action = QAction("Customize Toolbar...", self)
+        customize_toolbar_action = QAction("Customize Desk...", self)
         customize_toolbar_action.triggered.connect(lambda checked=False: self._open_preferences_dialog("Display"))
         view_menu.addAction(customize_toolbar_action)
-        self.show_monitoring_status_action = QAction("Show Monitoring Status", self, checkable=True)
+        self.show_monitoring_status_action = QAction("Show Station Overview", self, checkable=True)
         self.show_monitoring_status_action.toggled.connect(self._on_show_monitoring_status_toggled)
         view_menu.addAction(self.show_monitoring_status_action)
-        self.show_location_overview_action = QAction("Show Location Overview", self, checkable=True)
+        self.show_location_overview_action = QAction("Show Watch Locations", self, checkable=True)
         self.show_location_overview_action.toggled.connect(self._on_show_location_overview_toggled)
         view_menu.addAction(self.show_location_overview_action)
         view_menu.addSeparator()
@@ -3941,16 +4108,16 @@ class WeatherAlertApp(QMainWindow):
         self.dark_mode_action.toggled.connect(self._on_dark_mode_toggled)
         view_menu.addAction(self.dark_mode_action)
 
-        # History Menu
-        history_menu = menu_bar.addMenu("&History")
+        # Incidents Menu
+        history_menu = menu_bar.addMenu("&Incidents")
         incident_center_action = QAction("Open Incident Center", self)
         incident_center_action.triggered.connect(lambda checked=False: self._show_incident_center())
         history_menu.addAction(incident_center_action)
         history_menu.addSeparator()
-        view_history_action = QAction("View Alert History", self)
+        view_history_action = QAction("Alert History", self)
         view_history_action.triggered.connect(self._show_alert_history)
         history_menu.addAction(view_history_action)
-        view_timeline_action = QAction("View Lifecycle Timeline", self)
+        view_timeline_action = QAction("Lifecycle Timeline", self)
         view_timeline_action.triggered.connect(self._show_lifecycle_timeline)
         history_menu.addAction(view_timeline_action)
         export_incident_action = QAction("Export Incident Report...", self)
@@ -3958,12 +4125,17 @@ class WeatherAlertApp(QMainWindow):
         history_menu.addAction(export_incident_action)
 
         # Actions Menu
-        actions_menu = menu_bar.addMenu("&Actions")
-        self.announce_alerts_action = QAction("Enable Timed Announcements", self, checkable=True)
+        actions_menu = menu_bar.addMenu("&Monitor")
+        refresh_now_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload), "Refresh Now", self)
+        refresh_now_action.setShortcut("F5")
+        refresh_now_action.triggered.connect(self._refresh_current_location)
+        actions_menu.addAction(refresh_now_action)
+        actions_menu.addSeparator()
+        self.announce_alerts_action = QAction("Timed Announcements", self, checkable=True)
         self.announce_alerts_action.setToolTip("When checked, periodically announces repeater info or new alerts at the set interval.")
         self.announce_alerts_action.toggled.connect(self._on_announce_alerts_toggled)
         actions_menu.addAction(self.announce_alerts_action)
-        self.auto_refresh_action = QAction("Auto-&Refresh Content", self, checkable=True)
+        self.auto_refresh_action = QAction("Auto-&Refresh Station", self, checkable=True)
         self.auto_refresh_action.toggled.connect(self._on_auto_refresh_content_toggled)
         actions_menu.addAction(self.auto_refresh_action)
         self.mute_action = QAction("Mute All Audio", self, checkable=True)
@@ -4023,6 +4195,30 @@ class WeatherAlertApp(QMainWindow):
             return text
         return f"{text[: max_len - 1].rstrip()}…"
 
+    @staticmethod
+    def _safe_external_url(url: Any, fallback: str = "#") -> str:
+        text = str(url or "").strip()
+        parsed = urlparse(text)
+        if parsed.scheme not in {"https", "http"} or not parsed.netloc:
+            return fallback
+        return text
+
+    @staticmethod
+    def _html_attr(value: Any) -> str:
+        return html.escape(str(value or ""), quote=True)
+
+    @staticmethod
+    def _first_payload_entry(payload_value: Any) -> Dict[str, Any]:
+        if isinstance(payload_value, list):
+            return payload_value[0] if payload_value and isinstance(payload_value[0], dict) else {}
+        if isinstance(payload_value, dict):
+            for key in ["data", "predictions", "current_predictions", "cp"]:
+                nested = payload_value.get(key)
+                if isinstance(nested, list) and nested:
+                    return nested[0] if isinstance(nested[0], dict) else {}
+            return payload_value
+        return {}
+
     def _make_compact_label(
         self,
         text: str,
@@ -4040,11 +4236,11 @@ class WeatherAlertApp(QMainWindow):
         label.setMinimumWidth(0)
         line_height = label.fontMetrics().lineSpacing()
         if max_lines is None:
-            label.setMinimumHeight(line_height + 10)
+            label.setMinimumHeight(line_height + 6)
             label.setMaximumHeight(16777215)
         else:
             line_count = max(1, max_lines)
-            vertical_padding = 16 if not wrap else 12
+            vertical_padding = 8 if not wrap else 6
             label.setMinimumHeight((line_height * line_count) + vertical_padding)
             label.setMaximumHeight((line_height * line_count) + vertical_padding + 4)
         if tooltip:
@@ -4078,17 +4274,17 @@ class WeatherAlertApp(QMainWindow):
         tooltip_border = "#a9bfd3"
         if is_header:
             line_height = label.fontMetrics().lineSpacing()
-            label.setMinimumHeight(max(label.minimumHeight(), line_height + 18))
-            label.setMaximumHeight(max(label.maximumHeight(), line_height + 22))
+            label.setMinimumHeight(max(label.minimumHeight(), line_height + 12))
+            label.setMaximumHeight(max(label.maximumHeight(), line_height + 16))
             label.setStyleSheet(
-                f"padding: 5px 6px; background-color: {colors['bg']}; color: {colors['text']}; "
+                f"padding: 3px 5px; background-color: {colors['bg']}; color: {colors['text']}; "
                 f"border: 1px solid {colors['border']}; font-weight: 700;"
                 f"QToolTip {{ background-color: {tooltip_bg}; color: {tooltip_text}; "
                 f"border: 1px solid {tooltip_border}; padding: 8px 10px; border-radius: 6px; }}"
             )
         else:
             label.setStyleSheet(
-                f"padding: 4px 6px; background-color: {colors['bg']}; color: {colors['text']}; "
+                f"padding: 2px 5px; background-color: {colors['bg']}; color: {colors['text']}; "
                 f"border-left: 1px solid {colors['border']}; border-bottom: 1px solid {colors['border']};"
                 f"QToolTip {{ background-color: {tooltip_bg}; color: {tooltip_text}; "
                 f"border: 1px solid {tooltip_border}; padding: 8px 10px; border-radius: 6px; }}"
@@ -4103,7 +4299,7 @@ class WeatherAlertApp(QMainWindow):
     def _is_forecast_layout_stacked(self) -> bool:
         if not hasattr(self, "combined_forecast_widget"):
             return False
-        return self.combined_forecast_widget.width() < 960
+        return self.combined_forecast_widget.width() < 720
 
     def _apply_forecast_layout_mode(self) -> None:
         if not hasattr(self, "combined_forecast_main_layout"):
@@ -4356,6 +4552,7 @@ class WeatherAlertApp(QMainWindow):
         daily_forecast = None
         grid_forecast = None
         current_conditions = None
+        marine_data = {}
 
         if forecast_urls.get("hourly"):
             hourly_forecast = self.api_client.get_forecast_data(forecast_urls["hourly"])
@@ -4373,6 +4570,8 @@ class WeatherAlertApp(QMainWindow):
         if forecast_urls.get("observations"):
             current_conditions = self.api_client.get_current_conditions(forecast_urls["observations"])
 
+        marine_data = self._fetch_nearest_marine_data(lat, lon)
+
         return {
             "location_id": location_id,
             "coords": coords,
@@ -4381,6 +4580,7 @@ class WeatherAlertApp(QMainWindow):
             "daily_forecast": daily_forecast,
             "grid_forecast": grid_forecast,
             "current_conditions": current_conditions,
+            "marine_data": marine_data,
             "fetched_at": time.time(),
         }
 
@@ -4400,6 +4600,7 @@ class WeatherAlertApp(QMainWindow):
         self.last_active_alerts_by_location[location_id] = lifecycle["active"]
         self.current_alerts_by_location[location_id] = alerts
         self.current_conditions_by_location[location_id] = result.get("current_conditions") or {}
+        self.current_marine_data_by_location[location_id] = result.get("marine_data") or {}
         self.last_lifecycle_by_location[location_id] = lifecycle
         self.last_known_data_by_location[location_id] = result
         self.location_runtime_status[location_id] = {
@@ -4436,6 +4637,11 @@ class WeatherAlertApp(QMainWindow):
         self._update_hourly_forecast_display(result["hourly_forecast"], result.get("grid_forecast"))
         self._update_daily_forecast_display(result["daily_forecast"], result.get("grid_forecast"))
         self._update_forecast_trends(result.get("hourly_forecast"), result.get("grid_forecast"))
+        self._update_fishing_conditions(
+            result.get("hourly_forecast"),
+            result.get("grid_forecast"),
+            result.get("marine_data"),
+        )
         self._update_alert_map(alerts)
         self._update_nws_tab()
         if QWebEngineView and self.web_view:
@@ -4475,6 +4681,7 @@ class WeatherAlertApp(QMainWindow):
             self.network_status_indicator.setStyleSheet("color: #b58900; font-weight: bold;")
             self.current_coords = cached.get("coords")
             self.current_conditions_by_location[failed_location_id] = cached.get("current_conditions") or {}
+            self.current_marine_data_by_location[failed_location_id] = cached.get("marine_data") or {}
             self.location_runtime_status[failed_location_id] = {
                 "state": "cached",
                 "detail": f"Cached data in use{stale_text}",
@@ -4485,6 +4692,11 @@ class WeatherAlertApp(QMainWindow):
             self._update_hourly_forecast_display(cached.get("hourly_forecast"), cached.get("grid_forecast"))
             self._update_daily_forecast_display(cached.get("daily_forecast"), cached.get("grid_forecast"))
             self._update_forecast_trends(cached.get("hourly_forecast"), cached.get("grid_forecast"))
+            self._update_fishing_conditions(
+                cached.get("hourly_forecast"),
+                cached.get("grid_forecast"),
+                cached.get("marine_data"),
+            )
             self._update_alert_map(cached.get("alerts", []))
             self._update_nws_tab()
             if QWebEngineView and self.web_view:
@@ -4503,6 +4715,7 @@ class WeatherAlertApp(QMainWindow):
         self._update_hourly_forecast_display(None, None)
         self._update_daily_forecast_display(None, None)
         self._update_forecast_trends(None, None)
+        self._update_fishing_conditions(None, None, None)
         self._update_nws_tab()
         self._update_dashboard_summary()
         self._finish_check_cycle()
@@ -4515,12 +4728,14 @@ class WeatherAlertApp(QMainWindow):
         self.lifecycle_display_area.addItem("Loading lifecycle...")
         self.latest_temperature_reading = None
         self.current_conditions_by_location[self.current_location_id] = {}
+        self.current_marine_data_by_location[self.current_location_id] = {}
         self._update_top_status_bar_display()
         self._clear_layout(self.hourly_forecast_layout)
         self.hourly_forecast_layout.addWidget(QLabel("Loading..."), 0, 0)
         self._clear_layout(self.daily_forecast_layout)
         self.daily_forecast_layout.addWidget(QLabel("Loading..."), 0, 0)
         self._update_forecast_trends(None, None)
+        self._update_fishing_conditions(None, None, None)
 
     def _get_location_config(self, location_id: str) -> Dict[str, Any]:
         for location in self.locations:
@@ -4801,6 +5016,68 @@ class WeatherAlertApp(QMainWindow):
       pointer-events: none;
       z-index: 1;
     }
+    .static-map {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, rgba(15, 118, 110, .08) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(15, 118, 110, .08) 1px, transparent 1px),
+        radial-gradient(circle at 50% 50%, rgba(56, 189, 248, .22), transparent 34%),
+        #dce9f5;
+      background-size: 80px 80px, 80px 80px, 100% 100%, 100% 100%;
+    }
+    body.theme-dark .static-map {
+      background:
+        linear-gradient(90deg, rgba(148, 163, 184, .08) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(148, 163, 184, .08) 1px, transparent 1px),
+        radial-gradient(circle at 50% 50%, rgba(56, 189, 248, .2), transparent 34%),
+        #111923;
+    }
+    .static-point {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 18px;
+      height: 18px;
+      margin: -9px 0 0 -9px;
+      border-radius: 50%;
+      border: 3px solid #0f172a;
+      background: #38bdf8;
+      box-shadow: 0 0 0 10px rgba(56, 189, 248, .22);
+    }
+    .static-alert-dot {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      margin: -9px 0 0 -9px;
+      border-radius: 50%;
+      border: 2px solid rgba(15, 23, 42, .72);
+      box-shadow: 0 3px 10px rgba(15, 23, 42, .22);
+    }
+    .static-panel {
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      background: rgba(255, 255, 255, .92);
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 12px 14px;
+      color: #334155;
+      line-height: 1.4;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, .14);
+    }
+    body.theme-dark .static-panel {
+      background: rgba(24, 33, 43, .94);
+      border-color: #314155;
+      color: #edf4fb;
+    }
+    .static-panel a {
+      color: var(--accent);
+      font-weight: 800;
+      text-decoration: none;
+    }
     .side {
       border-left: 1px solid var(--line);
       background: var(--panel);
@@ -4992,6 +5269,28 @@ class WeatherAlertApp(QMainWindow):
       Moderate: '#b45309',
       Minor: '#1d4ed8'
     }[severity] || '#475569');
+    const osmUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=${zoom}/${lat}/${lon}`;
+    const renderStaticMap = (reason) => {
+      const mapNode = document.getElementById('map');
+      const dots = alerts.map((alert, idx) => {
+        const angle = (idx / Math.max(alerts.length, 1)) * Math.PI * 2;
+        const distance = 18 + (idx % 6) * 8;
+        const x = 50 + Math.cos(angle) * distance;
+        const y = 50 + Math.sin(angle) * distance;
+        return `<div class="static-alert-dot" title="${escapeHtml(alert.title)}" style="left:${x}%; top:${y}%; background:${severityColor(alert.severity)}"></div>`;
+      }).join('');
+      mapNode.innerHTML = `
+        <div class="static-map">
+          <div class="static-point" title="Monitored location"></div>
+          ${dots}
+          <div class="static-panel">
+            <b>${escapeHtml(reason || 'Interactive map assets could not load.')}</b><br>
+            Center: ${lat.toFixed(4)}, ${lon.toFixed(4)}. Alert details remain available in the side panel.
+            <br><a href="${osmUrl}">Open this point in OpenStreetMap</a>
+          </div>
+        </div>
+      `;
+    };
     const popupHtml = (p) => `
       <b>${escapeHtml(p.title || p.event || 'Alert')}</b><br>
       Severity: ${escapeHtml(p.severity || 'Unknown')}<br>
@@ -5018,10 +5317,22 @@ class WeatherAlertApp(QMainWindow):
     if (window.L) {
       document.querySelector('.map-fallback').style.display = 'none';
       const map = L.map('map', { zoomControl: true }).setView([lat, lon], zoom);
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      let tileErrorCount = 0;
+      const tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 13,
         attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
+      });
+      tileLayer.on('tileerror', () => {
+        tileErrorCount += 1;
+        if (tileErrorCount === 3) {
+          const fallback = document.querySelector('.map-fallback');
+          if (fallback) {
+            fallback.style.display = 'flex';
+            fallback.textContent = 'Base map tiles are blocked or slow. Alert overlays and the selected location marker are still available.';
+          }
+        }
+      });
+      tileLayer.addTo(map);
       const locationMarker = L.circleMarker([lat, lon], {
         radius: 7,
         color: '#0f172a',
@@ -5085,7 +5396,7 @@ class WeatherAlertApp(QMainWindow):
         });
       });
     } else {
-      document.querySelector('.map-fallback').textContent = 'Map library could not load. Alert details are still available in the side panel.';
+      renderStaticMap('Interactive map library could not load.');
     }
   </script>
 </body>
@@ -5286,6 +5597,30 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         precip: List[Optional[float]] = []
         gusts: List[Optional[float]] = []
         thunder: List[Optional[float]] = []
+        humidity: List[Optional[float]] = []
+        sky_cover: List[Optional[float]] = []
+        visibility: List[Optional[float]] = []
+        qpf: List[Optional[float]] = []
+        short_forecasts: List[str] = []
+
+        def english_grid_number(layer_name: str, value: Optional[float]) -> Optional[float]:
+            if value is None:
+                return None
+            layer_meta = self._grid_layer_meta(grid_json, layer_name)
+            unit = str(layer_meta.get("uom") or layer_meta.get("unitCode") or "").lower()
+            converted = float(value)
+            if layer_name == "windGust":
+                if "km_h-1" in unit:
+                    converted *= 0.621371
+                elif "m_s-1" in unit:
+                    converted *= 2.23694
+            elif layer_name == "visibility":
+                if unit.endswith(":m") or unit.endswith("/m") or unit == "m":
+                    converted *= 0.000621371
+            elif layer_name == "quantitativePrecipitation":
+                if "mm" in unit:
+                    converted *= 0.0393701
+            return converted
 
         for period in periods:
             label, start_dt, end_dt = self._format_period_time(period)
@@ -5296,14 +5631,128 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
             temps.append(float(temp) if isinstance(temp, (int, float)) else None)
             pop = period.get("probabilityOfPrecipitation", {}).get("value")
             precip.append(float(pop) if isinstance(pop, (int, float)) else None)
+            rh = period.get("relativeHumidity", {}).get("value")
+            humidity.append(float(rh) if isinstance(rh, (int, float)) else None)
+            short_forecasts.append(str(period.get("shortForecast") or ""))
             wind_guess = self._first_number_from_text(period.get("windSpeed"))
             gust_value = None
             thunder_value = None
+            sky_value = None
+            visibility_value = None
+            qpf_value = None
             if start_dt and end_dt:
                 gust_value = self._grid_value_for_period(grid_json, "windGust", start_dt, end_dt, aggregate="max")
                 thunder_value = self._grid_value_for_period(grid_json, "probabilityOfThunder", start_dt, end_dt)
-            gusts.append(float(gust_value) if isinstance(gust_value, (int, float)) else wind_guess)
+                sky_value = self._grid_value_for_period(grid_json, "skyCover", start_dt, end_dt)
+                visibility_value = self._grid_value_for_period(grid_json, "visibility", start_dt, end_dt)
+                qpf_value = self._grid_value_for_period(grid_json, "quantitativePrecipitation", start_dt, end_dt, aggregate="sum")
+            gusts.append(
+                english_grid_number("windGust", float(gust_value))
+                if isinstance(gust_value, (int, float))
+                else wind_guess
+            )
             thunder.append(float(thunder_value) if isinstance(thunder_value, (int, float)) else None)
+            sky_cover.append(float(sky_value) if isinstance(sky_value, (int, float)) else None)
+            visibility.append(
+                english_grid_number("visibility", float(visibility_value))
+                if isinstance(visibility_value, (int, float))
+                else None
+            )
+            qpf.append(
+                english_grid_number("quantitativePrecipitation", float(qpf_value))
+                if isinstance(qpf_value, (int, float))
+                else None
+            )
+
+        def series_extreme(values: List[Optional[float]], labels_list: List[str], high: bool = True) -> Tuple[str, str]:
+            indexed = [(index, value) for index, value in enumerate(values) if isinstance(value, (int, float))]
+            if not indexed:
+                return "N/A", "No model value loaded"
+            index, value = max(indexed, key=lambda item: item[1]) if high else min(indexed, key=lambda item: item[1])
+            return f"{value:.0f}", labels_list[index] if index < len(labels_list) else "N/A"
+
+        def series_delta(values: List[Optional[float]]) -> Optional[float]:
+            numeric = [value for value in values if isinstance(value, (int, float))]
+            if len(numeric) < 2:
+                return None
+            return float(numeric[-1] - numeric[0])
+
+        temp_peak, temp_peak_time = series_extreme(temps, labels, high=True)
+        temp_low, temp_low_time = series_extreme(temps, labels, high=False)
+        precip_peak, precip_peak_time = series_extreme(precip, labels, high=True)
+        gust_peak, gust_peak_time = series_extreme(gusts, labels, high=True)
+        thunder_peak, thunder_peak_time = series_extreme(thunder, labels, high=True)
+        sky_peak, sky_peak_time = series_extreme(sky_cover, labels, high=True)
+        humidity_peak, humidity_peak_time = series_extreme(humidity, labels, high=True)
+        visibility_low, visibility_low_time = series_extreme(visibility, labels, high=False)
+        qpf_total = sum(value for value in qpf if isinstance(value, (int, float)))
+        temp_change = series_delta(temps)
+        change_text = "steady"
+        if isinstance(temp_change, (int, float)):
+            if temp_change >= 5:
+                change_text = f"warming {temp_change:.0f}°"
+            elif temp_change <= -5:
+                change_text = f"cooling {abs(temp_change):.0f}°"
+            else:
+                change_text = f"nearly steady ({temp_change:+.0f}°)"
+
+        conditions = self.current_conditions_by_location.get(self.current_location_id, {})
+        pressure = self._format_optional_number(conditions.get("pressure_inhg"), " inHg", decimals=2)
+        obs_visibility = self._format_optional_number(conditions.get("visibility_miles"), " mi", decimals=1)
+        dewpoint = self._format_optional_number(conditions.get("dewpoint_f"), "°F")
+        obs_humidity = self._format_optional_number(conditions.get("humidity"), "%")
+        observation_age = self._observation_age_text(conditions.get("timestamp")) if conditions else "observation unavailable"
+
+        guidance_bits = []
+        try:
+            if float(gust_peak) >= 25:
+                guidance_bits.append("Gusty window")
+            if float(precip_peak) >= 50:
+                guidance_bits.append("Wet window likely")
+            if float(thunder_peak) >= 20:
+                guidance_bits.append("Thunder signal")
+            if qpf_total >= 0.25:
+                guidance_bits.append("Meaningful rainfall total")
+            if float(visibility_low) <= 3:
+                guidance_bits.append("Reduced visibility possible")
+        except (TypeError, ValueError):
+            pass
+        guidance = " · ".join(guidance_bits) if guidance_bits else "No major short-term trend flags in the loaded guidance."
+
+        summary_cards = [
+            ("Temperature", f"{temp_low}°-{temp_peak}°", f"{change_text}; high around {temp_peak_time}, low around {temp_low_time}."),
+            ("Wettest Window", f"{precip_peak}%", f"Peak rain chance around {precip_peak_time}; estimated QPF total {qpf_total:.2f}\"."),
+            ("Wind Peak", f"{gust_peak} mph", f"Highest gust signal around {gust_peak_time}."),
+            ("Thunder", f"{thunder_peak}%", f"Peak thunder probability around {thunder_peak_time}."),
+            ("Cloud / Humidity", f"{sky_peak}% / {humidity_peak}%", f"Cloudiest around {sky_peak_time}; humidity peak around {humidity_peak_time}."),
+            ("Visibility", f"{visibility_low} mi", f"Lowest modeled visibility around {visibility_low_time}; observed {obs_visibility}."),
+            ("Observation", f"{pressure}", f"Dewpoint {dewpoint}, RH {obs_humidity}; {observation_age}."),
+            ("Decision Cue", "Scan", guidance),
+        ]
+        card_html = "".join(
+            f"<article class='metric'><span>{html.escape(title)}</span><b>{html.escape(value)}</b><p>{html.escape(detail)}</p></article>"
+            for title, value, detail in summary_cards
+        )
+
+        hourly_rows = ""
+        for index, label in enumerate(labels[:8]):
+            hourly_rows += (
+                f"<tr><td>{html.escape(label)}</td>"
+                f"<td>{temps[index]:.0f}°</td>" if isinstance(temps[index], (int, float)) else f"<tr><td>{html.escape(label)}</td><td>N/A</td>"
+            )
+            hourly_rows += (
+                f"<td>{gusts[index]:.0f}</td>" if isinstance(gusts[index], (int, float)) else "<td>N/A</td>"
+            )
+            hourly_rows += (
+                f"<td>{precip[index]:.0f}%</td>" if isinstance(precip[index], (int, float)) else "<td>N/A</td>"
+            )
+            hourly_rows += (
+                f"<td>{thunder[index]:.0f}%</td>" if isinstance(thunder[index], (int, float)) else "<td>N/A</td>"
+            )
+            hourly_rows += (
+                f"<td>{sky_cover[index]:.0f}%</td>" if isinstance(sky_cover[index], (int, float)) else "<td>N/A</td>"
+            )
+            hourly_rows += f"<td>{html.escape(self._compact_text(short_forecasts[index], 52))}</td></tr>"
 
         return f"""
 <!DOCTYPE html>
@@ -5312,26 +5761,44 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
   <meta charset="utf-8" />
   <style>
     body {{ margin:0; padding:18px; font-family: Segoe UI, Arial, sans-serif; background:#f5f7fb; color:#1f2937; }}
+    .metrics {{ display:grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap:10px; margin-bottom:14px; }}
+    .metric {{ background:#ffffff; border:1px solid #dbe4ef; border-radius:8px; padding:12px; }}
+    .metric span {{ color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; }}
+    .metric b {{ display:block; color:#0f766e; font-size:18px; margin:5px 0; }}
+    .metric p {{ margin:0; color:#475569; font-size:12px; line-height:1.35; }}
     .grid {{ display:grid; grid-template-columns: repeat(2, minmax(280px, 1fr)); gap:14px; }}
     .chart {{ background:#ffffff; border:1px solid #dbe4ef; border-radius:8px; padding:14px; }}
     .chart-head {{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:6px; }}
+    .detail {{ background:#ffffff; border:1px solid #dbe4ef; border-radius:8px; padding:14px; margin-top:14px; }}
     h2 {{ margin:0 0 12px; font-size:20px; }}
     h3 {{ margin:0; font-size:15px; }}
     span {{ color:#64748b; font-size:12px; font-weight:700; }}
+    table {{ width:100%; border-collapse:collapse; font-size:12px; }}
+    th, td {{ border-bottom:1px solid #e2e8f0; padding:7px 8px; text-align:left; }}
+    th {{ color:#64748b; font-size:11px; text-transform:uppercase; }}
     svg {{ width:100%; height:auto; }}
     text {{ fill:#64748b; font-size:11px; font-weight:600; }}
     .axis {{ stroke:#cbd5e1; stroke-width:1; }}
-    @media (max-width: 760px) {{ .grid {{ grid-template-columns: 1fr; }} }}
+    @media (max-width: 980px) {{ .metrics {{ grid-template-columns: repeat(2, minmax(160px, 1fr)); }} }}
+    @media (max-width: 760px) {{ .grid, .metrics {{ grid-template-columns: 1fr; }} }}
   </style>
 </head>
 <body>
   <h2>{html.escape(self.get_current_location_name())} Forecast Trends</h2>
+  <section class="metrics">{card_html}</section>
   <div class="grid">
     {self._build_svg_chart("Temperature", temps, labels, "#dc2626", "°F")}
     {self._build_svg_chart("Precipitation Chance", precip, labels, "#2563eb", "%")}
     {self._build_svg_chart("Wind / Gust Potential", gusts, labels, "#c2410c", " mph")}
     {self._build_svg_chart("Thunder Probability", thunder, labels, "#7c3aed", "%")}
   </div>
+  <section class="detail">
+    <h3>Next 8 Periods</h3>
+    <table>
+      <thead><tr><th>Time</th><th>Temp</th><th>Gust</th><th>Rain</th><th>Thunder</th><th>Cloud</th><th>Forecast</th></tr></thead>
+      <tbody>{hourly_rows}</tbody>
+    </table>
+  </section>
 </body>
 </html>
 """
@@ -5358,6 +5825,511 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
                     f"Next period: {first.get('name', 'Now')} {first.get('temperature', 'N/A')}°"
                     f"{first.get('temperatureUnit', '')}, {first.get('shortForecast', '')}"
                 )
+
+    @staticmethod
+    def _moon_phase_info(now: Optional[datetime] = None) -> Dict[str, Any]:
+        current = now or datetime.now()
+        known_new_moon = datetime(2000, 1, 6, 18, 14)
+        synodic_month = 29.530588853
+        age = ((current - known_new_moon).total_seconds() / 86400.0) % synodic_month
+        phase_breaks = [
+            (1.84566, "New Moon"),
+            (5.53699, "Waxing Crescent"),
+            (9.22831, "First Quarter"),
+            (12.91963, "Waxing Gibbous"),
+            (16.61096, "Full Moon"),
+            (20.30228, "Waning Gibbous"),
+            (23.99361, "Last Quarter"),
+            (27.68493, "Waning Crescent"),
+            (synodic_month, "New Moon"),
+        ]
+        phase_name = next(name for limit, name in phase_breaks if age < limit)
+        illumination = (1 - math.cos((2 * math.pi * age) / synodic_month)) / 2
+        if phase_name in {"New Moon", "Full Moon"}:
+            fishing_cue = "Stronger solunar pull; prioritize moving water around tide changes."
+        elif "Quarter" in phase_name:
+            fishing_cue = "Moderate solunar pull; wind, tide, and water clarity matter more."
+        else:
+            fishing_cue = "Subtle solunar pull; look for current edges, bait, and low-light windows."
+        return {
+            "phase": phase_name,
+            "age": age,
+            "illumination": illumination,
+            "cue": fishing_cue,
+        }
+
+    @staticmethod
+    def _max_optional(values: List[Optional[float]]) -> Optional[float]:
+        numeric = [float(value) for value in values if isinstance(value, (int, float))]
+        return max(numeric) if numeric else None
+
+    @staticmethod
+    def _distance_miles_between(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        radius_miles = 3958.8
+        phi1 = math.radians(lat1)
+        phi2 = math.radians(lat2)
+        delta_phi = math.radians(lat2 - lat1)
+        delta_lambda = math.radians(lon2 - lon1)
+        a = (
+            math.sin(delta_phi / 2) ** 2
+            + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+        )
+        return radius_miles * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    @staticmethod
+    def _coops_station_lat_lon(station: Dict[str, Any]) -> Optional[Tuple[float, float]]:
+        for lat_key, lon_key in [
+            ("lat", "lng"),
+            ("lat", "lon"),
+            ("latitude", "longitude"),
+        ]:
+            try:
+                lat = float(station.get(lat_key))
+                lon = float(station.get(lon_key))
+                return lat, lon
+            except (TypeError, ValueError):
+                continue
+        return None
+
+    def _fetch_coops_stations(self, station_type: str) -> List[Dict[str, Any]]:
+        if station_type in self._coops_station_cache:
+            return self._coops_station_cache[station_type]
+
+        url = f"{COOPS_STATIONS_API_URL}?{urlencode({'type': station_type})}"
+        try:
+            response = self.api_client.session.get(url, timeout=8)
+            response.raise_for_status()
+            payload = response.json()
+            stations = payload.get("stations", [])
+            if isinstance(stations, list):
+                self._coops_station_cache[station_type] = stations
+                return stations
+        except (requests.RequestException, ValueError) as exc:
+            logging.debug("CO-OPS station lookup failed for %s: %s", station_type, exc)
+
+        self._coops_station_cache[station_type] = []
+        return []
+
+    def _nearest_coops_station(self, lat: float, lon: float, station_type: str) -> Optional[Dict[str, Any]]:
+        nearest = None
+        nearest_distance = None
+        for station in self._fetch_coops_stations(station_type):
+            station_coords = self._coops_station_lat_lon(station)
+            if not station_coords:
+                continue
+            distance = self._distance_miles_between(lat, lon, station_coords[0], station_coords[1])
+            if nearest_distance is None or distance < nearest_distance:
+                nearest = dict(station)
+                nearest_distance = distance
+        if nearest is not None and nearest_distance is not None:
+            nearest["distance_miles"] = nearest_distance
+        return nearest
+
+    def _coops_data_url(self, station_id: str, product: str, extra: Optional[Dict[str, str]] = None) -> str:
+        params = {
+            "date": "latest",
+            "station": station_id,
+            "product": product,
+            "time_zone": "lst_ldt",
+            "units": "english",
+            "format": "json",
+        }
+        if extra:
+            params.update(extra)
+        return f"{COOPS_DATA_API_URL}?{urlencode(params)}"
+
+    def _fetch_coops_product_summary(self, station_id: str, product: str, extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+        data_url = self._coops_data_url(station_id, product, extra)
+        try:
+            response = self.api_client.session.get(data_url, timeout=8)
+            response.raise_for_status()
+            payload = response.json()
+        except (requests.RequestException, ValueError) as exc:
+            return {"value": "Unavailable", "detail": str(exc), "url": data_url}
+
+        if payload.get("error"):
+            return {"value": "Unavailable", "detail": str(payload.get("error", {}).get("message", "No data")), "url": data_url}
+
+        if product == "wind":
+            latest = self._first_payload_entry(payload.get("data", []))
+            speed = latest.get("s")
+            gust = latest.get("g")
+            direction = latest.get("dr") or latest.get("d")
+            value = f"{speed} kt" if speed not in {None, ""} else "Unavailable"
+            if gust not in {None, ""}:
+                value += f" gust {gust} kt"
+            if direction not in {None, ""}:
+                value += f" {direction}"
+            return {"value": value, "detail": latest.get("t", "latest"), "url": data_url}
+
+        if product in {"water_temperature", "water_level"}:
+            latest = self._first_payload_entry(payload.get("data", []))
+            raw_value = latest.get("v")
+            unit = "°F" if product == "water_temperature" else "ft"
+            value = f"{raw_value}{unit}" if raw_value not in {None, ""} else "Unavailable"
+            return {"value": value, "detail": latest.get("t", "latest"), "url": data_url}
+
+        first_prediction = self._first_payload_entry(payload.get("predictions", []))
+        if first_prediction:
+            first = first_prediction
+            tide_type = first.get("type", "")
+            raw_value = first.get("v")
+            value = f"{tide_type} {raw_value} ft".strip()
+            return {"value": value, "detail": first.get("t", "today"), "url": data_url}
+
+        first_current = self._first_payload_entry(payload.get("current_predictions", []))
+        if first_current:
+            first = first_current
+            speed = first.get("Velocity_Major") or first.get("velocity") or first.get("v")
+            direction = first.get("meanFloodDir") or first.get("Direction") or first.get("d")
+            value = f"{speed} kt" if speed not in {None, ""} else "Available"
+            if direction not in {None, ""}:
+                value += f" {direction}"
+            return {"value": value, "detail": first.get("Time") or first.get("t") or "today", "url": data_url}
+
+        return {"value": "Unavailable", "detail": "No recent product values returned.", "url": data_url}
+
+    def _fetch_nearest_marine_data(self, lat: float, lon: float) -> Dict[str, Any]:
+        products = [
+            {
+                "key": "water_temp",
+                "label": "Water Temp",
+                "station_type": "watertemp",
+                "product": "water_temperature",
+                "detail": "Closest NOAA CO-OPS water-temperature station.",
+            },
+            {
+                "key": "water_level",
+                "label": "Water Level",
+                "station_type": "waterlevels",
+                "product": "water_level",
+                "extra": {"datum": "MLLW"},
+                "detail": "Closest NOAA CO-OPS water-level station.",
+            },
+            {
+                "key": "tide",
+                "label": "Next Tide",
+                "station_type": "tidepredictions",
+                "product": "predictions",
+                "extra": {"date": "today", "datum": "MLLW", "interval": "hilo"},
+                "detail": "Closest NOAA CO-OPS tide prediction station.",
+            },
+            {
+                "key": "current",
+                "label": "Current",
+                "station_type": "currentpredictions",
+                "product": "currents_predictions",
+                "extra": {"date": "today", "interval": "max_slack"},
+                "detail": "Closest NOAA CO-OPS current prediction station.",
+            },
+            {
+                "key": "wind",
+                "label": "Marine Wind",
+                "station_type": "met",
+                "product": "wind",
+                "detail": "Closest NOAA CO-OPS meteorological station.",
+            },
+        ]
+        nearest: Dict[str, Any] = {}
+        for config in products:
+            try:
+                station = self._nearest_coops_station(lat, lon, str(config["station_type"]))
+                if not station:
+                    nearest[str(config["key"])] = {
+                        "label": config["label"],
+                        "value": "Unavailable",
+                        "detail": "No nearby NOAA CO-OPS station list was returned.",
+                        "station": "",
+                        "distance_miles": None,
+                        "url": COOPS_MAP_URL,
+                    }
+                    continue
+
+                station_id = str(station.get("id") or station.get("station_id") or "")
+                summary = self._fetch_coops_product_summary(
+                    station_id,
+                    str(config["product"]),
+                    config.get("extra"),
+                )
+                nearest[str(config["key"])] = {
+                    "label": config["label"],
+                    "value": summary.get("value", "Unavailable"),
+                    "detail": summary.get("detail") or config.get("detail", ""),
+                    "station": station.get("name") or station_id,
+                    "station_id": station_id,
+                    "distance_miles": station.get("distance_miles"),
+                    "url": summary.get("url") or self._coops_station_url(station_id),
+                    "station_url": self._coops_station_url(station_id),
+                    "description": config.get("detail", ""),
+                }
+            except Exception as exc:
+                logging.debug("Marine product lookup failed for %s: %s", config.get("key"), exc)
+                nearest[str(config["key"])] = {
+                    "label": config["label"],
+                    "value": "Unavailable",
+                    "detail": str(exc),
+                    "station": "",
+                    "distance_miles": None,
+                    "url": COOPS_MAP_URL,
+                }
+        return nearest
+
+    @staticmethod
+    def _marine_card_detail(data: Any, fallback: str) -> str:
+        if not isinstance(data, dict) or not data:
+            return fallback
+        station = str(data.get("station") or "Unknown station")
+        distance = data.get("distance_miles")
+        distance_text = f"{float(distance):.1f} mi away" if isinstance(distance, (int, float)) else "distance unavailable"
+        observed = str(data.get("detail") or "").strip()
+        observed_text = f" · {observed}" if observed and observed.lower() != "latest" else ""
+        return f"{station} · {distance_text}{observed_text}"
+
+    @staticmethod
+    def _coops_station_url(station_id: str) -> str:
+        if not station_id:
+            return COOPS_MAP_URL
+        return COOPS_STATION_HOME_URL_TEMPLATE.format(station_id=station_id)
+
+    def _fishing_resource_links(self, marine_data: Optional[Dict[str, Any]] = None) -> List[Tuple[str, str, str]]:
+        coords_text = ""
+        if self.current_coords:
+            lat, lon = self.current_coords
+            coords_text = f" near {lat:.3f}, {lon:.3f}"
+        marine_url = self._build_nws_forecast_url(self.current_coords) or "https://marine.weather.gov/"
+        if self.current_coords:
+            lat, lon = self.current_coords
+            marine_url = f"https://marine.weather.gov/MapClick.php?lat={lat}&lon={lon}"
+        links: List[Tuple[str, str, str]] = []
+        for data in (marine_data or {}).values():
+            if not isinstance(data, dict):
+                continue
+            title = str(data.get("label") or "NOAA station")
+            station = str(data.get("station") or "")
+            distance = data.get("distance_miles")
+            distance_text = f" · {float(distance):.1f} mi away" if isinstance(distance, (int, float)) else ""
+            links.append(
+                (
+                    title,
+                    str(data.get("station_url") or data.get("url") or COOPS_MAP_URL),
+                    f"{station}{distance_text}. {data.get('description', '')}",
+                )
+            )
+        links.extend([
+            (
+                "NOAA Tides & Currents",
+                COOPS_MAP_URL,
+                f"Tides, currents, water levels, water temperature, winds, pressure, and visibility{coords_text}.",
+            ),
+            (
+                "NDBC Buoy Map",
+                "https://www.ndbc.noaa.gov/obs.shtml",
+                "Buoys and coastal stations for sea-surface temperature, wave height/period, wind, and pressure.",
+            ),
+            (
+                "NWS Marine Forecast",
+                marine_url,
+                "Official marine forecast around the selected point, useful for seas, wind, storms, and advisories.",
+            ),
+        ])
+        return links
+
+    def _build_fishing_conditions_html(
+        self,
+        forecast_json: Optional[Dict[str, Any]],
+        grid_json: Optional[Dict[str, Any]],
+        marine_data: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        dark = self.current_dark_mode_enabled
+        bg = "#101418" if dark else "#f5f7fb"
+        panel = "#171d23" if dark else "#ffffff"
+        border = "#384551" if dark else "#dbe4ef"
+        text = "#edf4fb" if dark else "#1f2937"
+        muted = "#9fb3c8" if dark else "#64748b"
+        accent = "#98e0b8" if dark else "#116044"
+        marine_data = marine_data or self.current_marine_data_by_location.get(self.current_location_id, {})
+
+        moon = self._moon_phase_info()
+        periods = forecast_json.get("properties", {}).get("periods", [])[:12] if forecast_json else []
+        labels: List[str] = []
+        wind_speeds: List[Optional[float]] = []
+        gusts: List[Optional[float]] = []
+        precip: List[Optional[float]] = []
+        thunder: List[Optional[float]] = []
+        summaries: List[str] = []
+
+        for period in periods:
+            label, start_dt, end_dt = self._format_period_time(period)
+            labels.append(label)
+            wind_speeds.append(self._first_number_from_text(period.get("windSpeed")))
+            pop = period.get("probabilityOfPrecipitation", {}).get("value")
+            precip.append(float(pop) if isinstance(pop, (int, float)) else None)
+            summaries.append(str(period.get("shortForecast") or ""))
+            gust_value = None
+            thunder_value = None
+            if start_dt and end_dt:
+                gust_value = self._grid_value_for_period(grid_json, "windGust", start_dt, end_dt, aggregate="max")
+                thunder_value = self._grid_value_for_period(grid_json, "probabilityOfThunder", start_dt, end_dt)
+            gusts.append(float(gust_value) if isinstance(gust_value, (int, float)) else None)
+            thunder.append(float(thunder_value) if isinstance(thunder_value, (int, float)) else None)
+
+        current_period = periods[0] if periods else {}
+        current_conditions = self.current_conditions_by_location.get(self.current_location_id, {})
+        pressure = self._format_optional_number(current_conditions.get("pressure_inhg"), " inHg", decimals=2)
+        visibility = self._format_optional_number(current_conditions.get("visibility_miles"), " mi", decimals=1)
+        air_temp = self._format_optional_number(current_conditions.get("temperature_f"), "°F")
+        wind_now = current_period.get("windSpeed") or "N/A"
+        wind_direction = current_period.get("windDirection") or current_conditions.get("wind_direction") or ""
+        peak_wind = self._max_optional(wind_speeds)
+        peak_gust = self._max_optional(gusts)
+        peak_precip = self._max_optional(precip)
+        peak_thunder = self._max_optional(thunder)
+        next_forecast = current_period.get("shortForecast") or "Forecast data not loaded yet."
+
+        wind_cue = "Good light-wind window."
+        if isinstance(peak_gust, (int, float)) and peak_gust >= 25:
+            wind_cue = "Gusty; check seas and exposed bridges/flats carefully."
+        elif isinstance(peak_wind, (int, float)) and peak_wind >= 15:
+            wind_cue = "Breezy; look for lee shorelines and protected channels."
+
+        storm_cue = "Low storm signal in the loaded forecast."
+        if isinstance(peak_thunder, (int, float)) and peak_thunder >= 25:
+            storm_cue = "Thunder risk showing; keep an escape plan."
+        elif isinstance(peak_precip, (int, float)) and peak_precip >= 50:
+            storm_cue = "Rain chances are meaningful; watch radar before running far."
+
+        water_note = (
+            "Nearest official NOAA stations are selected from the current city coordinates. "
+            "Distances can be large for inland locations."
+        )
+        water_temp = marine_data.get("water_temp", {}) if isinstance(marine_data, dict) else {}
+        tide = marine_data.get("tide", {}) if isinstance(marine_data, dict) else {}
+        current = marine_data.get("current", {}) if isinstance(marine_data, dict) else {}
+        water_level = marine_data.get("water_level", {}) if isinstance(marine_data, dict) else {}
+        marine_wind = marine_data.get("wind", {}) if isinstance(marine_data, dict) else {}
+
+        cards = [
+            ("Moon", f"{moon['phase']}", f"{moon['illumination'] * 100:.0f}% lit · age {moon['age']:.1f} days. {moon['cue']}"),
+            ("Wind", f"{wind_direction} {wind_now}".strip(), wind_cue),
+            ("Water Temp", str(water_temp.get("value") or "Unavailable"), self._marine_card_detail(water_temp, "Closest water-temperature station.")),
+            ("Next Tide", str(tide.get("value") or "Unavailable"), self._marine_card_detail(tide, "Closest tide-prediction station.")),
+            ("Current", str(current.get("value") or "Unavailable"), self._marine_card_detail(current, "Closest current-prediction station.")),
+            ("Water Level", str(water_level.get("value") or "Unavailable"), self._marine_card_detail(water_level, "Closest water-level station.")),
+            ("Marine Wind", str(marine_wind.get("value") or "Unavailable"), self._marine_card_detail(marine_wind, "Closest NOAA meteorological station.")),
+            ("Gust Peak", f"{peak_gust:.0f} mph" if isinstance(peak_gust, (int, float)) else "N/A", "Highest modeled gust in the next 12 hours."),
+            ("Rain / Thunder", f"{peak_precip:.0f}% / {peak_thunder:.0f}%" if isinstance(peak_precip, (int, float)) and isinstance(peak_thunder, (int, float)) else "N/A", storm_cue),
+            ("Air / Pressure", f"{air_temp} · {pressure}", f"Visibility {visibility}. Falling pressure can matter more than the exact number."),
+            ("Closest Data", "NOAA CO-OPS", water_note),
+        ]
+
+        timeline_rows = ""
+        for index, label in enumerate(labels[:8]):
+            wind_text = f"{wind_speeds[index]:.0f} mph" if isinstance(wind_speeds[index], (int, float)) else "N/A"
+            gust_text = f"{gusts[index]:.0f} mph" if isinstance(gusts[index], (int, float)) else "N/A"
+            precip_text = f"{precip[index]:.0f}%" if isinstance(precip[index], (int, float)) else "N/A"
+            thunder_text = f"{thunder[index]:.0f}%" if isinstance(thunder[index], (int, float)) else "N/A"
+            timeline_rows += (
+                f"<tr><td>{html.escape(label)}</td><td>{html.escape(wind_text)}</td>"
+                f"<td>{html.escape(gust_text)}</td><td>{html.escape(precip_text)}</td>"
+                f"<td>{html.escape(thunder_text)}</td><td>{html.escape(self._compact_text(summaries[index], 70))}</td></tr>"
+            )
+        if not timeline_rows:
+            timeline_rows = "<tr><td colspan='6'>Forecast data has not loaded yet.</td></tr>"
+
+        link_cards = ""
+        for title, url, detail in self._fishing_resource_links(marine_data):
+            safe_url = self._safe_external_url(url)
+            link_cards += (
+                f"<a class='resource' href='{self._html_attr(safe_url)}'>"
+                f"<strong>{html.escape(title)}</strong><span>{html.escape(detail)}</span></a>"
+            )
+
+        location = self.get_current_location_name()
+        coords = ""
+        if self.current_coords:
+            coords = f"{self.current_coords[0]:.4f}, {self.current_coords[1]:.4f}"
+
+        card_html = "".join(
+            f"<article class='card'><span>{html.escape(title)}</span><b>{html.escape(value)}</b><p>{html.escape(detail)}</p></article>"
+            for title, value, detail in cards
+        )
+
+        return f"""
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    body {{ margin:0; padding:18px; font-family: Segoe UI, Arial, sans-serif; background:{bg}; color:{text}; }}
+    header {{ display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:14px; }}
+    h1 {{ margin:0; font-size:22px; }}
+    h2 {{ margin:0 0 10px; font-size:16px; }}
+    .sub {{ color:{muted}; font-weight:700; font-size:12px; }}
+    .grid {{ display:grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap:12px; }}
+    .card, .table, .resources {{ background:{panel}; border:1px solid {border}; border-radius:8px; padding:14px; }}
+    .card span {{ color:{muted}; text-transform:uppercase; font-size:11px; font-weight:800; }}
+    .card b {{ display:block; margin:7px 0 5px; font-size:20px; color:{accent}; }}
+    .card p {{ margin:0; color:{muted}; line-height:1.4; }}
+    .layout {{ display:grid; grid-template-columns: minmax(420px, 1.35fr) minmax(280px, .75fr); gap:12px; margin-top:12px; }}
+    table {{ width:100%; border-collapse:collapse; font-size:12px; }}
+    th, td {{ border-bottom:1px solid {border}; padding:8px 7px; text-align:left; vertical-align:top; }}
+    th {{ color:{muted}; font-size:11px; text-transform:uppercase; }}
+    .resources {{ display:grid; gap:9px; }}
+    .resource {{ display:block; text-decoration:none; color:{text}; border:1px solid {border}; border-radius:8px; padding:11px; }}
+    .resource:hover {{ border-color:{accent}; }}
+    .resource strong {{ display:block; color:{accent}; margin-bottom:5px; }}
+    .resource span {{ color:{muted}; line-height:1.35; }}
+    @media (max-width: 1250px) {{ .grid {{ grid-template-columns: repeat(2, minmax(180px, 1fr)); }} }}
+    @media (max-width: 950px) {{ .grid, .layout {{ grid-template-columns:1fr; }} header {{ display:block; }} }}
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Fishing Conditions</h1>
+      <div class="sub">{html.escape(location)}{f" · {html.escape(coords)}" if coords else ""}</div>
+    </div>
+    <div class="sub">Next cue: {html.escape(str(next_forecast))}</div>
+  </header>
+  <section class="grid">{card_html}</section>
+  <section class="layout">
+    <div class="table">
+      <h2>Next 12 Hours</h2>
+      <table>
+        <thead><tr><th>Time</th><th>Wind</th><th>Gust</th><th>Rain</th><th>Thunder</th><th>Sky</th></tr></thead>
+        <tbody>{timeline_rows}</tbody>
+      </table>
+    </div>
+    <div class="resources">
+      <h2>Closest Water & Marine Sources</h2>
+      {link_cards}
+    </div>
+  </section>
+</body>
+</html>
+"""
+
+    def _update_fishing_conditions(
+        self,
+        forecast_json: Optional[Dict[str, Any]],
+        grid_json: Optional[Dict[str, Any]],
+        marine_data: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        if not hasattr(self, "fishing_view"):
+            return
+        html_text = self._build_fishing_conditions_html(forecast_json, grid_json, marine_data)
+        if QWebEngineView and self.fishing_view:
+            self.fishing_view.setHtml(html_text)
+            return
+        if isinstance(self.fishing_view, QLabel):
+            moon = self._moon_phase_info()
+            links = "\n".join(f"- {title}: {url}" for title, url, _detail in self._fishing_resource_links(marine_data))
+            self.fishing_view.setText(
+                f"Fishing Conditions for {self.get_current_location_name()}\n\n"
+                f"Moon: {moon['phase']} ({moon['illumination'] * 100:.0f}% lit)\n"
+                f"{moon['cue']}\n\n"
+                f"Water and marine resources:\n{links}"
+            )
 
     def _update_alerts_display_area(self, alerts: List[Any], location_id: str, lifecycle: Optional[Dict[str, Any]] = None):
         self.alerts_display_area.clear()
@@ -5653,7 +6625,7 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
                     f"{emoji} {short_fc}",
                     rich_row_tooltip,
                     wrap=True,
-                    max_lines=None,
+                    max_lines=1,
                 )
                 forecast_label.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
 
@@ -5787,7 +6759,7 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
                     f"{emoji} {short_fc}",
                     rich_row_tooltip,
                     wrap=True,
-                    max_lines=None,
+                    max_lines=1,
                 )
                 short_fc_label.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
                 self._apply_forecast_cell_style(short_fc_label, i + 1)
@@ -6090,6 +7062,18 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
             self.log_to_gui("Preferences updated.", level="INFO")
 
     @Slot()
+    def _refresh_current_location(self):
+        if not self.current_location_id:
+            self.log_to_gui("No active location selected. Manual refresh skipped.", level="WARNING")
+            return
+        self.main_check_timer.stop()
+        self.countdown_timer.stop()
+        self.top_countdown_label.setText("Refreshing now")
+        if self.auto_refresh_action.isChecked() and QWebEngineView and self.web_view:
+            self.web_view.reload()
+        self._update_location_data(self.current_location_id)
+
+    @Slot()
     def perform_check_cycle(self):
         if not (self.announce_alerts_action.isChecked() or self.auto_refresh_action.isChecked()):
             self.main_check_timer.stop()
@@ -6309,12 +7293,16 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
     # --- UI Update and State Management Methods ---
     def _update_current_time_display(self):
         if hasattr(self, 'current_time_label'):
-            self.current_time_label.setText(f"Time {time.strftime('%I:%M:%S %p')}")
+            time_text = f"Time {time.strftime('%I:%M:%S %p')}"
+            self.current_time_label.setText(time_text)
+            self.current_time_label.setToolTip(time_text)
 
     def _update_top_status_bar_display(self):
         if hasattr(self, 'top_repeater_label'):
             repeater_text = self._compact_text(self.current_repeater_info or "N/A", 36)
+            full_repeater_text = f"Repeater {self.current_repeater_info or 'N/A'}"
             self.top_repeater_label.setText(f"Rpt {repeater_text}")
+            self.top_repeater_label.setToolTip(full_repeater_text)
         if hasattr(self, 'current_temperature_label'):
             conditions = self.current_conditions_by_location.get(self.current_location_id, {})
             observed_temp = conditions.get("temperature_f")
@@ -6324,6 +7312,7 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
                 else (self.latest_temperature_reading or "--")
             )
             self.current_temperature_label.setText(f"Temp {temp_text}")
+            self.current_temperature_label.setToolTip(f"Current temperature: {temp_text}")
         self._update_dashboard_summary()
 
     def _apply_toolbar_visibility(self) -> None:
@@ -6643,11 +7632,14 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
     def _update_countdown_display(self):
         is_active = self.announce_alerts_action.isChecked() or self.auto_refresh_action.isChecked()
         if not is_active:
-            self.top_countdown_label.setText("Next --:-- (Paused)")
+            self.top_countdown_label.setText("Paused")
+            self.top_countdown_label.setToolTip("Timed checks are paused")
         else:
             remaining = max(self.remaining_time_seconds, 0)
             minutes, seconds = divmod(remaining, 60)
-            self.top_countdown_label.setText(f"Next {minutes:02d}:{seconds:02d}")
+            countdown_text = f"Next {minutes:02d}:{seconds:02d}"
+            self.top_countdown_label.setText(countdown_text)
+            self.top_countdown_label.setToolTip(f"Next timed check in {minutes:02d}:{seconds:02d}")
             if self.remaining_time_seconds > 0:
                 self.remaining_time_seconds -= 1
 
@@ -6979,11 +7971,15 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
 
     def _load_web_view_url(self, url_str: str):
         if QWebEngineView and self.web_view:
-            effective_url = self._location_aware_web_url(url_str)
+            effective_url = self._safe_external_url(self._location_aware_web_url(url_str))
+            if effective_url == "#":
+                self.log_to_gui("Blocked invalid web source URL.", level="WARNING")
+                return
             if effective_url.lower().endswith('.pdf'):
+                escaped_url = self._html_attr(effective_url)
                 self.web_view.setHtml(
                     f"<html><body><div style='text-align: center; margin-top: 50px; font-size: 18px; color: grey;'>"
-                    f"Loading PDF...<br><br>Opening <a href='{effective_url}'>{effective_url}</a> in default browser.</div></body></html>"
+                    f"Loading PDF...<br><br>Opening <a href='{escaped_url}'>{html.escape(effective_url)}</a> in default browser.</div></body></html>"
                 )
                 QDesktopServices.openUrl(QUrl(effective_url))
                 self._last_loaded_web_url = effective_url
@@ -6999,7 +7995,10 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
 
     def _open_current_in_browser(self):
         if QWebEngineView and self.web_view:
-            effective_url = self._location_aware_web_url(self.current_radar_url)
+            effective_url = self._safe_external_url(self._location_aware_web_url(self.current_radar_url))
+            if effective_url == "#":
+                self.log_to_gui("Blocked invalid web source URL.", level="WARNING")
+                return
             QDesktopServices.openUrl(QUrl(effective_url))
             self.log_to_gui(f"Opening {effective_url} in default browser.", level="INFO")
         else:
@@ -7016,6 +8015,10 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
             data = dialog.get_data()
             if not data: return
             name, url = data
+            url = self._safe_external_url(url, "")
+            if not url:
+                QMessageBox.warning(self, "Invalid URL", "Web source URLs must start with http:// or https://.")
+                return
             if name in self.RADAR_OPTIONS:
                 QMessageBox.warning(self, "Duplicate Name", f"A source with the name '{name}' already exists.")
                 return
@@ -7032,6 +8035,10 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
             data = dialog.get_data()
             if not data: return
             name, url = data
+            url = self._safe_external_url(url, "")
+            if not url:
+                QMessageBox.warning(self, "Invalid URL", "Web source URLs must start with http:// or https://.")
+                return
             if name in self.RADAR_OPTIONS:
                 QMessageBox.warning(self, "Duplicate Name", f"A source with the name '{name}' already exists.")
                 return
@@ -7063,8 +8070,8 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         return None
 
     def _apply_forecast_font_sizes(self) -> None:
-        hourly_size = 9
-        daily_size = 9
+        hourly_size = 8
+        daily_size = 8
 
         hourly_font = self.hourly_forecast_widget.font()
         hourly_font.setPointSize(hourly_size)
@@ -7079,7 +8086,7 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         is_stacked = self._is_forecast_layout_stacked() if hasattr(self, "combined_forecast_widget") else False
         alerts_panel_height = max(140, min(300 if is_stacked else 220, int(window_height * (0.23 if is_stacked else 0.17))))
         lifecycle_height = max(42, min(70, int(window_height * 0.055)))
-        forecast_panel_height = max(160, min(240, int(window_height * (0.20 if is_stacked else 0.18))))
+        forecast_panel_height = max(118, min(174 if is_stacked else 138, int(window_height * (0.16 if is_stacked else 0.115))))
 
         self.alerts_display_area.setMinimumHeight(alerts_panel_height)
         self.alerts_display_area.setMaximumHeight(alerts_panel_height)
@@ -7093,12 +8100,12 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         self.hourly_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         self.daily_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         alerts_outer_height = alerts_panel_height + lifecycle_height + 66
-        forecast_outer_height = forecast_panel_height + 54
+        forecast_outer_height = forecast_panel_height + 44
         unified_outer_height = max(alerts_outer_height, forecast_outer_height)
         self.alerts_group.setMinimumHeight(unified_outer_height)
         self.alerts_group.setMaximumHeight(unified_outer_height)
-        combined_outer_height = (forecast_panel_height * (2 if is_stacked else 1)) + (96 if is_stacked else 58)
-        unified_combined_height = max(unified_outer_height, combined_outer_height)
+        combined_outer_height = (forecast_panel_height * (2 if is_stacked else 1)) + (82 if is_stacked else 48)
+        unified_combined_height = combined_outer_height if hasattr(self, "workbench_splitter") else max(unified_outer_height, combined_outer_height)
         self.combined_forecast_widget.setMinimumHeight(unified_combined_height)
         self.combined_forecast_widget.setMaximumHeight(unified_combined_height)
         if hasattr(self, "workbench_splitter"):
@@ -7122,6 +8129,11 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
             self._update_hourly_forecast_display(cached.get("hourly_forecast"), cached.get("grid_forecast"))
             self._update_daily_forecast_display(cached.get("daily_forecast"), cached.get("grid_forecast"))
             self._update_forecast_trends(cached.get("hourly_forecast"), cached.get("grid_forecast"))
+            self._update_fishing_conditions(
+                cached.get("hourly_forecast"),
+                cached.get("grid_forecast"),
+                cached.get("marine_data"),
+            )
         self.log_to_gui(f"Applied {'dark' if self.current_dark_mode_enabled else 'light'} theme.", level="INFO")
 
     def _apply_log_sort(self):
