@@ -2,7 +2,6 @@ import sys
 import pyttsx3
 import time
 import logging
-import math
 import os
 import json
 import shutil
@@ -10,9 +9,7 @@ import re
 import html
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List, Tuple, Callable
-from urllib.parse import urlencode, urlparse
 
-import requests
 
 # PySide6 imports
 from PySide6.QtWidgets import (
@@ -50,6 +47,17 @@ from weather_alert.escalation import evaluate_escalation
 from weather_alert.health import DeliveryHealthTracker
 from weather_alert.dedup import AlertDeduplicator
 from weather_alert.exporter import export_incident_csv, export_incident_json
+from weather_alert.marine import (
+    MarineDataService,
+    coops_station_lat_lon,
+    coops_station_url,
+    distance_miles_between,
+    fishing_resource_links,
+    marine_card_detail,
+    max_optional,
+    moon_phase_info,
+)
+from weather_alert.security import first_payload_entry, html_attr, safe_external_url
 
 # --- Application Version ---
 versionnumber = "26.06.23"
@@ -119,10 +127,6 @@ CHECK_INTERVAL_OPTIONS = {
 
 NWS_STATION_API_URL_TEMPLATE = "https://api.weather.gov/stations/{station_id}"
 NWS_POINTS_API_URL_TEMPLATE = "https://api.weather.gov/points/{latitude},{longitude}"
-COOPS_DATA_API_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
-COOPS_MAP_URL = "https://tidesandcurrents.noaa.gov/map/index.html"
-COOPS_STATION_HOME_URL_TEMPLATE = "https://tidesandcurrents.noaa.gov/stationhome.html?id={station_id}"
-COOPS_STATIONS_API_URL = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json"
 WEATHER_URL_PREFIX = "https://api.weather.gov/alerts/active.atom?point="
 WEATHER_URL_SUFFIX = "&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2CSevere%2CModerate%2CMinor&urgency=Immediate%2CFuture%2CExpected"
 
@@ -2996,6 +3000,7 @@ class WeatherAlertApp(QMainWindow):
         self._log_buffer: List[str] = []
 
         self.api_client = ModularNwsApiClient(f'PyWeatherAlertGui/{versionnumber} (github.com/nicarley/PythonWeatherAlerts)')
+        self.marine_service = MarineDataService(self.api_client.session)
         self.settings_manager = ModularSettingsManager(os.path.join(self._get_user_data_path(), SETTINGS_FILE_NAME))
         self.alert_history_manager = ModularAlertHistoryManager(
             os.path.join(self._get_user_data_path(), ALERT_HISTORY_FILE))
@@ -3014,7 +3019,6 @@ class WeatherAlertApp(QMainWindow):
         self.escalation_repeat_state: Dict[str, Dict[str, Any]] = {}
         self.last_lifecycle_by_location: Dict[str, Dict[str, Any]] = {}
         self.location_runtime_status: Dict[str, Dict[str, Any]] = {}
-        self._coops_station_cache: Dict[str, List[Dict[str, Any]]] = {}
         self._last_loaded_web_url: str = ""
         self._last_loaded_nws_url: str = ""
         self._last_map_signature: Tuple[Any, ...] = ()
@@ -4197,27 +4201,15 @@ class WeatherAlertApp(QMainWindow):
 
     @staticmethod
     def _safe_external_url(url: Any, fallback: str = "#") -> str:
-        text = str(url or "").strip()
-        parsed = urlparse(text)
-        if parsed.scheme not in {"https", "http"} or not parsed.netloc:
-            return fallback
-        return text
+        return safe_external_url(url, fallback)
 
     @staticmethod
     def _html_attr(value: Any) -> str:
-        return html.escape(str(value or ""), quote=True)
+        return html_attr(value)
 
     @staticmethod
     def _first_payload_entry(payload_value: Any) -> Dict[str, Any]:
-        if isinstance(payload_value, list):
-            return payload_value[0] if payload_value and isinstance(payload_value[0], dict) else {}
-        if isinstance(payload_value, dict):
-            for key in ["data", "predictions", "current_predictions", "cp"]:
-                nested = payload_value.get(key)
-                if isinstance(nested, list) and nested:
-                    return nested[0] if isinstance(nested[0], dict) else {}
-            return payload_value
-        return {}
+        return first_payload_entry(payload_value)
 
     def _make_compact_label(
         self,
@@ -5828,311 +5820,45 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
 
     @staticmethod
     def _moon_phase_info(now: Optional[datetime] = None) -> Dict[str, Any]:
-        current = now or datetime.now()
-        known_new_moon = datetime(2000, 1, 6, 18, 14)
-        synodic_month = 29.530588853
-        age = ((current - known_new_moon).total_seconds() / 86400.0) % synodic_month
-        phase_breaks = [
-            (1.84566, "New Moon"),
-            (5.53699, "Waxing Crescent"),
-            (9.22831, "First Quarter"),
-            (12.91963, "Waxing Gibbous"),
-            (16.61096, "Full Moon"),
-            (20.30228, "Waning Gibbous"),
-            (23.99361, "Last Quarter"),
-            (27.68493, "Waning Crescent"),
-            (synodic_month, "New Moon"),
-        ]
-        phase_name = next(name for limit, name in phase_breaks if age < limit)
-        illumination = (1 - math.cos((2 * math.pi * age) / synodic_month)) / 2
-        if phase_name in {"New Moon", "Full Moon"}:
-            fishing_cue = "Stronger solunar pull; prioritize moving water around tide changes."
-        elif "Quarter" in phase_name:
-            fishing_cue = "Moderate solunar pull; wind, tide, and water clarity matter more."
-        else:
-            fishing_cue = "Subtle solunar pull; look for current edges, bait, and low-light windows."
-        return {
-            "phase": phase_name,
-            "age": age,
-            "illumination": illumination,
-            "cue": fishing_cue,
-        }
+        return moon_phase_info(now)
 
     @staticmethod
     def _max_optional(values: List[Optional[float]]) -> Optional[float]:
-        numeric = [float(value) for value in values if isinstance(value, (int, float))]
-        return max(numeric) if numeric else None
+        return max_optional(values)
 
     @staticmethod
     def _distance_miles_between(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        radius_miles = 3958.8
-        phi1 = math.radians(lat1)
-        phi2 = math.radians(lat2)
-        delta_phi = math.radians(lat2 - lat1)
-        delta_lambda = math.radians(lon2 - lon1)
-        a = (
-            math.sin(delta_phi / 2) ** 2
-            + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
-        )
-        return radius_miles * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        return distance_miles_between(lat1, lon1, lat2, lon2)
 
     @staticmethod
     def _coops_station_lat_lon(station: Dict[str, Any]) -> Optional[Tuple[float, float]]:
-        for lat_key, lon_key in [
-            ("lat", "lng"),
-            ("lat", "lon"),
-            ("latitude", "longitude"),
-        ]:
-            try:
-                lat = float(station.get(lat_key))
-                lon = float(station.get(lon_key))
-                return lat, lon
-            except (TypeError, ValueError):
-                continue
-        return None
+        return coops_station_lat_lon(station)
 
     def _fetch_coops_stations(self, station_type: str) -> List[Dict[str, Any]]:
-        if station_type in self._coops_station_cache:
-            return self._coops_station_cache[station_type]
-
-        url = f"{COOPS_STATIONS_API_URL}?{urlencode({'type': station_type})}"
-        try:
-            response = self.api_client.session.get(url, timeout=8)
-            response.raise_for_status()
-            payload = response.json()
-            stations = payload.get("stations", [])
-            if isinstance(stations, list):
-                self._coops_station_cache[station_type] = stations
-                return stations
-        except (requests.RequestException, ValueError) as exc:
-            logging.debug("CO-OPS station lookup failed for %s: %s", station_type, exc)
-
-        self._coops_station_cache[station_type] = []
-        return []
+        return self.marine_service.fetch_stations(station_type)
 
     def _nearest_coops_station(self, lat: float, lon: float, station_type: str) -> Optional[Dict[str, Any]]:
-        nearest = None
-        nearest_distance = None
-        for station in self._fetch_coops_stations(station_type):
-            station_coords = self._coops_station_lat_lon(station)
-            if not station_coords:
-                continue
-            distance = self._distance_miles_between(lat, lon, station_coords[0], station_coords[1])
-            if nearest_distance is None or distance < nearest_distance:
-                nearest = dict(station)
-                nearest_distance = distance
-        if nearest is not None and nearest_distance is not None:
-            nearest["distance_miles"] = nearest_distance
-        return nearest
+        return self.marine_service.nearest_station(lat, lon, station_type)
 
     def _coops_data_url(self, station_id: str, product: str, extra: Optional[Dict[str, str]] = None) -> str:
-        params = {
-            "date": "latest",
-            "station": station_id,
-            "product": product,
-            "time_zone": "lst_ldt",
-            "units": "english",
-            "format": "json",
-        }
-        if extra:
-            params.update(extra)
-        return f"{COOPS_DATA_API_URL}?{urlencode(params)}"
+        return self.marine_service.data_url(station_id, product, extra)
 
     def _fetch_coops_product_summary(self, station_id: str, product: str, extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
-        data_url = self._coops_data_url(station_id, product, extra)
-        try:
-            response = self.api_client.session.get(data_url, timeout=8)
-            response.raise_for_status()
-            payload = response.json()
-        except (requests.RequestException, ValueError) as exc:
-            return {"value": "Unavailable", "detail": str(exc), "url": data_url}
-
-        if payload.get("error"):
-            return {"value": "Unavailable", "detail": str(payload.get("error", {}).get("message", "No data")), "url": data_url}
-
-        if product == "wind":
-            latest = self._first_payload_entry(payload.get("data", []))
-            speed = latest.get("s")
-            gust = latest.get("g")
-            direction = latest.get("dr") or latest.get("d")
-            value = f"{speed} kt" if speed not in {None, ""} else "Unavailable"
-            if gust not in {None, ""}:
-                value += f" gust {gust} kt"
-            if direction not in {None, ""}:
-                value += f" {direction}"
-            return {"value": value, "detail": latest.get("t", "latest"), "url": data_url}
-
-        if product in {"water_temperature", "water_level"}:
-            latest = self._first_payload_entry(payload.get("data", []))
-            raw_value = latest.get("v")
-            unit = "°F" if product == "water_temperature" else "ft"
-            value = f"{raw_value}{unit}" if raw_value not in {None, ""} else "Unavailable"
-            return {"value": value, "detail": latest.get("t", "latest"), "url": data_url}
-
-        first_prediction = self._first_payload_entry(payload.get("predictions", []))
-        if first_prediction:
-            first = first_prediction
-            tide_type = first.get("type", "")
-            raw_value = first.get("v")
-            value = f"{tide_type} {raw_value} ft".strip()
-            return {"value": value, "detail": first.get("t", "today"), "url": data_url}
-
-        first_current = self._first_payload_entry(payload.get("current_predictions", []))
-        if first_current:
-            first = first_current
-            speed = first.get("Velocity_Major") or first.get("velocity") or first.get("v")
-            direction = first.get("meanFloodDir") or first.get("Direction") or first.get("d")
-            value = f"{speed} kt" if speed not in {None, ""} else "Available"
-            if direction not in {None, ""}:
-                value += f" {direction}"
-            return {"value": value, "detail": first.get("Time") or first.get("t") or "today", "url": data_url}
-
-        return {"value": "Unavailable", "detail": "No recent product values returned.", "url": data_url}
+        return self.marine_service.fetch_product_summary(station_id, product, extra)
 
     def _fetch_nearest_marine_data(self, lat: float, lon: float) -> Dict[str, Any]:
-        products = [
-            {
-                "key": "water_temp",
-                "label": "Water Temp",
-                "station_type": "watertemp",
-                "product": "water_temperature",
-                "detail": "Closest NOAA CO-OPS water-temperature station.",
-            },
-            {
-                "key": "water_level",
-                "label": "Water Level",
-                "station_type": "waterlevels",
-                "product": "water_level",
-                "extra": {"datum": "MLLW"},
-                "detail": "Closest NOAA CO-OPS water-level station.",
-            },
-            {
-                "key": "tide",
-                "label": "Next Tide",
-                "station_type": "tidepredictions",
-                "product": "predictions",
-                "extra": {"date": "today", "datum": "MLLW", "interval": "hilo"},
-                "detail": "Closest NOAA CO-OPS tide prediction station.",
-            },
-            {
-                "key": "current",
-                "label": "Current",
-                "station_type": "currentpredictions",
-                "product": "currents_predictions",
-                "extra": {"date": "today", "interval": "max_slack"},
-                "detail": "Closest NOAA CO-OPS current prediction station.",
-            },
-            {
-                "key": "wind",
-                "label": "Marine Wind",
-                "station_type": "met",
-                "product": "wind",
-                "detail": "Closest NOAA CO-OPS meteorological station.",
-            },
-        ]
-        nearest: Dict[str, Any] = {}
-        for config in products:
-            try:
-                station = self._nearest_coops_station(lat, lon, str(config["station_type"]))
-                if not station:
-                    nearest[str(config["key"])] = {
-                        "label": config["label"],
-                        "value": "Unavailable",
-                        "detail": "No nearby NOAA CO-OPS station list was returned.",
-                        "station": "",
-                        "distance_miles": None,
-                        "url": COOPS_MAP_URL,
-                    }
-                    continue
-
-                station_id = str(station.get("id") or station.get("station_id") or "")
-                summary = self._fetch_coops_product_summary(
-                    station_id,
-                    str(config["product"]),
-                    config.get("extra"),
-                )
-                nearest[str(config["key"])] = {
-                    "label": config["label"],
-                    "value": summary.get("value", "Unavailable"),
-                    "detail": summary.get("detail") or config.get("detail", ""),
-                    "station": station.get("name") or station_id,
-                    "station_id": station_id,
-                    "distance_miles": station.get("distance_miles"),
-                    "url": summary.get("url") or self._coops_station_url(station_id),
-                    "station_url": self._coops_station_url(station_id),
-                    "description": config.get("detail", ""),
-                }
-            except Exception as exc:
-                logging.debug("Marine product lookup failed for %s: %s", config.get("key"), exc)
-                nearest[str(config["key"])] = {
-                    "label": config["label"],
-                    "value": "Unavailable",
-                    "detail": str(exc),
-                    "station": "",
-                    "distance_miles": None,
-                    "url": COOPS_MAP_URL,
-                }
-        return nearest
+        return self.marine_service.fetch_nearest_marine_data(lat, lon)
 
     @staticmethod
     def _marine_card_detail(data: Any, fallback: str) -> str:
-        if not isinstance(data, dict) or not data:
-            return fallback
-        station = str(data.get("station") or "Unknown station")
-        distance = data.get("distance_miles")
-        distance_text = f"{float(distance):.1f} mi away" if isinstance(distance, (int, float)) else "distance unavailable"
-        observed = str(data.get("detail") or "").strip()
-        observed_text = f" · {observed}" if observed and observed.lower() != "latest" else ""
-        return f"{station} · {distance_text}{observed_text}"
+        return marine_card_detail(data, fallback)
 
     @staticmethod
     def _coops_station_url(station_id: str) -> str:
-        if not station_id:
-            return COOPS_MAP_URL
-        return COOPS_STATION_HOME_URL_TEMPLATE.format(station_id=station_id)
+        return coops_station_url(station_id)
 
     def _fishing_resource_links(self, marine_data: Optional[Dict[str, Any]] = None) -> List[Tuple[str, str, str]]:
-        coords_text = ""
-        if self.current_coords:
-            lat, lon = self.current_coords
-            coords_text = f" near {lat:.3f}, {lon:.3f}"
-        marine_url = self._build_nws_forecast_url(self.current_coords) or "https://marine.weather.gov/"
-        if self.current_coords:
-            lat, lon = self.current_coords
-            marine_url = f"https://marine.weather.gov/MapClick.php?lat={lat}&lon={lon}"
-        links: List[Tuple[str, str, str]] = []
-        for data in (marine_data or {}).values():
-            if not isinstance(data, dict):
-                continue
-            title = str(data.get("label") or "NOAA station")
-            station = str(data.get("station") or "")
-            distance = data.get("distance_miles")
-            distance_text = f" · {float(distance):.1f} mi away" if isinstance(distance, (int, float)) else ""
-            links.append(
-                (
-                    title,
-                    str(data.get("station_url") or data.get("url") or COOPS_MAP_URL),
-                    f"{station}{distance_text}. {data.get('description', '')}",
-                )
-            )
-        links.extend([
-            (
-                "NOAA Tides & Currents",
-                COOPS_MAP_URL,
-                f"Tides, currents, water levels, water temperature, winds, pressure, and visibility{coords_text}.",
-            ),
-            (
-                "NDBC Buoy Map",
-                "https://www.ndbc.noaa.gov/obs.shtml",
-                "Buoys and coastal stations for sea-surface temperature, wave height/period, wind, and pressure.",
-            ),
-            (
-                "NWS Marine Forecast",
-                marine_url,
-                "Official marine forecast around the selected point, useful for seas, wind, storms, and advisories.",
-            ),
-        ])
-        return links
+        return fishing_resource_links(self.current_coords, marine_data)
 
     def _build_fishing_conditions_html(
         self,

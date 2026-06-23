@@ -5,6 +5,7 @@ from .dedup import AlertDeduplicator
 from .proximity import distance_point_to_geometry_miles, rank_alerts_by_proximity
 from .escalation import evaluate_escalation
 from .settings import SettingsManager
+from .marine import MarineDataService, moon_phase_info
 from .rules import (
     SEVERITY_ORDER,
     default_location_rules,
