@@ -14,6 +14,7 @@ final class AppStore: ObservableObject {
     private let client = NWSClient()
     private let notificationService = NotificationService()
     private var knownAlertIDsByLocation: [UUID: Set<String>] = [:]
+    private var refreshGeneration = 0
 
     init() {
         let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -137,19 +138,31 @@ final class AppStore: ObservableObject {
 
     func refreshCurrentLocation() async {
         guard let selectedLocation else { return }
+        refreshGeneration += 1
+        let generation = refreshGeneration
+        let locationID = selectedLocation.id
         isLoading = true
         errorMessage = nil
 
         do {
             let fetchedDashboard = try await client.fetchDashboard(for: selectedLocation)
+            guard generation == refreshGeneration,
+                  settings.selectedLocationID == locationID else {
+                return
+            }
             let newDashboard = applyRules(selectedLocation.rules, to: fetchedDashboard)
             await notifyForNewAlerts(in: newDashboard, location: selectedLocation)
             dashboard = newDashboard
         } catch {
-            errorMessage = error.localizedDescription
+            if generation == refreshGeneration,
+               settings.selectedLocationID == locationID {
+                errorMessage = error.localizedDescription
+            }
         }
 
-        isLoading = false
+        if generation == refreshGeneration {
+            isLoading = false
+        }
     }
 
     func nwsURL() -> URL? {

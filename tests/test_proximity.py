@@ -26,3 +26,23 @@ def test_rank_alerts_by_proximity_sorts_with_distance():
     assert ranked[0]["id"] == "near"
     assert "distance_miles" in ranked[0]
 
+
+def test_distance_is_zero_when_location_is_inside_polygon():
+    geometry = {
+        "type": "Polygon",
+        "coordinates": [[[-91.0, 37.0], [-89.0, 37.0], [-89.0, 39.0], [-91.0, 39.0], [-91.0, 37.0]]],
+    }
+
+    assert distance_point_to_geometry_miles(38.0, -90.0, geometry) == 0.0
+
+
+def test_distance_supports_multipolygon_containment():
+    geometry = {
+        "type": "MultiPolygon",
+        "coordinates": [
+            [[[-95.0, 35.0], [-94.0, 35.0], [-94.0, 36.0], [-95.0, 36.0], [-95.0, 35.0]]],
+            [[[-91.0, 37.0], [-89.0, 37.0], [-89.0, 39.0], [-91.0, 39.0], [-91.0, 37.0]]],
+        ],
+    }
+
+    assert distance_point_to_geometry_miles(38.0, -90.0, geometry) == 0.0

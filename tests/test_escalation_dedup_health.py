@@ -13,6 +13,22 @@ def test_escalation_triggers_for_high_severity():
     assert result["override_quiet_hours"] is True
 
 
+def test_escalation_requires_threshold_and_radius():
+    rules = {
+        "escalation": {
+            "enabled": True,
+            "min_severity": "Severe",
+            "radius_miles": 40,
+            "keywords": [],
+        }
+    }
+    minor = {"title": "Flood Advisory", "event": "Flood Advisory", "severity": "Minor"}
+    severe = {"title": "Severe Weather", "event": "Severe Weather", "severity": "Severe"}
+
+    assert evaluate_escalation(minor, rules, 5.0, datetime(2026, 1, 1, 12, 0))["escalate"] is False
+    assert evaluate_escalation(severe, rules, 50.0, datetime(2026, 1, 1, 12, 0))["escalate"] is False
+
+
 def test_dedup_suppression_blocks_within_cooldown():
     d = AlertDeduplicator(default_cooldown_s=60)
     alert = {"title": "Flood Warning", "event": "Flood Warning", "area_desc": "X"}
@@ -31,4 +47,3 @@ def test_health_tracker_computes_success_rate():
     assert stats["discord"]["attempts"] == 2
     assert stats["discord"]["failures"] == 1
     assert stats["discord"]["success_rate"] == 50.0
-

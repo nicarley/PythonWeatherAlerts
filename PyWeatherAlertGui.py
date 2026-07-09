@@ -60,7 +60,7 @@ from weather_alert.marine import (
 from weather_alert.security import first_payload_entry, html_attr, safe_external_url
 
 # --- Application Version ---
-versionnumber = "26.06.23"
+versionnumber = "26.07.09"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -3101,6 +3101,7 @@ class WeatherAlertApp(QMainWindow):
         self.remaining_time_seconds = 0
         self._check_in_progress = False
         self._pending_location_id: Optional[str] = None
+        self._scheduled_location_queue: List[str] = []
         self.clock_timer = QTimer(self)
         self.clock_timer.timeout.connect(self._update_current_time_display)
         self.scheduled_announcement_timer = QTimer(self)
@@ -3627,36 +3628,38 @@ class WeatherAlertApp(QMainWindow):
                 self.fishing_view,
             ]:
                 view.loadFinished.connect(lambda _ok=False: self._update_web_navigation_buttons())
+            self.web_tabs.addTab(self.web_view, "Radar")
             self.web_tabs.addTab(self.map_view, "Map")
-            self.web_tabs.addTab(self.forecast_trends_view, "Trends")
+            self.web_tabs.addTab(self.forecast_trends_view, "Data")
             self.web_tabs.addTab(self.nws_view, "NWS Forecast")
             self.web_tabs.addTab(self.digital_forecast_view, "Digital Forecast")
-            self.web_tabs.addTab(self.web_view, "Radar")
             self.web_tabs.addTab(self.fishing_view, "Fishing")
+            self.web_tabs.setCurrentWidget(self.web_view)
             self.digital_forecast_view.setUrl(QUrl(self._build_digital_forecast_url(None)))
         else:
-            self.web_view = QLabel("WebEngineView not available. Please install 'PySide6-WebEngine'.")
+            self.web_view = QLabel("WebEngineView not available. Please install PySide6 with its Addons components.")
             self.web_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.map_view = QLabel("Map view unavailable without PySide6-WebEngine.")
+            self.map_view = QLabel("Map view unavailable without the PySide6 WebEngine components.")
             self.map_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.nws_view = QLabel("NWS view unavailable without PySide6-WebEngine.")
+            self.nws_view = QLabel("NWS view unavailable without the PySide6 WebEngine components.")
             self.nws_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.digital_forecast_view = QLabel(
-                "NWS Digital Forecast view unavailable without PySide6-WebEngine.\n\n"
+                "NWS Digital Forecast view unavailable without the PySide6 WebEngine components.\n\n"
                 f"URL:\n{self._build_digital_forecast_url(None)}"
             )
             self.digital_forecast_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.forecast_trends_view = QLabel("Forecast trend charts unavailable without PySide6-WebEngine.")
+            self.forecast_trends_view = QLabel("Forecast trend charts unavailable without the PySide6 WebEngine components.")
             self.forecast_trends_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.fishing_view = QLabel("Fishing conditions unavailable until a location loads.")
             self.fishing_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.fishing_view.setWordWrap(True)
+            self.web_tabs.addTab(self.web_view, "Radar")
             self.web_tabs.addTab(self.map_view, "Map")
-            self.web_tabs.addTab(self.forecast_trends_view, "Trends")
+            self.web_tabs.addTab(self.forecast_trends_view, "Data")
             self.web_tabs.addTab(self.nws_view, "NWS Forecast")
             self.web_tabs.addTab(self.digital_forecast_view, "Digital Forecast")
-            self.web_tabs.addTab(self.web_view, "Radar")
             self.web_tabs.addTab(self.fishing_view, "Fishing")
+            self.web_tabs.setCurrentWidget(self.web_view)
         self._update_web_tabs_fullscreen_button()
         self.bottom_splitter.addWidget(self.web_tabs)
 
@@ -3696,7 +3699,7 @@ class WeatherAlertApp(QMainWindow):
     def _check_startup_health(self) -> None:
         warnings = []
         if QWebEngineView is None:
-            warnings.append("PySide6-WebEngine missing")
+            warnings.append("PySide6 WebEngine components missing")
         if getattr(self.api_client, "pgeocode_client", None) is None:
             warnings.append("offline ZIP/city geocoder unavailable")
         user_data_path = self._get_user_data_path()
@@ -4057,7 +4060,7 @@ class WeatherAlertApp(QMainWindow):
         style = self.style()
 
         # File Menu
-        file_menu = menu_bar.addMenu("&Station")
+        file_menu = menu_bar.addMenu("&File")
         preferences_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView),
                                      "&Preferences...", self)
         preferences_action.triggered.connect(lambda _checked=False: self._open_preferences_dialog("General"))
@@ -4080,7 +4083,7 @@ class WeatherAlertApp(QMainWindow):
         file_menu.addAction(exit_action)
 
         # View Menu
-        view_menu = menu_bar.addMenu("&Desk")
+        view_menu = menu_bar.addMenu("&View")
         self.web_sources_menu = view_menu.addMenu("&Sources")
         self.web_sources_menu.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
         self.web_sources_menu.aboutToShow.connect(self._update_web_sources_menu)
@@ -4483,8 +4486,14 @@ class WeatherAlertApp(QMainWindow):
         self._check_in_progress = True
         self.location_runtime_status[location_id] = {"state": "loading", "detail": "Refreshing from NWS"}
         self._update_dashboard_summary()
-        self.update_status(f"Fetching data for {self.get_location_name_by_id(location_id)}...")
-        self._clear_and_set_loading_states()
+        if location_id == self.current_location_id:
+            self.update_status(f"Fetching data for {self.get_location_name_by_id(location_id)}...")
+            self._clear_and_set_loading_states()
+        else:
+            self.log_to_gui(
+                f"Monitoring {self.get_location_name_by_id(location_id)} in the background...",
+                level="DEBUG",
+            )
 
         worker = Worker(self._fetch_all_data_for_location, location_id)
         worker.signals.result.connect(self._on_location_data_loaded)
@@ -4519,8 +4528,18 @@ class WeatherAlertApp(QMainWindow):
         if self._pending_location_id:
             queued_location = self._pending_location_id
             self._pending_location_id = None
+            self._scheduled_location_queue = [
+                location_id for location_id in self._scheduled_location_queue
+                if location_id != queued_location
+            ]
             self._update_location_data(queued_location)
             return
+        valid_location_ids = {location.get("id") for location in self.locations}
+        while self._scheduled_location_queue:
+            queued_location = self._scheduled_location_queue.pop(0)
+            if queued_location in valid_location_ids:
+                self._update_location_data(queued_location)
+                return
         self._schedule_next_timed_check(immediate=False)
 
     def get_location_name_by_id(self, location_id):
@@ -4578,9 +4597,10 @@ class WeatherAlertApp(QMainWindow):
 
     @Slot(object)
     def _on_location_data_loaded(self, result: Dict[str, Any]):
-        self.network_status_indicator.setText("● Network OK")
-        self.network_status_indicator.setStyleSheet("color: green; font-weight: bold;")
         location_id = result["location_id"]
+        if location_id == self.current_location_id:
+            self.network_status_indicator.setText("● Network OK")
+            self.network_status_indicator.setStyleSheet("color: green; font-weight: bold;")
         coords = result["coords"]
         alerts = result["alerts"]
         if coords:
@@ -4601,6 +4621,10 @@ class WeatherAlertApp(QMainWindow):
             "fetched_at": result.get("fetched_at"),
         }
         self._record_lifecycle_events(location_id, lifecycle)
+        new_alert_titles = self._process_alerts_for_location(alerts, location_id, coords)
+        if location_id == self.current_location_id or new_alert_titles:
+            self._handle_timed_announcements(new_alert_titles, location_id)
+        self._dispatch_webhooks_for_location(location_id, alerts, coords)
 
         self.log_to_gui(f"Successfully fetched data for {self.get_location_name_by_id(location_id)} at {coords}",
                         level="INFO")
@@ -4624,7 +4648,6 @@ class WeatherAlertApp(QMainWindow):
 
         self.current_coords = coords
         self._update_alerts_display_area(alerts, location_id, lifecycle)
-        new_alert_titles = [alert.get("title", "N/A Title") for alert in lifecycle["new"] if alert.get("_notify_allowed")]
         self._update_lifecycle_display(lifecycle)
         self._update_hourly_forecast_display(result["hourly_forecast"], result.get("grid_forecast"))
         self._update_daily_forecast_display(result["daily_forecast"], result.get("grid_forecast"))
@@ -4641,8 +4664,6 @@ class WeatherAlertApp(QMainWindow):
         self._update_dashboard_summary()
         self.update_status(f"Data for {self.get_location_name_by_id(location_id)} updated.")
 
-        self._handle_timed_announcements(new_alert_titles, location_id)
-        self._dispatch_webhooks_for_location(location_id, lifecycle["new"])
         self._finish_check_cycle()
 
     @Slot(Exception)
@@ -4795,7 +4816,7 @@ class WeatherAlertApp(QMainWindow):
                 }
             )
         for expired in lifecycle.get("expired", []):
-            self.escalation_repeat_state.pop(expired.get("id", ""), None)
+            self.escalation_repeat_state.pop(f"{location_id}:{expired.get('id', '')}", None)
             self.alert_history_manager.add_lifecycle_event(
                 {
                     "time": now_text,
@@ -4809,7 +4830,7 @@ class WeatherAlertApp(QMainWindow):
                 }
             )
         for cancelled in lifecycle.get("cancelled", []):
-            self.escalation_repeat_state.pop(cancelled.get("id", ""), None)
+            self.escalation_repeat_state.pop(f"{location_id}:{cancelled.get('id', '')}", None)
             self.alert_history_manager.add_lifecycle_event(
                 {
                     "time": now_text,
@@ -4823,7 +4844,12 @@ class WeatherAlertApp(QMainWindow):
                 }
             )
 
-    def _dispatch_webhooks_for_location(self, location_id: str, new_alerts: List[Dict[str, Any]]) -> None:
+    def _dispatch_webhooks_for_location(
+        self,
+        location_id: str,
+        new_alerts: List[Dict[str, Any]],
+        coords: Optional[Tuple[float, float]] = None,
+    ) -> None:
         if not new_alerts:
             return
 
@@ -4853,9 +4879,9 @@ class WeatherAlertApp(QMainWindow):
             if not alert.get("_notify_allowed", False):
                 continue
             distance_miles = alert.get("distance_miles")
-            if distance_miles is None and self.current_coords:
+            if distance_miles is None and coords:
                 distance_miles = distance_point_to_geometry_miles(
-                    self.current_coords[0], self.current_coords[1], alert.get("geometry")
+                    coords[0], coords[1], alert.get("geometry")
                 )
             escalation = evaluate_escalation(alert, location_cfg.get("rules", {}), distance_miles, datetime.now())
             force_all_channels = bool(escalation.get("escalate") and escalation.get("force_all_channels"))
@@ -5476,7 +5502,7 @@ class WeatherAlertApp(QMainWindow):
             self.digital_forecast_view.setUrl(QUrl(digital_url))
         elif isinstance(getattr(self, "digital_forecast_view", None), QLabel):
             self.digital_forecast_view.setText(
-                "NWS Digital Forecast view unavailable without PySide6-WebEngine.\n\n"
+                "NWS Digital Forecast view unavailable without the PySide6 WebEngine components.\n\n"
                 f"URL:\n{digital_url}"
             )
         if QWebEngineView and self.nws_view:
@@ -5495,11 +5521,11 @@ class WeatherAlertApp(QMainWindow):
         if isinstance(self.nws_view, QLabel):
             if nws_url:
                 self.nws_view.setText(
-                    "NWS view unavailable without PySide6-WebEngine.\n\n"
+                    "NWS view unavailable without the PySide6 WebEngine components.\n\n"
                     f"Forecast URL:\n{nws_url}"
                 )
         else:
-            self.nws_view.setText("NWS view unavailable without PySide6-WebEngine.")
+            self.nws_view.setText("NWS view unavailable without the PySide6 WebEngine components.")
 
     @staticmethod
     def _first_number_from_text(value: Any) -> Optional[float]:
@@ -5813,7 +5839,7 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
             else:
                 first = periods[0]
                 self.forecast_trends_view.setText(
-                    f"Forecast trends unavailable without PySide6-WebEngine.\n\n"
+                    f"Forecast trends unavailable without the PySide6 WebEngine components.\n\n"
                     f"Next period: {first.get('name', 'Now')} {first.get('temperature', 'N/A')}°"
                     f"{first.get('temperatureUnit', '')}, {first.get('shortForecast', '')}"
                 )
@@ -6057,19 +6083,13 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
                 f"Water and marine resources:\n{links}"
             )
 
-    def _update_alerts_display_area(self, alerts: List[Any], location_id: str, lifecycle: Optional[Dict[str, Any]] = None):
-        self.alerts_display_area.clear()
-        if not alerts:
-            item = QListWidgetItem(f"No active alerts for {self.get_location_name_by_id(location_id)}.")
-            item.setData(Qt.ItemDataRole.UserRole + 1, "generic")
-            item.setData(Qt.ItemDataRole.UserRole + 3, True)
-            item.setData(Qt.ItemDataRole.UserRole + 4, "none")
-            item.setSizeHint(QSize(item.sizeHint().width(), 54))
-            self.alerts_display_area.addItem(item)
-            self.alerts_meta_label.setText(f"{self.get_location_name_by_id(location_id)}: no active alerts right now.")
-            self._apply_alert_filters()
-            return
-
+    def _process_alerts_for_location(
+        self,
+        alerts: List[Dict[str, Any]],
+        location_id: str,
+        coords: Optional[Tuple[float, float]],
+    ) -> List[str]:
+        """Apply routing rules and notifications independently of UI rendering."""
         location_cfg = self._get_location_config(location_id)
         rules = location_cfg.get("rules", default_location_rules())
         should_notify_desktop_default = self.desktop_notification_action.isChecked()
@@ -6077,17 +6097,16 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         should_notify_desktop = self._resolve_bool_override(rules.get("desktop_notifications"), should_notify_desktop_default)
         should_play_sound = self._resolve_bool_override(rules.get("play_sounds"), should_play_sound_default)
         cooldown_s = int(rules.get("suppression_cooldown_seconds", 900))
-
         high_priority_keywords = ["tornado", "severe thunderstorm", "flash flood warning"]
-        rendered_alert_count = 0
+        new_alert_titles: List[str] = []
+
         for alert in alerts:
             now = datetime.now()
             distance_miles = alert.get("distance_miles")
-            if distance_miles is None and self.current_coords:
+            if distance_miles is None and coords:
                 distance_miles = distance_point_to_geometry_miles(
-                    self.current_coords[0], self.current_coords[1], alert.get("geometry")
+                    coords[0], coords[1], alert.get("geometry")
                 )
-
             escalation = evaluate_escalation(alert, rules, distance_miles, now)
             allowed, reason = evaluate_location_rule(
                 alert,
@@ -6095,29 +6114,38 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
                 now,
                 ignore_quiet_hours=bool(escalation.get("override_quiet_hours", False)),
             )
+            alert["_rule_allowed"] = allowed
+            alert["_rule_reason"] = reason
+            alert["_escalation"] = escalation
+            raw_alert_id = alert.get("id", "unknown-id")
+            escalation_id = f"{location_id}:{raw_alert_id}"
+            if not allowed or not escalation.get("escalate", False):
+                self.escalation_repeat_state.pop(escalation_id, None)
+            if isinstance(distance_miles, (int, float)):
+                alert["distance_miles"] = round(distance_miles, 2)
+
             if not allowed:
+                alert["_notify_allowed"] = False
                 self.log_to_gui(f"Suppressed by rule ({location_cfg['name']}): {alert.get('title', 'N/A')} [{reason}]", level="DEBUG")
                 continue
 
             title = alert.get('title', 'N/A Title')
             summary = alert.get('summary', 'No summary available.')
-            alert_text = self._alert_display_text(alert, distance_miles, escalation)
-            item = QListWidgetItem(alert_text)
-            alert_category = self._classify_alert_category(alert)
-            alert_detail = dict(alert)
-            alert_detail["location"] = self.get_location_name_by_id(location_id)
-            alert_detail["distance_miles"] = distance_miles if isinstance(distance_miles, (int, float)) else alert.get("distance_miles", "")
-            item.setData(Qt.ItemDataRole.UserRole + 1, alert_category)
-            item.setData(Qt.ItemDataRole.UserRole + 2, alert_detail)
-            item.setData(Qt.ItemDataRole.UserRole + 3, False)
-            item.setSizeHint(QSize(item.sizeHint().width(), self._alert_item_height_for_text(alert_text)))
-            item.setToolTip(self._format_rich_tooltip(self._alert_tooltip_text(alert, distance_miles, escalation)))
             dedup_meta = self.alert_dedup.classify(alert)
+            notification_id = f"{location_id}:{raw_alert_id}"
+            if (
+                raw_alert_id in self.alert_history_manager.seen_alerts
+                and notification_id not in self.alert_history_manager.seen_alerts
+            ):
+                # Migrate pre-multi-location history without replaying every
+                # currently active alert once after upgrading.
+                self.alert_history_manager.seen_alerts.add(notification_id)
 
             is_new = self.alert_history_manager.add_alert(
-                alert.get("id", "unknown-id"),
+                notification_id,
                 {
-                    'id': alert.get("id", "unknown-id"),
+                    'id': notification_id,
+                    'alert_id': raw_alert_id,
                     'link': alert.get("link", ""),
                     'time': time.strftime('%Y-%m-%d %H:%M'),
                     'type': title.split(' ')[0],
@@ -6143,17 +6171,8 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
             else:
                 alert["_notify_allowed"] = False
 
-            self._apply_alert_item_visuals(
-                item,
-                alert,
-                alert_category,
-                bool(escalation.get("escalate", False)),
-                bool(is_new and should_send),
-            )
-            self.alerts_display_area.addItem(item)
-            rendered_alert_count += 1
-
             if is_new and should_send:
+                new_alert_titles.append(title)
                 if should_play_sound:
                     self._play_alert_sound(title.lower(), rules, escalation.get("escalate", False))
                 if should_notify_desktop:
@@ -6168,16 +6187,57 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
                         f"Escalation triggered for {title}: {', '.join(escalation.get('reasons', []))}",
                         level="IMPORTANT",
                     )
-                    alert_id = alert.get("id", "")
-                    self.last_escalated_alert_time[alert_id] = time.time()
+                    self.last_escalated_alert_time[escalation_id] = time.time()
                     repeat_minutes = max(1, int(escalation.get("repeat_minutes", 5)))
-                    self.escalation_repeat_state[alert_id] = {
+                    self.escalation_repeat_state[escalation_id] = {
                         "next_ts": time.time() + repeat_minutes * 60,
                         "repeat_minutes": repeat_minutes,
                         "title": title,
                         "location_name": self.get_location_name_by_id(location_id),
                         "location_id": location_id,
                     }
+
+        return new_alert_titles
+
+    def _update_alerts_display_area(self, alerts: List[Any], location_id: str, lifecycle: Optional[Dict[str, Any]] = None):
+        self.alerts_display_area.clear()
+        if not alerts:
+            item = QListWidgetItem(f"No active alerts for {self.get_location_name_by_id(location_id)}.")
+            item.setData(Qt.ItemDataRole.UserRole + 1, "generic")
+            item.setData(Qt.ItemDataRole.UserRole + 3, True)
+            item.setData(Qt.ItemDataRole.UserRole + 4, "none")
+            item.setSizeHint(QSize(item.sizeHint().width(), 54))
+            self.alerts_display_area.addItem(item)
+            self.alerts_meta_label.setText(f"{self.get_location_name_by_id(location_id)}: no active alerts right now.")
+            self._apply_alert_filters()
+            return
+
+        rendered_alert_count = 0
+        for alert in alerts:
+            if not alert.get("_rule_allowed", False):
+                continue
+            distance_miles = alert.get("distance_miles")
+            escalation = alert.get("_escalation", {})
+            title = alert.get('title', 'N/A Title')
+            alert_text = self._alert_display_text(alert, distance_miles, escalation)
+            item = QListWidgetItem(alert_text)
+            alert_category = self._classify_alert_category(alert)
+            alert_detail = dict(alert)
+            alert_detail["location"] = self.get_location_name_by_id(location_id)
+            item.setData(Qt.ItemDataRole.UserRole + 1, alert_category)
+            item.setData(Qt.ItemDataRole.UserRole + 2, alert_detail)
+            item.setData(Qt.ItemDataRole.UserRole + 3, False)
+            item.setSizeHint(QSize(item.sizeHint().width(), self._alert_item_height_for_text(alert_text)))
+            item.setToolTip(self._format_rich_tooltip(self._alert_tooltip_text(alert, distance_miles, escalation)))
+            self._apply_alert_item_visuals(
+                item,
+                alert,
+                alert_category,
+                bool(escalation.get("escalate", False)),
+                bool(alert.get("_notify_allowed", False)),
+            )
+            self.alerts_display_area.addItem(item)
+            rendered_alert_count += 1
 
         if rendered_alert_count == 0:
             item = QListWidgetItem(
@@ -6192,7 +6252,7 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
 
     def _play_alert_sound(self, alert_text: str, rules: Optional[Dict[str, Any]] = None, escalated: bool = False):
         """Plays appropriate system sound for alert type."""
-        if self.mute_action.isChecked() or not self.enable_sounds_action.isChecked():
+        if self.mute_action.isChecked():
             return
         profile_cfg = (rules or {}).get("audio_profiles", {})
         now = datetime.now()
@@ -6818,11 +6878,18 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         if self.auto_refresh_action.isChecked() and QWebEngineView and self.web_view:
             self.web_view.reload()
 
-        # Only check the currently selected location, not all of them.
-        if self.current_location_id:
-            self._update_location_data(self.current_location_id)
+        location_ids = list(dict.fromkeys(
+            location.get("id") for location in self.locations if location.get("id")
+        ))
+        if self.current_location_id and self.current_location_id in location_ids:
+            location_ids.remove(self.current_location_id)
+            location_ids.insert(0, self.current_location_id)
+
+        if location_ids:
+            self._scheduled_location_queue = location_ids[1:]
+            self._update_location_data(location_ids[0])
         else:
-            self.log_to_gui("No active location selected. Timed check skipped.", level="WARNING")
+            self.log_to_gui("No locations are configured. Timed check skipped.", level="WARNING")
             self._schedule_next_timed_check(immediate=False)
 
     def log_to_gui(self, message: str, level: str = "INFO"):

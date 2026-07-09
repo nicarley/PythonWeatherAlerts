@@ -58,7 +58,9 @@ class NwsApiClient:
             total=3,
             backoff_factor=0.7,
             status_forcelist=(429, 500, 502, 503, 504),
-            allowed_methods=("GET", "POST"),
+            # Notification webhooks share this session. Retrying POST can
+            # deliver the same alert more than once, so only retry safe reads.
+            allowed_methods=("GET",),
             raise_on_status=False,
         )
         adapter = HTTPAdapter(max_retries=retry)
@@ -528,9 +530,11 @@ class NwsApiClient:
             data = self._get_json(url)
             features = data.get("features", [])
             return [self._normalize_alert(feature) for feature in features]
-        except requests.RequestException as e:
+        except (requests.RequestException, ValueError) as e:
             logging.error("Error fetching alerts from %s: %s", url, e)
-            return []
+            # An alert-endpoint outage is not equivalent to an all-clear. Let
+            # the application retain and label its last-known alert data.
+            raise ApiError(f"Could not retrieve active alerts for {lat},{lon}.") from e
 
     def build_alert_geojson(self, alerts: List[Dict[str, Any]]) -> Dict[str, Any]:
         features: List[Dict[str, Any]] = []

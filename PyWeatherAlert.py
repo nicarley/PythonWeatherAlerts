@@ -14,7 +14,7 @@ REPEATER_INFO = "Repeater, GMRSCALLSIGN, Frequencies (Change text in quotes)"
 # URL format for fetching active alerts for a specific geographic point (latitude, longitude).
 # The {lat} and {lon} placeholders will be replaced with actual coordinates.
 # Filters are applied for certainty, severity, and urgency of alerts.
-ALERTS_URL_POINT_FORMAT = "https://api.weather.gov/alerts/active.atom?point={lat}%2C{lon}&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2CSevere%2CModerate%2CMinor&urgency=Future%2CExpected"
+ALERTS_URL_POINT_FORMAT = "https://api.weather.gov/alerts/active.atom?point={lat}%2C{lon}&certainty=Possible%2CLikely%2CObserved&severity=Extreme%2CSevere%2CModerate%2CMinor&urgency=Immediate%2CFuture%2CExpected"
 
 # NWS API endpoint format for fetching details about a specific weather station,
 # which includes its geographic coordinates. The {station_id} will be replaced.

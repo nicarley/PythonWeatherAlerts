@@ -1,4 +1,7 @@
-from weather_alert.api import NwsApiClient
+import pytest
+import requests
+
+from weather_alert.api import ApiError, NwsApiClient
 
 
 class _FakeGeocodeRows:
@@ -179,3 +182,22 @@ def test_current_conditions_normalizes_latest_observation(monkeypatch):
     assert conditions["wind_direction"] == "S"
     assert round(conditions["visibility_miles"], 1) == 10.0
     assert round(conditions["pressure_inhg"], 2) == 29.97
+
+
+def test_alert_fetch_failure_is_not_reported_as_empty_alerts(monkeypatch):
+    client = NwsApiClient("test-agent")
+
+    def fail_get_json(_url, **_kwargs):
+        raise requests.ConnectionError("alerts unavailable")
+
+    monkeypatch.setattr(client, "_get_json", fail_get_json)
+
+    with pytest.raises(ApiError):
+        client.get_alerts(38.51, -90.31)
+
+
+def test_shared_session_does_not_retry_webhook_posts():
+    client = NwsApiClient("test-agent")
+    retry = client.session.get_adapter("https://").max_retries
+
+    assert set(retry.allowed_methods) == {"GET"}
