@@ -1,86 +1,151 @@
-# PyWeatherAlert - Weather Alert Monitor
+# PyWeatherAlert
 
-PyWeatherAlertGui is a Python desktop application built with PySide6 that monitors weather alerts from the National Weather Service (NWS) for user-defined locations. It provides visual and (optional) audio notifications for new alerts, displays current alerts, shows station forecasts, and allows users to view weather radar or other web sources.
-There is a graphical user interface, and a simple python script that allows you to put your HAM or GMRS Call sign in and nearest NWS location ID (zip) and it will trigger the alert system inside the app.
-<a href="https://github.com/nicarley/PythonWeatherAlerts/blob/master/resources/pyweather.png?raw=true">
-<img src="https://github.com/nicarley/PythonWeatherAlerts/blob/master/resources/pyweather.png?raw=true" width="800px" />
-</a>
+PyWeatherAlert is a cross-platform desktop weather monitoring application built with Python and PySide6. It retrieves active alerts and forecasts from the U.S. National Weather Service (NWS), monitors multiple user-defined locations, and can announce important alerts through text-to-speech, desktop notifications, and webhooks.
 
-## More info on PyWeatherAlertGUI:
+![PyWeatherAlert desktop interface](resources/pyweather.png)
+
+> PyWeatherAlert is an informational aid. Always follow official NWS guidance and local emergency instructions during severe weather.
+
 ## Features
 
--   **NWS Alert Monitoring**: Periodically checks for new weather alerts (warnings, watches, advisories) for user-defined locations. Alerts are filtered by severity, certainty, and urgency.
--   **Enhanced Location Inputs**: Supports ZIP, airport/station ID, `lat,lon`, county/zone IDs, and basic `City,ST` lookups.
--   **Per-Location Rules & Routing**: Each location can define severity thresholds, alert type filters, quiet hours, and routing overrides for sounds/desktop/webhook notifications.
--   **Escalation Engine**: Per-location escalation rules can override quiet hours for urgent alerts, repeat escalated announcements, and force all configured outbound channels.
--   **Proximity-Aware Alert Ranking**: Alerts are scored/ranked by distance from the selected location using alert geometry so nearby threats are shown first.
--   **De-duplication & Suppression Windows**: Similar/repeated alert updates are threaded and notification delivery is suppressed during a configurable cooldown window.
--   **Alert Lifecycle Tracking**: Detects and highlights alert lifecycle changes (new, updated, expired, cancelled) with change summaries.
--   **Map-First Alert View**: Added an embedded map tab showing active alert polygons.
--   **Notification Channels**: Optional outbound notifications for new alerts via generic webhook, Discord webhook, and Slack webhook.
--   **Notification Delivery Health**: Includes a delivery health dashboard (attempts, success/failure rate, last error) plus a one-click "Send Test Notifications" action.
--   **Lifecycle Panel**: A dedicated lifecycle list in the main UI highlights new, updated, expired, and cancelled alerts.
--   **Lifecycle Timeline View**: A dedicated timeline dialog shows issued/updated/expired/cancelled events with compact change summaries.
--   **Audio Announcements**:
-    -   Optionally announces new weather alerts using text-to-speech (TTS).
-    -   Optionally announces a custom repeater message after each check cycle.
-    -   Supports day/night/escalated audio behavior (voice rate and alert-beep intensity).
--   **Visual Information**:
-    -   Displays current active alerts.
-    -   Shows **8-hour and 5-day** station forecasts for the specified location.
-    -   Embedded web view to display weather radar or other user-defined web sources (supports HTML and opens PDFs externally).
-    -   Top status bar displaying current Repeater, Location ID, Check Interval, a countdown to the next check, and the **Current Time**.
--   **Customizable Web Sources**:
-    -   Pre-configured with N.W.S. Radar and Windy.com.
-    -   Users can add, edit, delete, **reorder**, and quickly save the **currently viewed URL** in the web view as a new source.
-    -   Option to **open the current web view in an external browser**.
--   **Configurable Settings via Preferences Dialog**:
-    -   **A comprehensive dialog** allows configuration of all key application settings:
-        -   Set Repeater Announcement text.
-        -   Manage locations and per-location alert rules.
-        -   Choose the check interval for new alerts and content refresh (e.g., 1 minute, 15 minutes, 1 hour).
-        -   Toggle "Announce Alerts & Start Timer".
-        -   Toggle "Auto-Refresh Web Content".
-        -   Configure outbound channels (Generic Webhook, Discord Webhook, Slack Webhook).
-        -   Toggle "Enable Dark Mode".
-        -   Toggle visibility of Log Panel, Alerts Area, and Forecasts Area.
--   **Menu-Driven Interface**:
-    -   **File Menu**: Access Preferences, Backup/Restore Settings, and Exit.
-    -   **View Menu**:
-        -   **Web Sources Submenu**: Select from configured web sources, **open the current web view in an external browser**, **add the current web view as a new source**, add new sources, and manage (add, edit, delete, reorder) existing sources.
-        -   Toggle visibility of Log Panel, Alerts Area, Forecasts Area.
-        -   Enable/disable Dark Mode.
-    -   **Actions Menu**: Toggle timed announcements and content refresh, open the delivery health dashboard, and send test notifications.
-    -   **History Menu**: View alert history, view lifecycle timeline, and export incident reports.
-    -   **Help Menu**: Access the application's help page on GitHub directly.
--   **Dark Mode**: Option to switch between a light and dark theme for the application interface.
--   **Settings Management**:
-    -   User configurations are saved to `settings.json` in the app's writable user-data directory.
-    -   Backup and Restore functionality for the settings file.
--   **Resilience Improvements**:
-    -   HTTP retry/backoff and short-lived caching for location/forecast requests.
-    -   Last-known-data fallback when APIs are temporarily unavailable.
-    -   Offline state includes cached-data staleness age for better situational awareness.
--   **Incident Export**:
-    -   Export current incident context to JSON, CSV, and PDF summary files.
--   **Data Storage Upgrade**:
-    -   Alert history is stored in JSON (`alert_history.json`) with automatic migration from legacy pickle history files (`.dat`/`.pickle`).
--   **Project Structure and Quality**:
-    -   Core logic is split into modular services under `weather_alert/` (API, settings, history, rules, webhook, proximity, escalation, dedup, health, exporter).
-    -   Unit tests are included under `tests/` with a GitHub Actions CI workflow.
--   **Logging**: Provides an in-app log panel for status messages, errors, and debug information.
--   **Styling**:
-    -   Supports custom stylesheets (`modern.qss` for light mode, `dark_modern.qss` for dark mode).
+- Monitor multiple locations using a U.S. ZIP code, NWS/airport station ID, latitude and longitude, county or forecast zone, or `City, State`.
+- View active alerts, hourly and multi-day forecasts, alert polygons, and weather web sources.
+- Filter alerts by severity, certainty, urgency, and alert type.
+- Define per-location rules, quiet hours, routing overrides, and escalation behavior.
+- Rank alerts by proximity when alert geometry is available.
+- Track new, updated, expired, and cancelled alerts while suppressing duplicate notifications.
+- Announce alerts and optional repeater/call-sign messages using text-to-speech.
+- Send generic, Discord, and Slack webhook notifications.
+- Review notification-delivery health and send test notifications.
+- Browse alert history and export incident data to JSON, CSV, or PDF.
+- Use light and dark themes and customize visible panels and web sources.
+- Continue displaying cached data during temporary API outages.
 
 ## Requirements
 
--   **Python 3.x**
-You can typically install these Python libraries using pip:
--   **PySide6**: For the graphical user interface.
-    -   `PySide6.QtWebEngineWidgets` is required for the embedded web view. If not found, the web view will be disabled.
--   **requests**: For making HTTP requests to weather APIs.
--   **feedparser**: For parsing Atom feeds from the NWS alerts.
--   **pyttsx3**: For text-to-speech functionality.
--   **pgeocode**: For converting US zip codes to geographic coordinates (works offline).
--   **pandas**: A dependency of `pgeocode`.
--   **pytest** (optional): For running the unit tests in `tests/`.
+- Python 3.10 or newer is recommended.
+- Internet access to retrieve NWS alerts, forecasts, maps, and other web content.
+- A supported text-to-speech engine if audio announcements are enabled.
+
+The application is designed primarily for U.S. locations because it uses National Weather Service services.
+
+## Installation
+
+Clone the repository and enter its directory:
+
+```bash
+git clone https://github.com/nicarley/PythonWeatherAlerts.git
+cd PythonWeatherAlerts
+```
+
+Create and activate a virtual environment.
+
+Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+macOS or Linux:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Install the dependencies:
+
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+## Running the application
+
+Start the graphical application from the project root:
+
+```bash
+python PyWeatherAlertGui.py
+```
+
+On first launch, open **File > Preferences** to:
+
+1. Add one or more locations.
+2. Choose the weather-check interval.
+3. Configure alert filters and notification routes.
+4. Enable alert announcements if desired.
+
+Accepted location examples include:
+
+| Input type | Example |
+| --- | --- |
+| ZIP code | `62881` |
+| Airport/NWS station | `KSTL` |
+| Coordinates | `38.63,-90.20` |
+| County/zone ID | `ILC163` |
+| City and state | `St Louis, MO` |
+
+The repository also contains `PyWeatherAlert.py`, a smaller command-line monitor. Its station, interval, and repeater message are configured as constants near the top of that file:
+
+```bash
+python PyWeatherAlert.py
+```
+
+## Settings and application data
+
+The GUI stores `settings.json` and `alert_history.json` in Qt's platform-specific local application-data directory under `PythonWeatherAlerts`. Use **File > Backup Settings** and **File > Restore Settings** to move configuration safely between installations.
+
+Webhook URLs may grant access to external services. Treat settings backups as sensitive, do not commit personal settings, and use test notifications after changing delivery configuration.
+
+## Running tests
+
+Run the unit test suite from the project root:
+
+```bash
+python -m pytest
+```
+
+The tests cover API handling, settings, alert rules, proximity ranking, lifecycle history, escalation, duplicate suppression, delivery health, marine utilities, and webhook behavior.
+
+## Building a desktop package
+
+Install PyInstaller separately if you want to package the application:
+
+```bash
+python -m pip install pyinstaller
+```
+
+Build scripts are provided in `resources/compile.cmd` for Windows and `resources/compilemacos.sh` for macOS. Run them from the `resources` directory. Generated packages are written to PyInstaller's `dist` directory.
+
+## Project structure
+
+```text
+PythonWeatherAlerts/
+|-- PyWeatherAlertGui.py     # Main PySide6 desktop application
+|-- PyWeatherAlert.py        # Lightweight command-line monitor
+|-- weather_alert/           # Reusable application services
+|-- tests/                   # Pytest test suite
+|-- resources/               # Icons, stylesheets, defaults, and build scripts
+|-- iOS/                     # Native iOS companion project
+|-- requirements.txt         # Python dependencies
+`-- README.md
+```
+
+Core services in `weather_alert/` handle NWS API access, settings, history, rules, proximity, escalation, notification delivery, duplicate suppression, security, marine data, and incident exports.
+
+## Troubleshooting
+
+- **No location data:** Confirm the location format and verify that `api.weather.gov` is reachable.
+- **No embedded web view:** Reinstall or upgrade PySide6; the application continues with web-view features disabled if `QtWebEngineWidgets` is unavailable.
+- **No audio:** Check the operating system's speech engine and output device, then confirm that audio is enabled and not muted in Preferences.
+- **No webhook message:** Verify the webhook URL, enable its channel, use **Send Test Notifications**, and review the delivery-health dashboard.
+- **Stale information:** Check the in-app log and connection state. Cached data may be shown when an upstream service is unavailable.
+
+## Data sources and privacy
+
+Weather data is retrieved from the [National Weather Service API](https://www.weather.gov/documentation/services-web-api). Optional web sources and notification channels connect directly to their respective third-party services. Location values, preferences, alert history, and webhook configuration are stored locally by the desktop application.
+
+## License
+
+No license file is currently included in this repository. Unless the project owner adds a license, copyright law reserves reuse and distribution rights.

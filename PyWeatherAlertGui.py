@@ -52,6 +52,7 @@ from weather_alert.marine import (
     coops_station_lat_lon,
     coops_station_url,
     distance_miles_between,
+    fishing_condition_outlook,
     fishing_resource_links,
     marine_card_detail,
     max_optional,
@@ -60,7 +61,7 @@ from weather_alert.marine import (
 from weather_alert.security import first_payload_entry, html_attr, safe_external_url
 
 # --- Application Version ---
-versionnumber = "26.07.09"
+versionnumber = "26.07.16"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
@@ -685,11 +686,41 @@ QGroupBox#ForecastPanel::title {
     background: #e6f4ed;
 }
 
+#ForecastBoardHeader {
+    background: #f6faf8;
+    border: 1px solid #d7e5de;
+    border-radius: 8px;
+}
+
+#ForecastBoardLocation {
+    color: #116044;
+    font-weight: 750;
+}
+
+#ForecastBoardStatus {
+    color: #64748b;
+    font-size: 8.5pt;
+}
+
+#ForecastEmptyState {
+    color: #64748b;
+    background: #f7faf8;
+    border: 1px dashed #cbdad2;
+    border-radius: 8px;
+    padding: 14px;
+}
+
+#ForecastCardHost, QScrollArea#ForecastScrollArea,
+QScrollArea#ForecastScrollArea > QWidget > QWidget {
+    background: transparent;
+    border: none;
+}
+
 QGroupBox#HourlyForecastCard, QGroupBox#DailyForecastCard {
     background: #ffffff;
     border: 1px solid #d5dee8;
-    border-radius: 8px;
-    margin-top: 10px;
+    border-radius: 10px;
+    margin-top: 11px;
 }
 
 QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
@@ -699,15 +730,14 @@ QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
     top: 0px;
     padding: 0px 8px;
     background: #eef3f7;
-    border-radius: 8px;
-    color: #334155;
+    border-radius: 7px;
+    color: #263b32;
     font-weight: 700;
 }
 
 QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
     background: #ffffff;
-    border: 1px solid #dde5ef;
-    border-radius: 8px;
+    border: none;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
@@ -1427,11 +1457,41 @@ QGroupBox#ForecastPanel::title {
     background: #123829;
 }
 
+#ForecastBoardHeader {
+    background: #17211d;
+    border: 1px solid #34473d;
+    border-radius: 8px;
+}
+
+#ForecastBoardLocation {
+    color: #78d6aa;
+    font-weight: 750;
+}
+
+#ForecastBoardStatus {
+    color: #a9bbc4;
+    font-size: 8.5pt;
+}
+
+#ForecastEmptyState {
+    color: #a9bbc4;
+    background: #19231f;
+    border: 1px dashed #3a4c43;
+    border-radius: 8px;
+    padding: 14px;
+}
+
+#ForecastCardHost, QScrollArea#ForecastScrollArea,
+QScrollArea#ForecastScrollArea > QWidget > QWidget {
+    background: transparent;
+    border: none;
+}
+
 QGroupBox#HourlyForecastCard, QGroupBox#DailyForecastCard {
     background: #20262e;
     border: 1px solid #394551;
-    border-radius: 8px;
-    margin-top: 10px;
+    border-radius: 10px;
+    margin-top: 11px;
 }
 
 QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
@@ -1441,15 +1501,14 @@ QGroupBox#HourlyForecastCard::title, QGroupBox#DailyForecastCard::title {
     top: 0px;
     padding: 0px 8px;
     background: #28303a;
-    border-radius: 8px;
+    border-radius: 7px;
     color: #d7e1eb;
     font-weight: 700;
 }
 
 QWidget#HourlyForecastGrid, QWidget#DailyForecastGrid {
     background: #151a20;
-    border: 1px solid #394551;
-    border-radius: 8px;
+    border: none;
 }
 
 #AlertsDisplayArea, #LifecycleDisplayArea, #LocationOverviewList {
@@ -3510,10 +3569,30 @@ class WeatherAlertApp(QMainWindow):
         self.combined_forecast_widget = QGroupBox("Forecast Board")
         self.combined_forecast_widget.setObjectName("ForecastPanel")
         self.combined_forecast_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self.combined_forecast_main_layout = QBoxLayout(QBoxLayout.Direction.LeftToRight, self.combined_forecast_widget)
-        self.combined_forecast_main_layout.setContentsMargins(6, 5, 6, 6)
-        self.combined_forecast_main_layout.setSpacing(6)
-        self.hourly_forecast_group = QGroupBox("8-Hour Forecast")
+        self.combined_forecast_main_layout = QVBoxLayout(self.combined_forecast_widget)
+        self.combined_forecast_main_layout.setContentsMargins(7, 6, 7, 7)
+        self.combined_forecast_main_layout.setSpacing(5)
+        self.forecast_board_header = QWidget()
+        self.forecast_board_header.setObjectName("ForecastBoardHeader")
+        forecast_board_header_layout = QHBoxLayout(self.forecast_board_header)
+        forecast_board_header_layout.setContentsMargins(9, 3, 9, 3)
+        forecast_board_header_layout.setSpacing(10)
+        self.forecast_board_location_label = QLabel("Select a location")
+        self.forecast_board_location_label.setObjectName("ForecastBoardLocation")
+        forecast_board_header_layout.addWidget(self.forecast_board_location_label)
+        forecast_board_header_layout.addStretch()
+        self.forecast_board_status_label = QLabel("Waiting for forecast data")
+        self.forecast_board_status_label.setObjectName("ForecastBoardStatus")
+        self.forecast_board_status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        forecast_board_header_layout.addWidget(self.forecast_board_status_label)
+        self.combined_forecast_main_layout.addWidget(self.forecast_board_header)
+        self.forecast_cards_widget = QWidget()
+        self.forecast_cards_widget.setObjectName("ForecastCardHost")
+        self.forecast_cards_layout = QBoxLayout(QBoxLayout.Direction.LeftToRight, self.forecast_cards_widget)
+        self.forecast_cards_layout.setContentsMargins(0, 0, 0, 0)
+        self.forecast_cards_layout.setSpacing(7)
+        self.combined_forecast_main_layout.addWidget(self.forecast_cards_widget, 1)
+        self.hourly_forecast_group = QGroupBox("Next 8 Hours")
         self.hourly_forecast_group.setObjectName("HourlyForecastCard")
         self.hourly_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         hourly_forecast_sub_group_layout = QVBoxLayout(self.hourly_forecast_group)
@@ -3528,23 +3607,21 @@ class WeatherAlertApp(QMainWindow):
         self.hourly_forecast_layout.setVerticalSpacing(1)
         self.hourly_forecast_layout.setColumnStretch(0, 0)
         self.hourly_forecast_layout.setColumnStretch(1, 2)
-        self.hourly_forecast_layout.setColumnStretch(2, 2)
-        self.hourly_forecast_layout.setColumnStretch(3, 4)
-        self.hourly_forecast_layout.setColumnStretch(4, 2)
-        self.hourly_forecast_layout.setColumnStretch(5, 2)
-        self.hourly_forecast_layout.setColumnStretch(6, 2)
-        self.hourly_forecast_layout.setColumnStretch(7, 2)
-        self.hourly_forecast_layout.setColumnStretch(8, 5)
+        self.hourly_forecast_layout.setColumnStretch(2, 3)
+        self.hourly_forecast_layout.setColumnStretch(3, 2)
+        self.hourly_forecast_layout.setColumnStretch(4, 3)
+        self.hourly_forecast_layout.setColumnStretch(5, 5)
         hourly_font = QFont(); hourly_font.setPointSize(8); self.hourly_forecast_widget.setFont(hourly_font)
         self.hourly_forecast_scroll = QScrollArea()
         self.hourly_forecast_scroll.setWidgetResizable(True)
         self.hourly_forecast_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.hourly_forecast_scroll.setObjectName("ForecastScrollArea")
         self.hourly_forecast_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.hourly_forecast_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.hourly_forecast_scroll.setWidget(self.hourly_forecast_widget)
         hourly_forecast_sub_group_layout.addWidget(self.hourly_forecast_scroll)
-        self.combined_forecast_main_layout.addWidget(self.hourly_forecast_group, 1)
-        self.daily_forecast_group = QGroupBox("5-Day Forecast")
+        self.forecast_cards_layout.addWidget(self.hourly_forecast_group, 1)
+        self.daily_forecast_group = QGroupBox("5-Day Outlook")
         self.daily_forecast_group.setObjectName("DailyForecastCard")
         self.daily_forecast_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         daily_forecast_sub_group_layout = QVBoxLayout(self.daily_forecast_group)
@@ -3566,11 +3643,12 @@ class WeatherAlertApp(QMainWindow):
         self.daily_forecast_scroll = QScrollArea()
         self.daily_forecast_scroll.setWidgetResizable(True)
         self.daily_forecast_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.daily_forecast_scroll.setObjectName("ForecastScrollArea")
         self.daily_forecast_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.daily_forecast_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.daily_forecast_scroll.setWidget(self.daily_forecast_widget)
         daily_forecast_sub_group_layout.addWidget(self.daily_forecast_scroll)
-        self.combined_forecast_main_layout.addWidget(self.daily_forecast_group, 1)
+        self.forecast_cards_layout.addWidget(self.daily_forecast_group, 1)
         right_workspace_layout.addWidget(self.combined_forecast_widget, 0)
         self._apply_forecast_layout_mode()
         self._apply_forecast_panel_sizes()
@@ -3650,6 +3728,7 @@ class WeatherAlertApp(QMainWindow):
             self.digital_forecast_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.forecast_trends_view = QLabel("Forecast trend charts unavailable without the PySide6 WebEngine components.")
             self.forecast_trends_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.forecast_trends_view.setWordWrap(True)
             self.fishing_view = QLabel("Fishing conditions unavailable until a location loads.")
             self.fishing_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.fishing_view.setWordWrap(True)
@@ -4245,21 +4324,21 @@ class WeatherAlertApp(QMainWindow):
     def _forecast_theme_colors(self, row_index: int, is_header: bool = False) -> Dict[str, str]:
         if self.current_dark_mode_enabled:
             if is_header:
-                return {"bg": "#263445", "border": "#3b4a5f", "text": "#f8fafc"}
-            row_bg = "#1f2a36" if row_index % 2 else "#1b2530"
+                return {"bg": "#22322b", "border": "#3a4c43", "text": "#eaf7f0"}
+            row_bg = "#1d2924" if row_index % 2 else "#19231f"
             return {
                 "bg": row_bg,
-                "border": "#334155",
-                "text": "#edf4fb",
+                "border": "#31423a",
+                "text": "#e7f0ec",
             }
 
         if is_header:
-            return {"bg": "#edf4fb", "border": "#d5e1ee", "text": "#1f2937"}
-        row_bg = "#ffffff" if row_index % 2 else "#f8fbff"
+            return {"bg": "#edf6f1", "border": "#d4e3db", "text": "#263b32"}
+        row_bg = "#ffffff" if row_index % 2 else "#f7faf8"
         return {
             "bg": row_bg,
-            "border": "#e0e8f2",
-            "text": "#1f2937",
+            "border": "#e0e9e4",
+            "text": "#263238",
         }
 
     def _apply_forecast_cell_style(self, label: QLabel, row_index: int, is_header: bool = False) -> QLabel:
@@ -4272,15 +4351,16 @@ class WeatherAlertApp(QMainWindow):
             label.setMinimumHeight(max(label.minimumHeight(), line_height + 12))
             label.setMaximumHeight(max(label.maximumHeight(), line_height + 16))
             label.setStyleSheet(
-                f"padding: 3px 5px; background-color: {colors['bg']}; color: {colors['text']}; "
-                f"border: 1px solid {colors['border']}; font-weight: 700;"
+                f"padding: 4px 6px; background-color: {colors['bg']}; color: {colors['text']}; "
+                f"border: none; border-bottom: 1px solid {colors['border']}; font-weight: 700;"
                 f"QToolTip {{ background-color: {tooltip_bg}; color: {tooltip_text}; "
                 f"border: 1px solid {tooltip_border}; padding: 8px 10px; border-radius: 6px; }}"
             )
         else:
+            weight = "600" if row_index == 1 else "500"
             label.setStyleSheet(
-                f"padding: 2px 5px; background-color: {colors['bg']}; color: {colors['text']}; "
-                f"border-left: 1px solid {colors['border']}; border-bottom: 1px solid {colors['border']};"
+                f"padding: 4px 6px; background-color: {colors['bg']}; color: {colors['text']}; "
+                f"border: none; border-bottom: 1px solid {colors['border']}; font-weight: {weight};"
                 f"QToolTip {{ background-color: {tooltip_bg}; color: {tooltip_text}; "
                 f"border: 1px solid {tooltip_border}; padding: 8px 10px; border-radius: 6px; }}"
             )
@@ -4294,10 +4374,10 @@ class WeatherAlertApp(QMainWindow):
     def _is_forecast_layout_stacked(self) -> bool:
         if not hasattr(self, "combined_forecast_widget"):
             return False
-        return self.combined_forecast_widget.width() < 720
+        return self.combined_forecast_widget.width() < 860
 
     def _apply_forecast_layout_mode(self) -> None:
-        if not hasattr(self, "combined_forecast_main_layout"):
+        if not hasattr(self, "forecast_cards_layout"):
             return
 
         direction = (
@@ -4305,7 +4385,48 @@ class WeatherAlertApp(QMainWindow):
             if self._is_forecast_layout_stacked()
             else QBoxLayout.Direction.LeftToRight
         )
-        self.combined_forecast_main_layout.setDirection(direction)
+        self.forecast_cards_layout.setDirection(direction)
+
+    def _update_forecast_board_header(
+        self,
+        forecast_json: Optional[Dict[str, Any]],
+        grid_json: Optional[Dict[str, Any]],
+    ) -> None:
+        if not hasattr(self, "forecast_board_location_label"):
+            return
+
+        location = self.get_current_location_name()
+        self.forecast_board_location_label.setText(location or "Selected location")
+        forecast_properties = forecast_json.get("properties", {}) if forecast_json else {}
+        periods = forecast_properties.get("periods", []) if isinstance(forecast_properties, dict) else []
+        if not periods:
+            self.forecast_board_status_label.setText("Waiting for forecast data")
+            self.forecast_board_status_label.setToolTip("Hourly and daily NWS forecast data has not loaded yet.")
+            return
+
+        forecast_updated = self._format_nws_timestamp(
+            forecast_properties.get("updated") or forecast_properties.get("updateTime")
+        )
+        grid_properties = grid_json.get("properties", {}) if grid_json else {}
+        grid_updated = self._format_nws_timestamp(grid_properties.get("updateTime"))
+        status_parts = [f"{min(len(periods), 8)} hourly periods"]
+        if forecast_updated != "N/A":
+            status_parts.append(f"updated {forecast_updated}")
+        if grid_json:
+            status_parts.append("digital grid loaded")
+        self.forecast_board_status_label.setText(" · ".join(status_parts))
+        self.forecast_board_status_label.setToolTip(
+            f"NWS hourly forecast updated: {forecast_updated}\nDigital grid updated: {grid_updated}"
+        )
+
+    @staticmethod
+    def _add_forecast_empty_state(layout: QGridLayout, message: str, column_span: int) -> None:
+        label = QLabel(message)
+        label.setObjectName("ForecastEmptyState")
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label.setWordWrap(True)
+        label.setMinimumHeight(64)
+        layout.addWidget(label, 0, 0, 1, max(1, column_span))
 
     @staticmethod
     def _daily_daytime_periods(periods: List[Dict[str, Any]], limit: int = 5) -> List[Dict[str, Any]]:
@@ -4744,9 +4865,10 @@ class WeatherAlertApp(QMainWindow):
         self.current_marine_data_by_location[self.current_location_id] = {}
         self._update_top_status_bar_display()
         self._clear_layout(self.hourly_forecast_layout)
-        self.hourly_forecast_layout.addWidget(QLabel("Loading..."), 0, 0)
+        self._update_forecast_board_header(None, None)
+        self._add_forecast_empty_state(self.hourly_forecast_layout, "Loading the next eight hours…", 6)
         self._clear_layout(self.daily_forecast_layout)
-        self.daily_forecast_layout.addWidget(QLabel("Loading..."), 0, 0)
+        self._add_forecast_empty_state(self.daily_forecast_layout, "Loading the five-day outlook…", 5)
         self._update_forecast_trends(None, None)
         self._update_fishing_conditions(None, None, None)
 
@@ -5567,11 +5689,23 @@ class WeatherAlertApp(QMainWindow):
         pad = 34
         numeric_values = [v for v in values if isinstance(v, (int, float))]
         if not numeric_values:
-            return f"<section class='chart'><h3>{html.escape(title)}</h3><p>No trend data available.</p></section>"
+            return (
+                f"<section class='chart chart-empty'><div class='chart-head'><h3>{html.escape(title)}</h3>"
+                "<span>No model values loaded</span></div><p>Trend data is unavailable for this series.</p></section>"
+            )
         points = self._scale_points(values, width, height, pad)
         low = min(numeric_values)
         high = max(numeric_values)
         last = numeric_values[-1]
+        chart_id = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-") or "series"
+        point_pairs = [pair for pair in points.split() if "," in pair]
+        point_circles = "".join(
+            f"<circle cx='{pair.split(',')[0]}' cy='{pair.split(',')[1]}' r='3' class='point' />"
+            for pair in point_pairs
+        )
+        first_x = point_pairs[0].split(",")[0]
+        last_x = point_pairs[-1].split(",")[0]
+        fill_points = f"{first_x},{height - pad} {points} {last_x},{height - pad}"
         label_marks = []
         if labels:
             for index in range(0, len(labels), max(1, len(labels) // 4)):
@@ -5583,11 +5717,15 @@ class WeatherAlertApp(QMainWindow):
 <section class="chart">
   <div class="chart-head"><h3>{html.escape(title)}</h3><span>latest {last:.0f}{html.escape(unit)} · range {low:.0f}-{high:.0f}{html.escape(unit)}</span></div>
   <svg viewBox="0 0 {width} {height}" role="img" aria-label="{html.escape(title)} trend">
+    <defs><linearGradient id="fill-{chart_id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="{color}" stop-opacity=".24"/><stop offset="100%" stop-color="{color}" stop-opacity="0"/></linearGradient></defs>
     <line x1="{pad}" y1="{height - pad}" x2="{width - pad}" y2="{height - pad}" class="axis" />
     <line x1="{pad}" y1="{pad}" x2="{pad}" y2="{height - pad}" class="axis" />
+    <line x1="{pad}" y1="{height / 2:.1f}" x2="{width - pad}" y2="{height / 2:.1f}" class="grid-line" />
     <text x="{pad - 8}" y="{pad + 4}" text-anchor="end">{high:.0f}</text>
     <text x="{pad - 8}" y="{height - pad + 4}" text-anchor="end">{low:.0f}</text>
-    <polyline points="{points}" fill="none" stroke="{color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+    <polygon points="{fill_points}" fill="url(#fill-{chart_id})" />
+    <polyline points="{points}" fill="none" stroke="{color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+    <g fill="{color}" stroke="var(--panel)" stroke-width="2">{point_circles}</g>
     {''.join(label_marks)}
   </svg>
 </section>
@@ -5598,20 +5736,34 @@ class WeatherAlertApp(QMainWindow):
         forecast_json: Optional[Dict[str, Any]],
         grid_json: Optional[Dict[str, Any]],
     ) -> str:
-        periods = []
-        if forecast_json:
-            periods = forecast_json.get("properties", {}).get("periods", [])[:12]
+        dark = self.current_dark_mode_enabled
+        colors = {
+            "bg": "#0c1319" if dark else "#f3f6f8",
+            "panel": "#172129" if dark else "#ffffff",
+            "panel_alt": "#1d2a33" if dark else "#f8fafc",
+            "border": "#344852" if dark else "#d8e1e7",
+            "text": "#eef5f4" if dark else "#17212b",
+            "muted": "#a8bbc3" if dark else "#61717c",
+            "accent": "#72d6b0" if dark else "#087451",
+            "warn": "#ffcb80" if dark else "#a95900",
+        }
+        forecast_properties = forecast_json.get("properties", {}) if forecast_json else {}
+        periods = forecast_properties.get("periods", [])[:12]
         if not periods:
-            return """
+            return f"""
 <!DOCTYPE html><html><head><style>
-body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#334155; margin:0; }
-.empty { min-height:100vh; display:flex; align-items:center; justify-content:center; }
-.panel { background:white; border:1px solid #dbe4ef; border-radius:8px; padding:24px 30px; }
+body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; color:{colors['text']}; margin:0; }}
+.empty {{ min-height:100vh; display:flex; align-items:center; justify-content:center; }}
+.panel {{ max-width:440px; background:{colors['panel']}; border:1px solid {colors['border']}; border-radius:12px; padding:26px 30px; text-align:center; }}
+.panel p {{ color:{colors['muted']}; line-height:1.5; }}
 </style></head><body><div class="empty"><div class="panel"><h2>Forecast trends unavailable</h2><p>Hourly forecast data has not loaded yet.</p></div></div></body></html>
 """
 
         labels: List[str] = []
         temps: List[Optional[float]] = []
+        feels_like: List[Optional[float]] = []
+        dewpoints: List[Optional[float]] = []
+        wind_labels: List[str] = []
         precip: List[Optional[float]] = []
         gusts: List[Optional[float]] = []
         thunder: List[Optional[float]] = []
@@ -5647,12 +5799,30 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
             if temp is None:
                 temp = period.get("temperature")
             temps.append(float(temp) if isinstance(temp, (int, float)) else None)
+            apparent = period.get("apparentTemperature", {})
+            apparent_value = apparent.get("value") if isinstance(apparent, dict) else None
+            apparent_unit = str(apparent.get("unitCode") or "") if isinstance(apparent, dict) else ""
+            if isinstance(apparent_value, (int, float)) and "degc" in apparent_unit.lower():
+                apparent_value = self._c_to_f(float(apparent_value))
+            feels_like.append(float(apparent_value) if isinstance(apparent_value, (int, float)) else None)
+            dewpoint_data = period.get("dewpoint", {})
+            dewpoint_value = dewpoint_data.get("value") if isinstance(dewpoint_data, dict) else None
+            dewpoint_unit = str(dewpoint_data.get("unitCode") or "") if isinstance(dewpoint_data, dict) else ""
+            if isinstance(dewpoint_value, (int, float)) and "degc" in dewpoint_unit.lower():
+                dewpoint_value = self._c_to_f(float(dewpoint_value))
+            dewpoints.append(float(dewpoint_value) if isinstance(dewpoint_value, (int, float)) else None)
             pop = period.get("probabilityOfPrecipitation", {}).get("value")
             precip.append(float(pop) if isinstance(pop, (int, float)) else None)
             rh = period.get("relativeHumidity", {}).get("value")
             humidity.append(float(rh) if isinstance(rh, (int, float)) else None)
             short_forecasts.append(str(period.get("shortForecast") or ""))
-            wind_guess = self._first_number_from_text(period.get("windSpeed"))
+            wind_values = [
+                float(value) for value in re.findall(r"\d+(?:\.\d+)?", str(period.get("windSpeed") or ""))
+            ]
+            wind_guess = max(wind_values) if wind_values else None
+            wind_labels.append(
+                f"{period.get('windDirection', '')} {period.get('windSpeed', 'N/A')}".strip()
+            )
             gust_value = None
             thunder_value = None
             sky_value = None
@@ -5720,6 +5890,22 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         dewpoint = self._format_optional_number(conditions.get("dewpoint_f"), "°F")
         obs_humidity = self._format_optional_number(conditions.get("humidity"), "%")
         observation_age = self._observation_age_text(conditions.get("timestamp")) if conditions else "observation unavailable"
+        grid_properties = grid_json.get("properties", {}) if grid_json else {}
+        forecast_updated = self._format_nws_timestamp(
+            forecast_properties.get("updated") or forecast_properties.get("updateTime")
+        )
+        grid_updated = self._format_nws_timestamp(
+            grid_properties.get("updateTime")
+        )
+        coordinates = (
+            f"{self.current_coords[0]:.4f}, {self.current_coords[1]:.4f}"
+            if self.current_coords else "Coordinates unavailable"
+        )
+        tracked_series = [temps, precip, gusts, thunder, humidity, sky_cover, visibility, qpf]
+        available_series = sum(
+            1 for series in tracked_series if any(isinstance(value, (int, float)) for value in series)
+        )
+        coverage_text = f"{available_series} of {len(tracked_series)} series loaded"
 
         guidance_bits = []
         try:
@@ -5737,86 +5923,131 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
             pass
         guidance = " · ".join(guidance_bits) if guidance_bits else "No major short-term trend flags in the loaded guidance."
 
-        summary_cards = [
-            ("Temperature", f"{temp_low}°-{temp_peak}°", f"{change_text}; high around {temp_peak_time}, low around {temp_low_time}."),
-            ("Wettest Window", f"{precip_peak}%", f"Peak rain chance around {precip_peak_time}; estimated QPF total {qpf_total:.2f}\"."),
-            ("Wind Peak", f"{gust_peak} mph", f"Highest gust signal around {gust_peak_time}."),
-            ("Thunder", f"{thunder_peak}%", f"Peak thunder probability around {thunder_peak_time}."),
-            ("Cloud / Humidity", f"{sky_peak}% / {humidity_peak}%", f"Cloudiest around {sky_peak_time}; humidity peak around {humidity_peak_time}."),
-            ("Visibility", f"{visibility_low} mi", f"Lowest modeled visibility around {visibility_low_time}; observed {obs_visibility}."),
-            ("Observation", f"{pressure}", f"Dewpoint {dewpoint}, RH {obs_humidity}; {observation_age}."),
-            ("Decision Cue", "Scan", guidance),
+        def add_unit(value: str, unit: str) -> str:
+            return f"{value}{unit}" if value != "N/A" else value
+
+        primary_cards = [
+            ("Temperature range", f"{add_unit(temp_low, '°')} – {add_unit(temp_peak, '°')}", f"{change_text}; high near {temp_peak_time}, low near {temp_low_time}.", ""),
+            ("Precipitation", add_unit(precip_peak, "%"), f"Peak chance near {precip_peak_time}; modeled total {qpf_total:.2f}\".", "warn" if precip_peak != "N/A" and float(precip_peak) >= 50 else ""),
+            ("Peak gust", add_unit(gust_peak, " mph"), f"Strongest gust signal near {gust_peak_time}.", "warn" if gust_peak != "N/A" and float(gust_peak) >= 25 else ""),
+            ("Thunder", add_unit(thunder_peak, "%"), f"Peak probability near {thunder_peak_time}.", "warn" if thunder_peak != "N/A" and float(thunder_peak) >= 20 else ""),
         ]
-        card_html = "".join(
-            f"<article class='metric'><span>{html.escape(title)}</span><b>{html.escape(value)}</b><p>{html.escape(detail)}</p></article>"
-            for title, value, detail in summary_cards
+        context_cards = [
+            ("Cloud cover", add_unit(sky_peak, "%"), f"Cloudiest near {sky_peak_time}."),
+            ("Humidity", add_unit(humidity_peak, "%"), f"Peak near {humidity_peak_time}; observed RH {obs_humidity}."),
+            ("Visibility floor", add_unit(visibility_low, " mi"), f"Lowest near {visibility_low_time}; observed {obs_visibility}."),
+            ("Surface observation", pressure, f"Dewpoint {dewpoint}; {observation_age}."),
+        ]
+        primary_card_html = "".join(
+            f"<article class='metric hero-metric {tone}'><span>{html.escape(title)}</span>"
+            f"<b>{html.escape(value)}</b><p>{html.escape(detail)}</p></article>"
+            for title, value, detail, tone in primary_cards
+        )
+        context_card_html = "".join(
+            f"<article class='metric compact-metric'><span>{html.escape(title)}</span>"
+            f"<b>{html.escape(value)}</b><p>{html.escape(detail)}</p></article>"
+            for title, value, detail in context_cards
         )
 
         hourly_rows = ""
-        for index, label in enumerate(labels[:8]):
+        def table_value(value: Any, unit: str = "", decimals: int = 0) -> str:
+            return f"{float(value):.{decimals}f}{unit}" if isinstance(value, (int, float)) else "N/A"
+
+        for index, label in enumerate(labels):
             hourly_rows += (
-                f"<tr><td>{html.escape(label)}</td>"
-                f"<td>{temps[index]:.0f}°</td>" if isinstance(temps[index], (int, float)) else f"<tr><td>{html.escape(label)}</td><td>N/A</td>"
+                "<tr>"
+                f"<td><strong>{html.escape(label)}</strong><small>{html.escape(self._compact_text(short_forecasts[index], 58))}</small></td>"
+                f"<td>{html.escape(table_value(temps[index], '°'))}<small>Feels {html.escape(table_value(feels_like[index], '°'))}</small></td>"
+                f"<td>{html.escape(wind_labels[index])}<small>Gust {html.escape(table_value(gusts[index], ' mph'))}</small></td>"
+                f"<td>{html.escape(table_value(precip[index], '%'))}<small>QPF {html.escape(table_value(qpf[index], '\"', 2))}</small></td>"
+                f"<td>{html.escape(table_value(thunder[index], '%'))}</td>"
+                f"<td>{html.escape(table_value(humidity[index], '%'))}<small>Dew {html.escape(table_value(dewpoints[index], '°'))}</small></td>"
+                f"<td>{html.escape(table_value(sky_cover[index], '%'))}<small>Vis {html.escape(table_value(visibility[index], ' mi', 1))}</small></td>"
+                "</tr>"
             )
-            hourly_rows += (
-                f"<td>{gusts[index]:.0f}</td>" if isinstance(gusts[index], (int, float)) else "<td>N/A</td>"
-            )
-            hourly_rows += (
-                f"<td>{precip[index]:.0f}%</td>" if isinstance(precip[index], (int, float)) else "<td>N/A</td>"
-            )
-            hourly_rows += (
-                f"<td>{thunder[index]:.0f}%</td>" if isinstance(thunder[index], (int, float)) else "<td>N/A</td>"
-            )
-            hourly_rows += (
-                f"<td>{sky_cover[index]:.0f}%</td>" if isinstance(sky_cover[index], (int, float)) else "<td>N/A</td>"
-            )
-            hourly_rows += f"<td>{html.escape(self._compact_text(short_forecasts[index], 52))}</td></tr>"
+
+        chart_colors = {
+            "temperature": "#ff736c" if dark else "#d92d20",
+            "precipitation": "#69a7ff" if dark else "#2563eb",
+            "wind": "#ffae70" if dark else "#c2410c",
+            "thunder": "#c59aff" if dark else "#7c3aed",
+            "humidity": "#54d6d1" if dark else "#0f8c87",
+            "cloud": "#a8b8c2" if dark else "#64748b",
+            "visibility": "#72d6b0" if dark else "#087451",
+        }
+        source_url = self._safe_external_url(
+            self._build_nws_forecast_url(self.current_coords) or "https://www.weather.gov/"
+        )
 
         return f"""
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body {{ margin:0; padding:18px; font-family: Segoe UI, Arial, sans-serif; background:#f5f7fb; color:#1f2937; }}
-    .metrics {{ display:grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap:10px; margin-bottom:14px; }}
-    .metric {{ background:#ffffff; border:1px solid #dbe4ef; border-radius:8px; padding:12px; }}
-    .metric span {{ color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; }}
-    .metric b {{ display:block; color:#0f766e; font-size:18px; margin:5px 0; }}
-    .metric p {{ margin:0; color:#475569; font-size:12px; line-height:1.35; }}
-    .grid {{ display:grid; grid-template-columns: repeat(2, minmax(280px, 1fr)); gap:14px; }}
-    .chart {{ background:#ffffff; border:1px solid #dbe4ef; border-radius:8px; padding:14px; }}
-    .chart-head {{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:6px; }}
-    .detail {{ background:#ffffff; border:1px solid #dbe4ef; border-radius:8px; padding:14px; margin-top:14px; }}
-    h2 {{ margin:0 0 12px; font-size:20px; }}
-    h3 {{ margin:0; font-size:15px; }}
-    span {{ color:#64748b; font-size:12px; font-weight:700; }}
-    table {{ width:100%; border-collapse:collapse; font-size:12px; }}
-    th, td {{ border-bottom:1px solid #e2e8f0; padding:7px 8px; text-align:left; }}
-    th {{ color:#64748b; font-size:11px; text-transform:uppercase; }}
-    svg {{ width:100%; height:auto; }}
-    text {{ fill:#64748b; font-size:11px; font-weight:600; }}
-    .axis {{ stroke:#cbd5e1; stroke-width:1; }}
-    @media (max-width: 980px) {{ .metrics {{ grid-template-columns: repeat(2, minmax(160px, 1fr)); }} }}
-    @media (max-width: 760px) {{ .grid, .metrics {{ grid-template-columns: 1fr; }} }}
+    :root {{ --panel:{colors['panel']}; --panel-alt:{colors['panel_alt']}; --border:{colors['border']}; --text:{colors['text']}; --muted:{colors['muted']}; --accent:{colors['accent']}; --warn:{colors['warn']}; }}
+    * {{ box-sizing:border-box; }}
+    body {{ margin:0; padding:20px; font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; color:var(--text); }}
+    a {{ color:var(--accent); }}
+    header {{ display:flex; justify-content:space-between; gap:24px; align-items:flex-start; margin-bottom:14px; }}
+    h1 {{ margin:2px 0 5px; font-size:25px; line-height:1.15; }} h2 {{ margin:0; font-size:17px; }} h3 {{ margin:0; font-size:14px; }}
+    .eyebrow {{ color:var(--accent); text-transform:uppercase; letter-spacing:.09em; font-size:10px; font-weight:800; }}
+    .subtitle {{ color:var(--muted); font-size:12px; line-height:1.45; }}
+    .pills {{ display:flex; justify-content:flex-end; flex-wrap:wrap; gap:7px; max-width:520px; }}
+    .pill {{ border:1px solid var(--border); border-radius:999px; padding:6px 9px; color:var(--muted); background:var(--panel); font-size:10px; font-weight:700; white-space:nowrap; }}
+    .signal {{ display:flex; align-items:center; gap:10px; background:var(--panel); border:1px solid var(--border); border-left:4px solid var(--accent); border-radius:10px; padding:11px 13px; margin-bottom:14px; }}
+    .signal strong {{ color:var(--accent); font-size:11px; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; }} .signal span {{ color:var(--muted); font-size:12px; }}
+    .metrics {{ display:grid; grid-template-columns:repeat(4,minmax(165px,1fr)); gap:10px; margin-bottom:10px; }}
+    .context-metrics {{ display:grid; grid-template-columns:repeat(4,minmax(150px,1fr)); gap:8px; margin-bottom:18px; }}
+    .metric {{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:13px; min-height:105px; }}
+    .metric.warn {{ border-color:var(--warn); }} .compact-metric {{ min-height:90px; background:var(--panel-alt); }}
+    .metric span {{ color:var(--muted); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; }}
+    .metric b {{ display:block; color:var(--accent); font-size:19px; margin:6px 0; }} .compact-metric b {{ font-size:16px; }}
+    .metric p {{ margin:0; color:var(--muted); font-size:11px; line-height:1.4; }}
+    .section-head {{ display:flex; justify-content:space-between; align-items:baseline; gap:18px; margin:0 0 10px; }} .section-head p {{ margin:0; color:var(--muted); font-size:11px; }}
+    .chart-grid {{ display:grid; grid-template-columns:repeat(2,minmax(300px,1fr)); gap:11px; margin-bottom:16px; }}
+    .chart {{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:13px; min-height:195px; }}
+    .chart-empty {{ display:flex; flex-direction:column; justify-content:center; }} .chart-empty p {{ color:var(--muted); font-size:11px; }}
+    .chart-head {{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:4px; }} .chart-head span {{ color:var(--muted); font-size:10px; font-weight:700; }}
+    svg {{ display:block; width:100%; height:auto; }} svg text {{ fill:var(--muted); font-size:10px; font-weight:600; }}
+    .axis {{ stroke:var(--border); stroke-width:1; }} .grid-line {{ stroke:var(--border); stroke-width:1; stroke-dasharray:4 5; opacity:.7; }}
+    .detail {{ background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:12px; }}
+    .table-scroll {{ overflow-x:auto; }} table {{ width:100%; min-width:930px; border-collapse:collapse; font-size:11px; }}
+    th, td {{ border-bottom:1px solid var(--border); padding:9px 8px; text-align:left; vertical-align:top; }}
+    th {{ color:var(--muted); font-size:9px; text-transform:uppercase; letter-spacing:.05em; }} tbody tr:hover {{ background:var(--panel-alt); }}
+    td strong, td small {{ display:block; }} td small {{ color:var(--muted); font-size:9px; margin-top:3px; }}
+    .source-note {{ display:flex; justify-content:space-between; gap:18px; color:var(--muted); font-size:10px; line-height:1.45; }}
+    @media (max-width:1050px) {{ .metrics,.context-metrics {{ grid-template-columns:repeat(2,1fr); }} }}
+    @media (max-width:760px) {{ body {{ padding:14px; }} header,.signal,.section-head,.source-note {{ display:block; }} .pills {{ justify-content:flex-start; margin-top:10px; }} .metrics,.context-metrics,.chart-grid {{ grid-template-columns:1fr; }} .signal strong {{ display:block; margin-bottom:4px; }} }}
   </style>
 </head>
 <body>
-  <h2>{html.escape(self.get_current_location_name())} Forecast Trends</h2>
-  <section class="metrics">{card_html}</section>
-  <div class="grid">
-    {self._build_svg_chart("Temperature", temps, labels, "#dc2626", "°F")}
-    {self._build_svg_chart("Precipitation Chance", precip, labels, "#2563eb", "%")}
-    {self._build_svg_chart("Wind / Gust Potential", gusts, labels, "#c2410c", " mph")}
-    {self._build_svg_chart("Thunder Probability", thunder, labels, "#7c3aed", "%")}
-  </div>
-  <section class="detail">
-    <h3>Next 8 Periods</h3>
-    <table>
-      <thead><tr><th>Time</th><th>Temp</th><th>Gust</th><th>Rain</th><th>Thunder</th><th>Cloud</th><th>Forecast</th></tr></thead>
-      <tbody>{hourly_rows}</tbody>
-    </table>
+  <header>
+    <div><div class="eyebrow">Forecast data workbench</div><h1>{html.escape(self.get_current_location_name())}</h1><div class="subtitle">{html.escape(coordinates)} · NWS hourly forecast and digital grid guidance</div></div>
+    <div class="pills"><span class="pill">{len(periods)} forecast periods</span><span class="pill">{html.escape(coverage_text)}</span><span class="pill">{html.escape(observation_age)}</span></div>
+  </header>
+  <section class="signal"><strong>Trend scan</strong><span>{html.escape(guidance)}</span></section>
+  <section class="metrics">{primary_card_html}</section>
+  <section class="context-metrics">{context_card_html}</section>
+  <div class="section-head"><h2>Core trends</h2><p>Range and latest values use the loaded 12-period window</p></div>
+  <section class="chart-grid">
+    {self._build_svg_chart("Temperature", temps, labels, chart_colors['temperature'], "°F")}
+    {self._build_svg_chart("Precipitation chance", precip, labels, chart_colors['precipitation'], "%")}
+    {self._build_svg_chart("Wind / gust potential", gusts, labels, chart_colors['wind'], " mph")}
+    {self._build_svg_chart("Thunder probability", thunder, labels, chart_colors['thunder'], "%")}
+    {self._build_svg_chart("Relative humidity", humidity, labels, chart_colors['humidity'], "%")}
+    {self._build_svg_chart("Cloud cover", sky_cover, labels, chart_colors['cloud'], "%")}
+    {self._build_svg_chart("Visibility", visibility, labels, chart_colors['visibility'], " mi")}
   </section>
+  <section class="detail">
+    <div class="section-head"><h2>Hourly detail</h2><p>Scroll horizontally for the complete metric set</p></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Time / conditions</th><th>Temperature</th><th>Wind</th><th>Rain</th><th>Thunder</th><th>Humidity</th><th>Cloud / visibility</th></tr></thead>
+      <tbody>{hourly_rows}</tbody>
+    </table></div>
+  </section>
+  <div class="source-note"><span>Forecast updated {html.escape(forecast_updated)} · Grid updated {html.escape(grid_updated)}. Model guidance and surface observations may update at different times.</span><a href="{self._html_attr(source_url)}">Open official NWS forecast</a></div>
 </body>
 </html>
 """
@@ -5837,11 +6068,25 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
             if not periods:
                 self.forecast_trends_view.setText("Forecast trend data unavailable.")
             else:
-                first = periods[0]
+                conditions = self.current_conditions_by_location.get(self.current_location_id, {})
+                observation = (
+                    f"Pressure {self._format_optional_number(conditions.get('pressure_inhg'), ' inHg', 2)} · "
+                    f"Humidity {self._format_optional_number(conditions.get('humidity'), '%')} · "
+                    f"Visibility {self._format_optional_number(conditions.get('visibility_miles'), ' mi', 1)}"
+                )
+                period_lines = []
+                for period in periods[:6]:
+                    rain = period.get("probabilityOfPrecipitation", {}).get("value")
+                    rain_text = self._format_optional_number(rain, "%")
+                    period_lines.append(
+                        f"{period.get('name', 'Period')}: {period.get('temperature', 'N/A')}°"
+                        f"{period.get('temperatureUnit', '')} · {period.get('windDirection', '')} "
+                        f"{period.get('windSpeed', 'N/A')} · Rain {rain_text} · "
+                        f"{period.get('shortForecast', '')}"
+                    )
                 self.forecast_trends_view.setText(
-                    f"Forecast trends unavailable without the PySide6 WebEngine components.\n\n"
-                    f"Next period: {first.get('name', 'Now')} {first.get('temperature', 'N/A')}°"
-                    f"{first.get('temperatureUnit', '')}, {first.get('shortForecast', '')}"
+                    f"Forecast Data for {self.get_current_location_name()}\n\n"
+                    f"{observation}\n\n" + "\n".join(period_lines)
                 )
 
     @staticmethod
@@ -5892,119 +6137,306 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         grid_json: Optional[Dict[str, Any]],
         marine_data: Optional[Dict[str, Any]] = None,
     ) -> str:
+        """Build a source-aware fishing dashboard from NWS, CO-OPS, and NDBC data."""
         dark = self.current_dark_mode_enabled
-        bg = "#101418" if dark else "#f5f7fb"
-        panel = "#171d23" if dark else "#ffffff"
-        border = "#384551" if dark else "#dbe4ef"
-        text = "#edf4fb" if dark else "#1f2937"
-        muted = "#9fb3c8" if dark else "#64748b"
-        accent = "#98e0b8" if dark else "#116044"
+        colors = {
+            "bg": "#0d1318" if dark else "#f3f6f8",
+            "panel": "#172027" if dark else "#ffffff",
+            "panel_alt": "#1d2932" if dark else "#f8fafc",
+            "border": "#344651" if dark else "#d7e0e7",
+            "text": "#edf5f2" if dark else "#17212b",
+            "muted": "#a9bcc4" if dark else "#60717d",
+            "accent": "#78d6aa" if dark else "#087451",
+            "warn": "#ffca80" if dark else "#a95900",
+            "danger": "#ff9b9b" if dark else "#b42318",
+        }
         marine_data = marine_data or self.current_marine_data_by_location.get(self.current_location_id, {})
-
-        moon = self._moon_phase_info()
+        current_conditions = self.current_conditions_by_location.get(self.current_location_id, {})
         periods = forecast_json.get("properties", {}).get("periods", [])[:12] if forecast_json else []
-        labels: List[str] = []
+        moon = self._moon_phase_info()
+
+        def text_value(value: Any, fallback: str = "Unavailable") -> str:
+            text = str(value or "").strip()
+            return text if text else fallback
+
+        def number_text(value: Any, unit: str, decimals: int = 0) -> str:
+            if not isinstance(value, (int, float)):
+                return "Unavailable"
+            return f"{float(value):.{decimals}f}{unit}"
+
+        timeline: List[Dict[str, Any]] = []
         wind_speeds: List[Optional[float]] = []
         gusts: List[Optional[float]] = []
-        precip: List[Optional[float]] = []
-        thunder: List[Optional[float]] = []
-        summaries: List[str] = []
+        precip_values: List[Optional[float]] = []
+        thunder_values: List[Optional[float]] = []
+        sky_values: List[Optional[float]] = []
+        visibility_values: List[Optional[float]] = []
 
         for period in periods:
             label, start_dt, end_dt = self._format_period_time(period)
-            labels.append(label)
-            wind_speeds.append(self._first_number_from_text(period.get("windSpeed")))
+            wind_numbers = [float(value) for value in re.findall(r"\d+(?:\.\d+)?", str(period.get("windSpeed") or ""))]
+            wind_mph = max(wind_numbers) if wind_numbers else None
             pop = period.get("probabilityOfPrecipitation", {}).get("value")
-            precip.append(float(pop) if isinstance(pop, (int, float)) else None)
-            summaries.append(str(period.get("shortForecast") or ""))
-            gust_value = None
-            thunder_value = None
-            if start_dt and end_dt:
-                gust_value = self._grid_value_for_period(grid_json, "windGust", start_dt, end_dt, aggregate="max")
-                thunder_value = self._grid_value_for_period(grid_json, "probabilityOfThunder", start_dt, end_dt)
-            gusts.append(float(gust_value) if isinstance(gust_value, (int, float)) else None)
-            thunder.append(float(thunder_value) if isinstance(thunder_value, (int, float)) else None)
+            precip_pct = float(pop) if isinstance(pop, (int, float)) else None
+            humidity = period.get("relativeHumidity", {}).get("value")
+            humidity_pct = float(humidity) if isinstance(humidity, (int, float)) else None
+            dewpoint_c = period.get("dewpoint", {}).get("value")
+            dewpoint_f = self._c_to_f(float(dewpoint_c)) if isinstance(dewpoint_c, (int, float)) else None
+            apparent_c = period.get("apparentTemperature", {}).get("value")
+            apparent_f = self._c_to_f(float(apparent_c)) if isinstance(apparent_c, (int, float)) else None
 
-        current_period = periods[0] if periods else {}
-        current_conditions = self.current_conditions_by_location.get(self.current_location_id, {})
-        pressure = self._format_optional_number(current_conditions.get("pressure_inhg"), " inHg", decimals=2)
-        visibility = self._format_optional_number(current_conditions.get("visibility_miles"), " mi", decimals=1)
-        air_temp = self._format_optional_number(current_conditions.get("temperature_f"), "°F")
-        wind_now = current_period.get("windSpeed") or "N/A"
-        wind_direction = current_period.get("windDirection") or current_conditions.get("wind_direction") or ""
+            gust_raw = thunder_pct = sky_pct = visibility_miles = qpf_inches = None
+            if start_dt and end_dt:
+                gust_raw = self._grid_value_for_period(grid_json, "windGust", start_dt, end_dt, aggregate="max")
+                thunder_pct = self._grid_value_for_period(grid_json, "probabilityOfThunder", start_dt, end_dt)
+                sky_pct = self._grid_value_for_period(grid_json, "skyCover", start_dt, end_dt)
+                visibility_raw = self._grid_value_for_period(grid_json, "visibility", start_dt, end_dt)
+                qpf_raw = self._grid_value_for_period(
+                    grid_json, "quantitativePrecipitation", start_dt, end_dt, aggregate="sum"
+                )
+                gust_raw = self._first_number_from_text(self._format_grid_value(grid_json, "windGust", gust_raw))
+                visibility_miles = self._first_number_from_text(
+                    self._format_grid_value(grid_json, "visibility", visibility_raw)
+                )
+                qpf_inches = self._first_number_from_text(
+                    self._format_grid_value(grid_json, "quantitativePrecipitation", qpf_raw)
+                )
+
+            wind_speeds.append(wind_mph)
+            gusts.append(float(gust_raw) if isinstance(gust_raw, (int, float)) else None)
+            precip_values.append(precip_pct)
+            thunder_values.append(float(thunder_pct) if isinstance(thunder_pct, (int, float)) else None)
+            sky_values.append(float(sky_pct) if isinstance(sky_pct, (int, float)) else None)
+            visibility_values.append(
+                float(visibility_miles) if isinstance(visibility_miles, (int, float)) else None
+            )
+            timeline.append(
+                {
+                    "time": label,
+                    "temp": f"{period.get('temperature', 'N/A')}°{period.get('temperatureUnit', '')}",
+                    "feels": number_text(apparent_f, "°F"),
+                    "wind": f"{period.get('windDirection', '')} {period.get('windSpeed', 'N/A')}".strip(),
+                    "gust": number_text(gust_raw, " mph"),
+                    "rain": number_text(precip_pct, "%"),
+                    "qpf": number_text(qpf_inches, '"', decimals=2),
+                    "thunder": number_text(thunder_pct, "%"),
+                    "humidity": number_text(humidity_pct, "%"),
+                    "dewpoint": number_text(dewpoint_f, "°F"),
+                    "sky": number_text(sky_pct, "%"),
+                    "visibility": number_text(visibility_miles, " mi", decimals=1),
+                    "summary": text_value(period.get("shortForecast"), "No forecast summary"),
+                }
+            )
+
         peak_wind = self._max_optional(wind_speeds)
         peak_gust = self._max_optional(gusts)
-        peak_precip = self._max_optional(precip)
-        peak_thunder = self._max_optional(thunder)
-        next_forecast = current_period.get("shortForecast") or "Forecast data not loaded yet."
-
-        wind_cue = "Good light-wind window."
-        if isinstance(peak_gust, (int, float)) and peak_gust >= 25:
-            wind_cue = "Gusty; check seas and exposed bridges/flats carefully."
-        elif isinstance(peak_wind, (int, float)) and peak_wind >= 15:
-            wind_cue = "Breezy; look for lee shorelines and protected channels."
-
-        storm_cue = "Low storm signal in the loaded forecast."
-        if isinstance(peak_thunder, (int, float)) and peak_thunder >= 25:
-            storm_cue = "Thunder risk showing; keep an escape plan."
-        elif isinstance(peak_precip, (int, float)) and peak_precip >= 50:
-            storm_cue = "Rain chances are meaningful; watch radar before running far."
-
-        water_note = (
-            "Nearest official NOAA stations are selected from the current city coordinates. "
-            "Distances can be large for inland locations."
+        peak_precip = self._max_optional(precip_values)
+        peak_thunder = self._max_optional(thunder_values)
+        average_sky = (
+            sum(value for value in sky_values if isinstance(value, (int, float)))
+            / len([value for value in sky_values if isinstance(value, (int, float))])
+            if any(isinstance(value, (int, float)) for value in sky_values)
+            else None
         )
+        forecast_visibility = min(
+            (value for value in visibility_values if isinstance(value, (int, float))), default=None
+        )
+        observed_visibility = current_conditions.get("visibility_miles")
+        visibility_for_outlook = (
+            observed_visibility if isinstance(observed_visibility, (int, float)) else forecast_visibility
+        )
+
         water_temp = marine_data.get("water_temp", {}) if isinstance(marine_data, dict) else {}
         tide = marine_data.get("tide", {}) if isinstance(marine_data, dict) else {}
         current = marine_data.get("current", {}) if isinstance(marine_data, dict) else {}
         water_level = marine_data.get("water_level", {}) if isinstance(marine_data, dict) else {}
         marine_wind = marine_data.get("wind", {}) if isinstance(marine_data, dict) else {}
+        salinity = marine_data.get("salinity", {}) if isinstance(marine_data, dict) else {}
+        ndbc = marine_data.get("ndbc", {}) if isinstance(marine_data, dict) else {}
 
-        cards = [
-            ("Moon", f"{moon['phase']}", f"{moon['illumination'] * 100:.0f}% lit · age {moon['age']:.1f} days. {moon['cue']}"),
-            ("Wind", f"{wind_direction} {wind_now}".strip(), wind_cue),
-            ("Water Temp", str(water_temp.get("value") or "Unavailable"), self._marine_card_detail(water_temp, "Closest water-temperature station.")),
-            ("Next Tide", str(tide.get("value") or "Unavailable"), self._marine_card_detail(tide, "Closest tide-prediction station.")),
-            ("Current", str(current.get("value") or "Unavailable"), self._marine_card_detail(current, "Closest current-prediction station.")),
-            ("Water Level", str(water_level.get("value") or "Unavailable"), self._marine_card_detail(water_level, "Closest water-level station.")),
-            ("Marine Wind", str(marine_wind.get("value") or "Unavailable"), self._marine_card_detail(marine_wind, "Closest NOAA meteorological station.")),
-            ("Gust Peak", f"{peak_gust:.0f} mph" if isinstance(peak_gust, (int, float)) else "N/A", "Highest modeled gust in the next 12 hours."),
-            ("Rain / Thunder", f"{peak_precip:.0f}% / {peak_thunder:.0f}%" if isinstance(peak_precip, (int, float)) and isinstance(peak_thunder, (int, float)) else "N/A", storm_cue),
-            ("Air / Pressure", f"{air_temp} · {pressure}", f"Visibility {visibility}. Falling pressure can matter more than the exact number."),
-            ("Closest Data", "NOAA CO-OPS", water_note),
+        outlook = fishing_condition_outlook(
+            {
+                "peak_wind_mph": peak_wind,
+                "peak_gust_mph": peak_gust,
+                "precip_pct": peak_precip,
+                "thunder_pct": peak_thunder,
+                "visibility_miles": visibility_for_outlook,
+                "wave_height_ft": ndbc.get("wave_height_ft"),
+                "wave_period_s": ndbc.get("dominant_period_s"),
+                "pressure_tendency_hpa": ndbc.get("pressure_tendency_hpa"),
+            }
+        )
+
+        active_alerts = self.current_alerts_by_location.get(self.current_location_id, [])
+        observed_age = self._observation_age_text(current_conditions.get("timestamp"))
+        air_temp = number_text(current_conditions.get("temperature_f"), "°F")
+        dewpoint = number_text(current_conditions.get("dewpoint_f"), "°F")
+        humidity = number_text(current_conditions.get("humidity"), "%")
+        pressure = number_text(current_conditions.get("pressure_inhg"), " inHg", decimals=2)
+        visibility = number_text(current_conditions.get("visibility_miles"), " mi", decimals=1)
+        pressure_tendency = ndbc.get("pressure_tendency_hpa")
+        pressure_trend_text = (
+            f"{float(pressure_tendency):+.1f} hPa / 3h"
+            if isinstance(pressure_tendency, (int, float)) else "Unavailable"
+        )
+        water_temp_value = text_value(water_temp.get("value"))
+        water_temp_detail = self._marine_card_detail(
+            water_temp, "Species-specific comfort and metabolism indicator."
+        )
+        if water_temp_value.lower() == "unavailable" and isinstance(ndbc.get("water_temp_f"), (int, float)):
+            water_temp_value = number_text(ndbc.get("water_temp_f"), "°F", 1)
+            water_temp_detail = self._marine_card_detail(
+                ndbc, "Nearest NDBC sea-surface temperature observation."
+            )
+
+        def metric_card(title: str, value: str, detail: str, tone: str = "") -> str:
+            return (
+                f"<article class='metric {tone}'><span>{html.escape(title)}</span>"
+                f"<b>{html.escape(text_value(value))}</b><p>{html.escape(detail)}</p></article>"
+            )
+
+        def metric_section(title: str, subtitle: str, cards: List[Tuple[str, str, str, str]]) -> str:
+            card_html = "".join(metric_card(*card) for card in cards)
+            return (
+                f"<section class='metric-section'><div class='section-title'><h2>{html.escape(title)}</h2>"
+                f"<p>{html.escape(subtitle)}</p></div><div class='metric-grid'>{card_html}</div></section>"
+            )
+
+        trip_cards = [
+            (
+                "Wind window",
+                f"Peak {number_text(peak_wind, ' mph')}",
+                f"Modeled peak gust {number_text(peak_gust, ' mph')} over the loaded 12-hour window.",
+                "warn" if isinstance(peak_gust, (int, float)) and peak_gust >= 20 else "",
+            ),
+            (
+                "Storm signal",
+                f"Rain {number_text(peak_precip, '%')} · Thunder {number_text(peak_thunder, '%')}",
+                "Use the alert and radar tabs before committing to exposed water.",
+                "danger" if isinstance(peak_thunder, (int, float)) and peak_thunder >= 30 else "",
+            ),
+            ("Visibility", visibility, f"Observed visibility; {observed_age}.", ""),
+            (
+                "Active NWS hazards",
+                str(len(active_alerts)),
+                "Review warnings, watches, and advisories in the Alerts panel.",
+                "danger" if active_alerts else "",
+            ),
+        ]
+        environment_cards = [
+            (
+                "Water temperature",
+                water_temp_value,
+                water_temp_detail,
+                "",
+            ),
+            ("Air / dewpoint", f"{air_temp} · {dewpoint}", f"Relative humidity {humidity}; {observed_age}.", ""),
+            (
+                "Pressure / trend",
+                f"{pressure} · {pressure_trend_text}",
+                "Trend and rate of change are generally more informative than one pressure reading.",
+                "warn" if isinstance(pressure_tendency, (int, float)) and pressure_tendency <= -2 else "",
+            ),
+            (
+                "Cloud / light",
+                number_text(average_sky, "% avg"),
+                "Cloud cover changes contrast, shade, and low-light feeding opportunities.",
+                "",
+            ),
+            (
+                "Moon",
+                moon["phase"],
+                f"{moon['illumination'] * 100:.0f}% illuminated · lunar age {moon['age']:.1f} days. Treat as a secondary factor.",
+                "",
+            ),
+        ]
+        moving_water_cards = [
+            ("Next tide", text_value(tide.get("value")), self._marine_card_detail(tide, "Predicted high/low tide."), ""),
+            ("Tidal current", text_value(current.get("value")), self._marine_card_detail(current, "Predicted flood/ebb or slack current."), ""),
+            ("Water level", text_value(water_level.get("value")), self._marine_card_detail(water_level, "Observed level relative to station datum."), ""),
+            ("Salinity", text_value(salinity.get("value")), self._marine_card_detail(salinity, "Useful for estuary position and species transitions."), ""),
+        ]
+        buoy_cards = [
+            ("Significant waves", number_text(ndbc.get("wave_height_ft"), " ft", 1), self._marine_card_detail(ndbc, "Highest-one-third wave height."), ""),
+            (
+                "Wave period / direction",
+                f"{number_text(ndbc.get('dominant_period_s'), ' s')} · {number_text(ndbc.get('wave_direction_deg'), '°')}",
+                "Longer periods generally carry more energy; short periods feel steeper and choppier.",
+                "",
+            ),
+            (
+                "Buoy wind",
+                f"{number_text(ndbc.get('wind_speed_kt'), ' kt', 1)} · gust {number_text(ndbc.get('gust_kt'), ' kt', 1)}",
+                f"Direction {number_text(ndbc.get('wind_direction_deg'), '°')}; observed {text_value(ndbc.get('observed_at'))}.",
+                "",
+            ),
+            ("Marine wind station", text_value(marine_wind.get("value")), self._marine_card_detail(marine_wind, "Closest CO-OPS wind sensor."), ""),
         ]
 
         timeline_rows = ""
-        for index, label in enumerate(labels[:8]):
-            wind_text = f"{wind_speeds[index]:.0f} mph" if isinstance(wind_speeds[index], (int, float)) else "N/A"
-            gust_text = f"{gusts[index]:.0f} mph" if isinstance(gusts[index], (int, float)) else "N/A"
-            precip_text = f"{precip[index]:.0f}%" if isinstance(precip[index], (int, float)) else "N/A"
-            thunder_text = f"{thunder[index]:.0f}%" if isinstance(thunder[index], (int, float)) else "N/A"
+        for row in timeline[:8]:
             timeline_rows += (
-                f"<tr><td>{html.escape(label)}</td><td>{html.escape(wind_text)}</td>"
-                f"<td>{html.escape(gust_text)}</td><td>{html.escape(precip_text)}</td>"
-                f"<td>{html.escape(thunder_text)}</td><td>{html.escape(self._compact_text(summaries[index], 70))}</td></tr>"
+                "<tr>"
+                f"<td><strong>{html.escape(row['time'])}</strong><small>{html.escape(row['summary'])}</small></td>"
+                f"<td>{html.escape(row['temp'])}<small>Feels {html.escape(row['feels'])}</small></td>"
+                f"<td>{html.escape(row['wind'])}<small>Gust {html.escape(row['gust'])}</small></td>"
+                f"<td>{html.escape(row['rain'])}<small>QPF {html.escape(row['qpf'])}</small></td>"
+                f"<td>{html.escape(row['thunder'])}</td>"
+                f"<td>{html.escape(row['humidity'])}<small>Dew {html.escape(row['dewpoint'])}</small></td>"
+                f"<td>{html.escape(row['sky'])}<small>Vis {html.escape(row['visibility'])}</small></td>"
+                "</tr>"
             )
         if not timeline_rows:
-            timeline_rows = "<tr><td colspan='6'>Forecast data has not loaded yet.</td></tr>"
+            timeline_rows = "<tr><td colspan='7'>Forecast data has not loaded yet.</td></tr>"
+
+        station_rows = ""
+        for data in marine_data.values() if isinstance(marine_data, dict) else []:
+            if not isinstance(data, dict) or not data.get("label"):
+                continue
+            distance = data.get("distance_miles")
+            distance_text = f"{float(distance):.1f} mi" if isinstance(distance, (int, float)) else "—"
+            source_url = self._safe_external_url(data.get("station_url") or data.get("url"))
+            station_rows += (
+                f"<tr><td>{html.escape(text_value(data.get('label')))}</td>"
+                f"<td><strong>{html.escape(text_value(data.get('value')))}</strong></td>"
+                f"<td><a href='{self._html_attr(source_url)}'>{html.escape(text_value(data.get('station'), 'Source page'))}</a></td>"
+                f"<td>{html.escape(distance_text)}</td><td>{html.escape(text_value(data.get('detail'), 'Latest'))}</td></tr>"
+            )
+        if not station_rows:
+            station_rows = "<tr><td colspan='5'>No marine stations have loaded.</td></tr>"
 
         link_cards = ""
         for title, url, detail in self._fishing_resource_links(marine_data):
-            safe_url = self._safe_external_url(url)
             link_cards += (
-                f"<a class='resource' href='{self._html_attr(safe_url)}'>"
+                f"<a class='resource' href='{self._html_attr(self._safe_external_url(url))}'>"
                 f"<strong>{html.escape(title)}</strong><span>{html.escape(detail)}</span></a>"
             )
 
-        location = self.get_current_location_name()
-        coords = ""
-        if self.current_coords:
-            coords = f"{self.current_coords[0]:.4f}, {self.current_coords[1]:.4f}"
+        positives = "".join(f"<li>{html.escape(item)}</li>" for item in outlook["positives"])
+        cautions = "".join(f"<li>{html.escape(item)}</li>" for item in outlook["cautions"])
+        if not positives:
+            positives = "<li>No strong favorable weather signal was identified.</li>"
+        if not cautions:
+            cautions = "<li>No major modeled weather constraint was identified.</li>"
 
-        card_html = "".join(
-            f"<article class='card'><span>{html.escape(title)}</span><b>{html.escape(value)}</b><p>{html.escape(detail)}</p></article>"
-            for title, value, detail in cards
+        guide_items = [
+            ("Water temperature", "Match the species and season; trend and depth matter more than a universal ideal."),
+            ("Tide and current", "Moving water often positions bait and fish around edges, points, passes, and structure."),
+            ("Wind", "Direction controls drift, shoreline exposure, surface mixing, and safe boat handling."),
+            ("Pressure trend", "Rapid change can coincide with fronts; use the trend with wind, clouds, and temperature."),
+            ("Cloud and light", "Lower light can extend shallow activity; bright conditions often increase shade and depth importance."),
+            ("Rain and runoff", "Can alter temperature, oxygen, clarity, salinity, flow, and access—effects vary by waterbody."),
+            ("Waves", "Height plus period describes sea state better than height alone; always match conditions to the craft."),
+            ("Moon", "A secondary timing cue, especially around tides; do not outweigh weather, habitat, bait, and local patterns."),
+        ]
+        guide_html = "".join(
+            f"<article><strong>{html.escape(title)}</strong><span>{html.escape(detail)}</span></article>"
+            for title, detail in guide_items
         )
+
+        location = self.get_current_location_name()
+        coords = f"{self.current_coords[0]:.4f}, {self.current_coords[1]:.4f}" if self.current_coords else ""
+        forecast_summary = periods[0].get("shortForecast") if periods else "Forecast data not loaded yet"
 
         return f"""
 <!DOCTYPE html>
@@ -6012,51 +6444,48 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
 <head>
   <meta charset="utf-8" />
   <style>
-    body {{ margin:0; padding:18px; font-family: Segoe UI, Arial, sans-serif; background:{bg}; color:{text}; }}
-    header {{ display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:14px; }}
-    h1 {{ margin:0; font-size:22px; }}
-    h2 {{ margin:0 0 10px; font-size:16px; }}
-    .sub {{ color:{muted}; font-weight:700; font-size:12px; }}
-    .grid {{ display:grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap:12px; }}
-    .card, .table, .resources {{ background:{panel}; border:1px solid {border}; border-radius:8px; padding:14px; }}
-    .card span {{ color:{muted}; text-transform:uppercase; font-size:11px; font-weight:800; }}
-    .card b {{ display:block; margin:7px 0 5px; font-size:20px; color:{accent}; }}
-    .card p {{ margin:0; color:{muted}; line-height:1.4; }}
-    .layout {{ display:grid; grid-template-columns: minmax(420px, 1.35fr) minmax(280px, .75fr); gap:12px; margin-top:12px; }}
-    table {{ width:100%; border-collapse:collapse; font-size:12px; }}
-    th, td {{ border-bottom:1px solid {border}; padding:8px 7px; text-align:left; vertical-align:top; }}
-    th {{ color:{muted}; font-size:11px; text-transform:uppercase; }}
-    .resources {{ display:grid; gap:9px; }}
-    .resource {{ display:block; text-decoration:none; color:{text}; border:1px solid {border}; border-radius:8px; padding:11px; }}
-    .resource:hover {{ border-color:{accent}; }}
-    .resource strong {{ display:block; color:{accent}; margin-bottom:5px; }}
-    .resource span {{ color:{muted}; line-height:1.35; }}
-    @media (max-width: 1250px) {{ .grid {{ grid-template-columns: repeat(2, minmax(180px, 1fr)); }} }}
-    @media (max-width: 950px) {{ .grid, .layout {{ grid-template-columns:1fr; }} header {{ display:block; }} }}
+    * {{ box-sizing:border-box; }}
+    body {{ margin:0; padding:20px; font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; color:{colors['text']}; }}
+    a {{ color:{colors['accent']}; }}
+    header {{ display:flex; justify-content:space-between; gap:20px; align-items:flex-start; margin-bottom:16px; }}
+    h1 {{ margin:0 0 5px; font-size:25px; }} h2 {{ margin:0; font-size:17px; }}
+    .eyebrow {{ color:{colors['accent']}; text-transform:uppercase; letter-spacing:.08em; font-size:11px; font-weight:800; }}
+    .sub, small {{ color:{colors['muted']}; }} .sub {{ font-size:12px; line-height:1.45; }}
+    .outlook {{ background:{colors['panel']}; border:1px solid {colors['border']}; border-radius:12px; padding:16px; margin-bottom:16px; display:grid; grid-template-columns:150px 1fr 1fr; gap:18px; }}
+    .score b {{ display:block; color:{colors['accent']}; font-size:28px; margin:4px 0; }}
+    .bar {{ height:8px; background:{colors['border']}; border-radius:99px; overflow:hidden; margin-top:9px; }} .bar i {{ display:block; width:{outlook['score']}%; height:100%; background:{colors['accent']}; }}
+    .outlook h3 {{ margin:0 0 7px; font-size:13px; }} .outlook ul {{ margin:0; padding-left:18px; color:{colors['muted']}; font-size:12px; line-height:1.5; }}
+    .metric-section, .table-panel, .guide, .resources {{ background:{colors['panel']}; border:1px solid {colors['border']}; border-radius:12px; padding:15px; margin-bottom:14px; }}
+    .section-title {{ display:flex; justify-content:space-between; gap:20px; align-items:baseline; margin-bottom:11px; }} .section-title p {{ margin:0; color:{colors['muted']}; font-size:12px; }}
+    .metric-grid {{ display:grid; grid-template-columns:repeat(4, minmax(170px,1fr)); gap:10px; }}
+    .metric {{ background:{colors['panel_alt']}; border:1px solid {colors['border']}; border-radius:9px; padding:12px; min-height:112px; }}
+    .metric.warn {{ border-color:{colors['warn']}; }} .metric.danger {{ border-color:{colors['danger']}; }}
+    .metric span {{ color:{colors['muted']}; text-transform:uppercase; letter-spacing:.04em; font-size:10px; font-weight:800; }}
+    .metric b {{ display:block; color:{colors['accent']}; font-size:18px; margin:7px 0; }} .metric p {{ margin:0; color:{colors['muted']}; font-size:11px; line-height:1.4; }}
+    .table-scroll {{ overflow-x:auto; }} table {{ width:100%; border-collapse:collapse; min-width:820px; font-size:12px; }}
+    th, td {{ border-bottom:1px solid {colors['border']}; padding:9px 8px; text-align:left; vertical-align:top; }} th {{ color:{colors['muted']}; text-transform:uppercase; font-size:10px; }} td small {{ display:block; margin-top:4px; font-size:10px; }}
+    .lower {{ display:grid; grid-template-columns:minmax(520px,1.4fr) minmax(280px,.7fr); gap:14px; }}
+    .resources {{ display:grid; align-content:start; gap:8px; }} .resource {{ display:block; text-decoration:none; border:1px solid {colors['border']}; border-radius:8px; padding:10px; background:{colors['panel_alt']}; }} .resource strong, .resource span {{ display:block; }} .resource span {{ color:{colors['muted']}; font-size:11px; margin-top:4px; line-height:1.35; }}
+    .guide-grid {{ display:grid; grid-template-columns:repeat(2,1fr); gap:9px; }} .guide article {{ padding:10px; background:{colors['panel_alt']}; border-radius:8px; }} .guide strong, .guide span {{ display:block; }} .guide span {{ color:{colors['muted']}; font-size:11px; margin-top:5px; line-height:1.4; }}
+    .note {{ color:{colors['muted']}; font-size:11px; line-height:1.45; margin-top:10px; }}
+    @media (max-width:1200px) {{ .metric-grid {{ grid-template-columns:repeat(2,1fr); }} .outlook {{ grid-template-columns:130px 1fr; }} .outlook > div:last-child {{ grid-column:2; }} }}
+    @media (max-width:850px) {{ .metric-grid, .lower, .guide-grid, .outlook {{ grid-template-columns:1fr; }} .outlook > div:last-child {{ grid-column:auto; }} header, .section-title {{ display:block; }} }}
   </style>
 </head>
 <body>
-  <header>
-    <div>
-      <h1>Fishing Conditions</h1>
-      <div class="sub">{html.escape(location)}{f" · {html.escape(coords)}" if coords else ""}</div>
-    </div>
-    <div class="sub">Next cue: {html.escape(str(next_forecast))}</div>
-  </header>
-  <section class="grid">{card_html}</section>
-  <section class="layout">
-    <div class="table">
-      <h2>Next 12 Hours</h2>
-      <table>
-        <thead><tr><th>Time</th><th>Wind</th><th>Gust</th><th>Rain</th><th>Thunder</th><th>Sky</th></tr></thead>
-        <tbody>{timeline_rows}</tbody>
-      </table>
-    </div>
-    <div class="resources">
-      <h2>Closest Water & Marine Sources</h2>
-      {link_cards}
-    </div>
+  <header><div><div class="eyebrow">Fishing decision dashboard</div><h1>{html.escape(location)}</h1><div class="sub">{html.escape(coords)} · {html.escape(text_value(forecast_summary))}</div></div><div class="sub">Observed data and model guidance can differ by station distance and update time.</div></header>
+  <section class="outlook">
+    <div class="score"><span class="eyebrow">Trip conditions</span><b>{outlook['score']} / 100</b><strong>{html.escape(outlook['label'])}</strong><div class="bar"><i></i></div></div>
+    <div><h3>Favorable signals</h3><ul>{positives}</ul></div><div><h3>Constraints to watch</h3><ul>{cautions}</ul></div>
+    <div class="note" style="grid-column:1/-1">{html.escape(outlook['disclaimer'])}</div>
   </section>
+  {metric_section('Trip safety & access', 'Wind, storms, visibility, and official hazards should drive the go/no-go decision.', trip_cards)}
+  {metric_section('Fish-environment signals', 'Context for fish location and behavior; species, season, habitat, and local knowledge remain essential.', environment_cards)}
+  {metric_section('Moving water & estuary', 'Observed and predicted NOAA CO-OPS measurements from the closest capable stations.', moving_water_cards)}
+  {metric_section('Open-water buoy conditions', 'Nearest active NDBC station with usable real-time observations; check distance before relying on it.', buoy_cards)}
+  <section class="table-panel"><div class="section-title"><h2>Next 12 hours</h2><p>NWS hourly forecast plus digital grid guidance</p></div><div class="table-scroll"><table><thead><tr><th>Time / conditions</th><th>Temp</th><th>Wind</th><th>Rain</th><th>Thunder</th><th>Humidity</th><th>Sky / visibility</th></tr></thead><tbody>{timeline_rows}</tbody></table></div></section>
+  <section class="lower"><div class="table-panel"><div class="section-title"><h2>Source readings & freshness</h2><p>Always check station distance and observation time</p></div><div class="table-scroll"><table><thead><tr><th>Metric</th><th>Reading</th><th>Station</th><th>Distance</th><th>Observed / predicted</th></tr></thead><tbody>{station_rows}</tbody></table></div></div><div class="resources"><h2>Official detail pages</h2>{link_cards}</div></section>
+  <section class="guide"><div class="section-title"><h2>How to use the metrics</h2><p>No single metric predicts fishing success</p></div><div class="guide-grid">{guide_html}</div><p class="note">Combine these readings with species, season, waterbody type, depth, structure, forage, recent trends, regulations, and local safety guidance.</p></section>
 </body>
 </html>
 """
@@ -6075,9 +6504,28 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
             return
         if isinstance(self.fishing_view, QLabel):
             moon = self._moon_phase_info()
-            links = "\n".join(f"- {title}: {url}" for title, url, _detail in self._fishing_resource_links(marine_data))
+            loaded_marine = marine_data or self.current_marine_data_by_location.get(self.current_location_id, {})
+            current = self.current_conditions_by_location.get(self.current_location_id, {})
+            ndbc = loaded_marine.get("ndbc", {}) if isinstance(loaded_marine, dict) else {}
+
+            def marine_value(key: str) -> str:
+                item = loaded_marine.get(key, {}) if isinstance(loaded_marine, dict) else {}
+                return str(item.get("value") or "Unavailable") if isinstance(item, dict) else "Unavailable"
+
+            air_temp = self._format_optional_number(current.get("temperature_f"), "°F")
+            pressure = self._format_optional_number(current.get("pressure_inhg"), " inHg", decimals=2)
+            visibility = self._format_optional_number(current.get("visibility_miles"), " mi", decimals=1)
+            wave_height = self._format_optional_number(ndbc.get("wave_height_ft"), " ft", decimals=1)
+            wave_period = self._format_optional_number(ndbc.get("dominant_period_s"), " s")
+            links = "\n".join(
+                f"- {title}: {url}" for title, url, _detail in self._fishing_resource_links(loaded_marine)
+            )
             self.fishing_view.setText(
                 f"Fishing Conditions for {self.get_current_location_name()}\n\n"
+                f"Air: {air_temp} | Pressure: {pressure} | Visibility: {visibility}\n"
+                f"Water temperature: {marine_value('water_temp')} | Salinity: {marine_value('salinity')}\n"
+                f"Next tide: {marine_value('tide')} | Current: {marine_value('current')}\n"
+                f"Waves: {wave_height} at {wave_period}\n\n"
                 f"Moon: {moon['phase']} ({moon['illumination'] * 100:.0f}% lit)\n"
                 f"{moon['cue']}\n\n"
                 f"Water and marine resources:\n{links}"
@@ -6289,13 +6737,20 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
 
     def _update_hourly_forecast_display(self, forecast_json: Optional[Dict[str, Any]], grid_json: Optional[Dict[str, Any]]):
         self._clear_layout(self.hourly_forecast_layout)
+        self.hourly_forecast_group.setTitle("Next 8 Hours")
+        self._update_forecast_board_header(forecast_json, grid_json)
         if not forecast_json or 'properties' not in forecast_json or 'periods' not in forecast_json['properties']:
             self.latest_temperature_reading = None
-            self.hourly_forecast_layout.addWidget(QLabel("8-Hour forecast data unavailable."), 0, 0)
+            self._add_forecast_empty_state(
+                self.hourly_forecast_layout,
+                "The next-eight-hours forecast is currently unavailable.",
+                6,
+            )
             self._update_top_status_bar_display()
             return
 
         periods = forecast_json['properties']['periods'][:8]
+        self.hourly_forecast_group.setTitle(f"Next {len(periods)} Hours" if periods else "Next 8 Hours")
         if periods:
             first_temp = periods[0].get('temperature', 'N/A')
             first_unit = periods[0].get('temperatureUnit', '')
@@ -6303,10 +6758,10 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         else:
             self.latest_temperature_reading = None
         self._update_top_status_bar_display()
-        headers = ["Time", "Temp", "Feels Like", "Wind", "Gusts", "Precip", "Humidity", "Sky", "Forecast"]
+        headers = ["Time", "Temperature", "Wind", "Rain / Thunder", "Humidity / Sky", "Forecast"]
         for col, header in enumerate(headers):
             header_label = self._make_compact_label(f"<b>{header}</b>")
-            if col < 8:
+            if col < len(headers) - 1:
                 header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             if col == 0:
                 header_label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
@@ -6349,6 +6804,9 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
                 emoji = self.get_weather_emoji(short_fc)
                 gust_text = "N/A"
                 sky_text = "N/A"
+                thunder_text = "N/A"
+                visibility_text = "N/A"
+                qpf_text = "N/A"
                 detail_lines = [f"Ends: {p.get('endTime', 'N/A')}", f"Dewpoint: {dewpoint_f}"]
 
                 if start_dt and end_dt:
@@ -6408,63 +6866,80 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
                 )
                 rich_row_tooltip = self._format_rich_tooltip(row_tooltip)
                 forecast_label = self._make_compact_label(
-                    f"{emoji} {short_fc}",
+                    f"{emoji} {html.escape(str(short_fc))}",
                     rich_row_tooltip,
                     wrap=True,
-                    max_lines=1,
+                    max_lines=2,
                 )
-                forecast_label.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+                forecast_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
                 time_label = self._make_compact_label(formatted_time)
                 time_label.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
-                temp_label = self._make_compact_label(temp)
-                feels_like_label = self._make_compact_label(feels_like)
-                wind_label = self._make_compact_label(wind)
-                gust_label = self._make_compact_label(gust_text)
-                gust_label.setMinimumWidth(gust_label.fontMetrics().horizontalAdvance("99 mph") + 8)
-                precip_label = self._make_compact_label(precip)
-                humidity_label = self._make_compact_label(humidity)
-                sky_label = self._make_compact_label(sky_text)
+                secondary_color = "#a9bbc4" if self.current_dark_mode_enabled else "#64748b"
+                temp_label = self._make_compact_label(
+                    f"<b>{html.escape(str(temp))}</b><br><span style='color:{secondary_color}'>"
+                    f"Feels {html.escape(str(feels_like))}</span>",
+                    max_lines=2,
+                )
+                wind_label = self._make_compact_label(
+                    f"<b>{html.escape(str(wind))}</b><br><span style='color:{secondary_color}'>"
+                    f"Gust {html.escape(str(gust_text))}</span>",
+                    max_lines=2,
+                )
+                rain_label = self._make_compact_label(
+                    f"<b>{html.escape(str(precip))}</b><br><span style='color:{secondary_color}'>"
+                    f"T-storm {html.escape(str(thunder_text))}</span>",
+                    max_lines=2,
+                )
+                atmosphere_label = self._make_compact_label(
+                    f"<b>RH {html.escape(str(humidity))}</b><br><span style='color:{secondary_color}'>"
+                    f"Sky {html.escape(str(sky_text))}</span>",
+                    max_lines=2,
+                )
                 row_labels = [
                     time_label,
                     temp_label,
-                    feels_like_label,
                     wind_label,
-                    gust_label,
-                    precip_label,
-                    humidity_label,
-                    sky_label,
+                    rain_label,
+                    atmosphere_label,
                     forecast_label,
                 ]
                 self._apply_tooltip_to_labels(row_labels, rich_row_tooltip)
-                for compact_label in [time_label, temp_label, feels_like_label, wind_label, gust_label, precip_label, humidity_label, sky_label]:
+                for compact_label in [time_label, temp_label, wind_label, rain_label, atmosphere_label]:
                     compact_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                     self._apply_forecast_cell_style(compact_label, i + 1)
                 self._apply_forecast_cell_style(forecast_label, i + 1)
                 self.hourly_forecast_layout.addWidget(time_label, i + 1, 0, alignment=Qt.AlignmentFlag.AlignTop)
                 self.hourly_forecast_layout.addWidget(temp_label, i + 1, 1, alignment=Qt.AlignmentFlag.AlignTop)
-                self.hourly_forecast_layout.addWidget(feels_like_label, i + 1, 2, alignment=Qt.AlignmentFlag.AlignTop)
-                self.hourly_forecast_layout.addWidget(wind_label, i + 1, 3, alignment=Qt.AlignmentFlag.AlignTop)
-                self.hourly_forecast_layout.addWidget(gust_label, i + 1, 4, alignment=Qt.AlignmentFlag.AlignTop)
-                self.hourly_forecast_layout.addWidget(precip_label, i + 1, 5, alignment=Qt.AlignmentFlag.AlignTop)
-                self.hourly_forecast_layout.addWidget(humidity_label, i + 1, 6, alignment=Qt.AlignmentFlag.AlignTop)
-                self.hourly_forecast_layout.addWidget(sky_label, i + 1, 7, alignment=Qt.AlignmentFlag.AlignTop)
-                self.hourly_forecast_layout.addWidget(forecast_label, i + 1, 8)
+                self.hourly_forecast_layout.addWidget(wind_label, i + 1, 2, alignment=Qt.AlignmentFlag.AlignTop)
+                self.hourly_forecast_layout.addWidget(rain_label, i + 1, 3, alignment=Qt.AlignmentFlag.AlignTop)
+                self.hourly_forecast_layout.addWidget(atmosphere_label, i + 1, 4, alignment=Qt.AlignmentFlag.AlignTop)
+                self.hourly_forecast_layout.addWidget(forecast_label, i + 1, 5)
             except Exception as e:
                 self.log_to_gui(f"Error formatting hourly period: {e}", level="WARNING")
 
     def _update_daily_forecast_display(self, forecast_json: Optional[Dict[str, Any]], grid_json: Optional[Dict[str, Any]]):
         self._clear_layout(self.daily_forecast_layout)
+        self.daily_forecast_group.setTitle("5-Day Outlook")
         if not forecast_json or 'properties' not in forecast_json or 'periods' not in forecast_json['properties']:
-            self.daily_forecast_layout.addWidget(QLabel("5-Day forecast data unavailable."), 0, 0)
+            self._add_forecast_empty_state(
+                self.daily_forecast_layout,
+                "The five-day outlook is currently unavailable.",
+                5,
+            )
             return
 
         periods = self._daily_daytime_periods(forecast_json['properties']['periods'], limit=5)
         if not periods:
-            self.daily_forecast_layout.addWidget(QLabel("5-Day forecast data unavailable."), 0, 0)
+            self._add_forecast_empty_state(
+                self.daily_forecast_layout,
+                "No daytime forecast periods were returned.",
+                5,
+            )
             return
+        self.daily_forecast_group.setTitle(f"{len(periods)}-Day Outlook")
 
-        headers = ["Day", "High / Low", "Wind", "Precip", "Forecast"]
+        headers = ["Day", "High / Low", "Wind / Gust", "Rain / T-storm", "Forecast"]
         for col, header in enumerate(headers):
             header_label = self._make_compact_label(f"<b>{header}</b>")
             if col in (1, 2, 3):
@@ -6492,12 +6967,24 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
                 overnight_short_fc = p.get("_paired_low_forecast")
 
                 detail_bits = []
+                gust_text = "N/A"
+                thunder_text = "N/A"
                 if start_dt and end_dt:
+                    gust_text = self._format_grid_value(
+                        grid_json,
+                        "windGust",
+                        self._grid_value_for_period(grid_json, "windGust", start_dt, end_dt, aggregate="max"),
+                    )
+                    thunder_text = self._format_grid_value(
+                        grid_json,
+                        "probabilityOfThunder",
+                        self._grid_value_for_period(grid_json, "probabilityOfThunder", start_dt, end_dt),
+                    )
                     detail_bits.extend(
                         [
-                            f"Gst {self._format_grid_value(grid_json, 'windGust', self._grid_value_for_period(grid_json, 'windGust', start_dt, end_dt, aggregate='max'))}",
+                            f"Gst {gust_text}",
                             f"Sky {self._format_grid_value(grid_json, 'skyCover', self._grid_value_for_period(grid_json, 'skyCover', start_dt, end_dt))}",
-                            f"Tstm {self._format_grid_value(grid_json, 'probabilityOfThunder', self._grid_value_for_period(grid_json, 'probabilityOfThunder', start_dt, end_dt))}",
+                            f"Tstm {thunder_text}",
                             f'QPF {self._format_grid_value(grid_json, "quantitativePrecipitation", self._grid_value_for_period(grid_json, "quantitativePrecipitation", start_dt, end_dt, aggregate="sum"))}',
                             f"Vis {self._format_grid_value(grid_json, 'visibility', self._grid_value_for_period(grid_json, 'visibility', start_dt, end_dt))}",
                         ]
@@ -6515,7 +7002,9 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
                         f"Day: {name}",
                         f"Temperature: {temp}",
                         f"Wind: {wind}",
+                        f"Gusts: {gust_text}",
                         f"Precipitation: {precip_text}",
+                        f"Thunder: {thunder_text}",
                         f"Forecast: {short_fc}",
                         "",
                         detailed_fc,
@@ -6525,10 +7014,31 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
                     row_tooltip = f"{row_tooltip}\n\n" + "\n".join(detail_bits)
                 rich_row_tooltip = self._format_rich_tooltip(row_tooltip)
 
-                name_label = self._make_compact_label(name, rich_row_tooltip)
-                temp_label = self._make_compact_label(temp, rich_row_tooltip)
-                wind_label = self._make_compact_label(wind, rich_row_tooltip)
-                precip_label = self._make_compact_label(precip_text, rich_row_tooltip)
+                secondary_color = "#a9bbc4" if self.current_dark_mode_enabled else "#64748b"
+                high_color = "#ff9b90" if self.current_dark_mode_enabled else "#b42318"
+                low_color = "#79b8ff" if self.current_dark_mode_enabled else "#175cd3"
+                name_label = self._make_compact_label(f"<b>{html.escape(str(name))}</b>", rich_row_tooltip)
+                temp_label = self._make_compact_label(
+                    f"<span style='color:{high_color}'><b>H {html.escape(str(high_temp))}</b></span>"
+                    + (
+                        f"<br><span style='color:{low_color}'>L {html.escape(str(low_temp))}</span>"
+                        if low_value is not None else ""
+                    ),
+                    rich_row_tooltip,
+                    max_lines=2,
+                )
+                wind_label = self._make_compact_label(
+                    f"<b>{html.escape(str(wind))}</b><br><span style='color:{secondary_color}'>"
+                    f"Gust {html.escape(str(gust_text))}</span>",
+                    rich_row_tooltip,
+                    max_lines=2,
+                )
+                precip_label = self._make_compact_label(
+                    f"<b>{html.escape(str(precip_text))}</b><br><span style='color:{secondary_color}'>"
+                    f"T-storm {html.escape(str(thunder_text))}</span>",
+                    rich_row_tooltip,
+                    max_lines=2,
+                )
                 temp_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 wind_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 precip_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -6542,12 +7052,12 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
                 self.daily_forecast_layout.addWidget(precip_label, i + 1, 3, alignment=Qt.AlignmentFlag.AlignTop)
 
                 short_fc_label = self._make_compact_label(
-                    f"{emoji} {short_fc}",
+                    f"{emoji} {html.escape(str(short_fc))}",
                     rich_row_tooltip,
                     wrap=True,
-                    max_lines=1,
+                    max_lines=2,
                 )
-                short_fc_label.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
+                short_fc_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
                 self._apply_forecast_cell_style(short_fc_label, i + 1)
                 self.daily_forecast_layout.addWidget(short_fc_label, i + 1, 4)
             except Exception as e:
@@ -7879,7 +8389,10 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         is_stacked = self._is_forecast_layout_stacked() if hasattr(self, "combined_forecast_widget") else False
         alerts_panel_height = max(140, min(300 if is_stacked else 220, int(window_height * (0.23 if is_stacked else 0.17))))
         lifecycle_height = max(42, min(70, int(window_height * 0.055)))
-        forecast_panel_height = max(118, min(174 if is_stacked else 138, int(window_height * (0.16 if is_stacked else 0.115))))
+        forecast_panel_height = max(
+            184,
+            min(236 if is_stacked else 212, int(window_height * (0.23 if is_stacked else 0.19))),
+        )
 
         self.alerts_display_area.setMinimumHeight(alerts_panel_height)
         self.alerts_display_area.setMaximumHeight(alerts_panel_height)
@@ -7897,7 +8410,7 @@ body { font-family: Segoe UI, Arial, sans-serif; background:#f8fafc; color:#3341
         unified_outer_height = max(alerts_outer_height, forecast_outer_height)
         self.alerts_group.setMinimumHeight(unified_outer_height)
         self.alerts_group.setMaximumHeight(unified_outer_height)
-        combined_outer_height = (forecast_panel_height * (2 if is_stacked else 1)) + (82 if is_stacked else 48)
+        combined_outer_height = (forecast_panel_height * (2 if is_stacked else 1)) + (112 if is_stacked else 82)
         unified_combined_height = combined_outer_height if hasattr(self, "workbench_splitter") else max(unified_outer_height, combined_outer_height)
         self.combined_forecast_widget.setMinimumHeight(unified_combined_height)
         self.combined_forecast_widget.setMaximumHeight(unified_combined_height)

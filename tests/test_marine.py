@@ -5,6 +5,7 @@ from weather_alert.marine import (
     MarineDataService,
     coops_station_lat_lon,
     distance_miles_between,
+    fishing_condition_outlook,
     fishing_resource_links,
     max_optional,
     moon_phase_info,
@@ -105,6 +106,16 @@ def test_fetch_nearest_marine_data_uses_closest_station_and_product_summary(monk
     assert data["water_temp"]["distance_miles"] < 1
 
 
+def test_station_lookup_accepts_metadata_api_station_list_shape():
+    service = MarineDataService(
+        _FakeSession([{"stationList": [{"id": "A", "name": "Station A", "lat": 24.5, "lng": -81.8}]}])
+    )
+
+    stations = service.fetch_stations("cond")
+
+    assert stations[0]["id"] == "A"
+
+
 def test_fishing_resource_links_reject_non_web_station_urls():
     links = fishing_resource_links(
         (24.555, -81.78),
@@ -119,3 +130,56 @@ def test_fishing_resource_links_reject_non_web_station_urls():
 
     assert links[0][1] == COOPS_MAP_URL
     assert any("marine.weather.gov/MapClick.php" in url for _title, url, _detail in links)
+
+
+def test_fishing_outlook_surfaces_safety_constraints():
+    result = fishing_condition_outlook(
+        {
+            "peak_wind_mph": 24,
+            "peak_gust_mph": 34,
+            "precip_pct": 75,
+            "thunder_pct": 40,
+            "visibility_miles": 1.5,
+            "wave_height_ft": 6.5,
+            "wave_period_s": 4,
+            "pressure_tendency_hpa": -2.5,
+        }
+    )
+
+    assert result["score"] < 42
+    assert result["label"] == "Poor / safety limited"
+    assert any("Thunder" in item for item in result["cautions"])
+    assert "does not predict fish activity" in result["disclaimer"]
+
+
+class _TextResponse:
+    def __init__(self, text):
+        self.text = text
+
+    def raise_for_status(self):
+        return None
+
+
+class _TextSession:
+    def __init__(self, text):
+        self.text = text
+
+    def get(self, _url, timeout=None):
+        assert timeout == 8
+        return _TextResponse(self.text)
+
+
+def test_ndbc_realtime_observation_is_normalized_to_english_units():
+    text = """#YY MM DD hh mm WDIR WSPD GST WVHT DPD APD MWD PRES PTDY ATMP WTMP DEWP VIS TIDE
+#yr mo dy hr mn degT m/s m/s m sec sec degT hPa hPa degC degC degC nmi ft
+2026 07 16 12 30 180 5.0 7.0 1.2 8 6.5 190 1012.3 -1.5 25 27 20 10 1.2
+"""
+    service = MarineDataService(_TextSession(text))
+
+    observation = service.fetch_ndbc_observation("TEST")
+
+    assert observation["observed_at"] == "2026-07-16 12:30 UTC"
+    assert round(observation["wave_height_ft"], 1) == 3.9
+    assert round(observation["wind_speed_kt"], 1) == 9.7
+    assert round(observation["pressure_inhg"], 2) == 29.89
+    assert round(observation["water_temp_f"], 1) == 80.6

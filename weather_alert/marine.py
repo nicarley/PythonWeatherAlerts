@@ -1,5 +1,6 @@
 import logging
 import math
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
@@ -13,6 +14,9 @@ COOPS_DATA_API_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
 COOPS_MAP_URL = "https://tidesandcurrents.noaa.gov/map/index.html"
 COOPS_STATION_HOME_URL_TEMPLATE = "https://tidesandcurrents.noaa.gov/stationhome.html?id={station_id}"
 COOPS_STATIONS_API_URL = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json"
+NDBC_ACTIVE_STATIONS_URL = "https://www.ndbc.noaa.gov/activestations.xml"
+NDBC_REALTIME_URL_TEMPLATE = "https://www.ndbc.noaa.gov/data/realtime2/{station_id}.txt"
+NDBC_STATION_URL_TEMPLATE = "https://www.ndbc.noaa.gov/station_page.php?station={station_id}"
 
 MARINE_PRODUCTS = [
     {
@@ -53,6 +57,13 @@ MARINE_PRODUCTS = [
         "product": "wind",
         "detail": "Closest NOAA CO-OPS meteorological station.",
     },
+    {
+        "key": "salinity",
+        "label": "Salinity",
+        "station_type": "cond",
+        "product": "salinity",
+        "detail": "Closest NOAA CO-OPS salinity station.",
+    },
 ]
 
 
@@ -91,6 +102,108 @@ def moon_phase_info(now: Optional[datetime] = None) -> Dict[str, Any]:
 def max_optional(values: List[Optional[float]]) -> Optional[float]:
     numeric = [float(value) for value in values if isinstance(value, (int, float))]
     return max(numeric) if numeric else None
+
+
+def fishing_condition_outlook(metrics: Dict[str, Optional[float]]) -> Dict[str, Any]:
+    """Return a transparent trip-conditions heuristic, not a catch forecast."""
+    if not any(isinstance(value, (int, float)) for value in metrics.values()):
+        return {
+            "score": 50,
+            "label": "Data limited",
+            "positives": [],
+            "cautions": ["Not enough current weather or marine data is available for an outlook."],
+            "disclaimer": "Weather and access heuristic only; it does not predict fish activity or catch rate.",
+        }
+
+    score = 82
+    positives: List[str] = []
+    cautions: List[str] = []
+
+    peak_wind = metrics.get("peak_wind_mph")
+    peak_gust = metrics.get("peak_gust_mph")
+    thunder = metrics.get("thunder_pct")
+    precip = metrics.get("precip_pct")
+    visibility = metrics.get("visibility_miles")
+    wave_height = metrics.get("wave_height_ft")
+    wave_period = metrics.get("wave_period_s")
+    pressure_tendency = metrics.get("pressure_tendency_hpa")
+
+    if isinstance(peak_gust, (int, float)) and peak_gust >= 30:
+        score -= 32
+        cautions.append("Strong gusts can make exposed water hazardous.")
+    elif isinstance(peak_gust, (int, float)) and peak_gust >= 20:
+        score -= 16
+        cautions.append("Gusts favor protected banks, coves, and shorter runs.")
+    elif isinstance(peak_wind, (int, float)) and peak_wind <= 10:
+        score += 6
+        positives.append("Light wind should improve boat control and presentation.")
+
+    if isinstance(thunder, (int, float)) and thunder >= 30:
+        score -= 38
+        cautions.append("Thunder risk is the dominant safety constraint.")
+    elif isinstance(thunder, (int, float)) and thunder >= 15:
+        score -= 18
+        cautions.append("Monitor radar and keep a fast route off the water.")
+    elif isinstance(thunder, (int, float)) and thunder < 10:
+        positives.append("Low modeled thunder probability.")
+
+    if isinstance(precip, (int, float)) and precip >= 70:
+        score -= 12
+        cautions.append("High rain chances may change runoff, clarity, and access.")
+    elif isinstance(precip, (int, float)) and precip >= 40:
+        score -= 6
+        cautions.append("Rain may create short feeding windows but reduce comfort.")
+
+    if isinstance(visibility, (int, float)) and visibility < 2:
+        score -= 20
+        cautions.append("Very low visibility increases navigation risk.")
+    elif isinstance(visibility, (int, float)) and visibility < 5:
+        score -= 8
+        cautions.append("Reduced visibility may affect safe running.")
+    elif isinstance(visibility, (int, float)) and visibility >= 8:
+        positives.append("Good observed visibility.")
+
+    if isinstance(wave_height, (int, float)) and wave_height >= 6:
+        score -= 28
+        cautions.append("Large significant waves are unsuitable for many small craft.")
+    elif isinstance(wave_height, (int, float)) and wave_height >= 4:
+        score -= 15
+        cautions.append("Elevated waves may limit exposed-water options.")
+    elif isinstance(wave_height, (int, float)) and wave_height <= 2:
+        positives.append("Nearby buoy reports relatively low waves.")
+
+    if (
+        isinstance(wave_height, (int, float))
+        and wave_height >= 3
+        and isinstance(wave_period, (int, float))
+        and wave_period <= 5
+    ):
+        score -= 8
+        cautions.append("Short-period waves indicate a steeper, choppier sea state.")
+
+    if isinstance(pressure_tendency, (int, float)):
+        if pressure_tendency <= -2:
+            cautions.append("Pressure is falling quickly; conditions may be changing.")
+        elif abs(pressure_tendency) < 1:
+            positives.append("Pressure has been comparatively steady.")
+
+    score = max(0, min(100, score))
+    if score >= 82:
+        label = "Favorable"
+    elif score >= 62:
+        label = "Mixed"
+    elif score >= 42:
+        label = "Challenging"
+    else:
+        label = "Poor / safety limited"
+
+    return {
+        "score": score,
+        "label": label,
+        "positives": positives,
+        "cautions": cautions,
+        "disclaimer": "Weather and access heuristic only; it does not predict fish activity or catch rate.",
+    }
 
 
 def distance_miles_between(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -192,6 +305,7 @@ class MarineDataService:
         self.session = session
         self.timeout = timeout
         self.station_cache: Dict[str, List[Dict[str, Any]]] = {}
+        self.ndbc_station_cache: Optional[List[Dict[str, Any]]] = None
 
     def fetch_stations(self, station_type: str) -> List[Dict[str, Any]]:
         if station_type in self.station_cache:
@@ -202,7 +316,7 @@ class MarineDataService:
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
             payload = response.json()
-            stations = payload.get("stations", [])
+            stations = payload.get("stations") or payload.get("stationList") or []
             if isinstance(stations, list):
                 self.station_cache[station_type] = stations
                 return stations
@@ -274,10 +388,14 @@ class MarineDataService:
                 value += f" {direction}"
             return {"value": value, "detail": latest.get("t", "latest"), "url": data_url}
 
-        if product in {"water_temperature", "water_level"}:
+        if product in {"water_temperature", "water_level", "salinity"}:
             latest = first_payload_entry(payload.get("data", []))
             raw_value = latest.get("v")
-            unit = "\N{DEGREE SIGN}F" if product == "water_temperature" else "ft"
+            unit = {
+                "water_temperature": "\N{DEGREE SIGN}F",
+                "water_level": " ft",
+                "salinity": " ppt",
+            }[product]
             value = f"{raw_value}{unit}" if raw_value not in {None, ""} else "Unavailable"
             return {"value": value, "detail": latest.get("t", "latest"), "url": data_url}
 
@@ -302,6 +420,144 @@ class MarineDataService:
             }
 
         return {"value": "Unavailable", "detail": "No recent product values returned.", "url": data_url}
+
+    def fetch_ndbc_stations(self) -> List[Dict[str, Any]]:
+        if self.ndbc_station_cache is not None:
+            return self.ndbc_station_cache
+        try:
+            response = self.session.get(NDBC_ACTIVE_STATIONS_URL, timeout=self.timeout)
+            response.raise_for_status()
+            root = ET.fromstring(response.text)
+            stations = []
+            for element in root.findall(".//station"):
+                try:
+                    stations.append(
+                        {
+                            "id": str(element.attrib.get("id") or ""),
+                            "name": str(element.attrib.get("name") or element.attrib.get("id") or "NDBC station"),
+                            "lat": float(element.attrib["lat"]),
+                            "lon": float(element.attrib["lon"]),
+                        }
+                    )
+                except (KeyError, TypeError, ValueError):
+                    continue
+            self.ndbc_station_cache = stations
+        except Exception as exc:
+            logging.debug("NDBC active-station lookup failed: %s", exc)
+            self.ndbc_station_cache = []
+        return self.ndbc_station_cache
+
+    @staticmethod
+    def _ndbc_number(value: Any) -> Optional[float]:
+        text = str(value or "").strip()
+        if not text or text.upper() in {"MM", "N/A"}:
+            return None
+        try:
+            numeric = float(text)
+        except (TypeError, ValueError):
+            return None
+        return numeric
+
+    def fetch_ndbc_observation(self, station_id: str) -> Dict[str, Any]:
+        url = NDBC_REALTIME_URL_TEMPLATE.format(station_id=station_id)
+        response = self.session.get(url, timeout=self.timeout)
+        response.raise_for_status()
+        lines = [line.strip() for line in response.text.splitlines() if line.strip()]
+        header = next((line.lstrip("#").split() for line in lines if line.startswith("#YY")), [])
+        data_line = next((line.split() for line in lines if not line.startswith("#")), [])
+        if not header or not data_line:
+            return {}
+        row = dict(zip(header, data_line))
+
+        def number(field: str) -> Optional[float]:
+            return self._ndbc_number(row.get(field))
+
+        year = int(number("YY") or 0)
+        if year and year < 100:
+            year += 2000
+        observed_at = ""
+        try:
+            observed_at = datetime(
+                year,
+                int(number("MM") or 1),
+                int(number("DD") or 1),
+                int(number("hh") or 0),
+                int(number("mm") or 0),
+            ).strftime("%Y-%m-%d %H:%M UTC")
+        except ValueError:
+            observed_at = "Latest NDBC observation"
+
+        def c_to_f(value: Optional[float]) -> Optional[float]:
+            return value * 9 / 5 + 32 if value is not None else None
+
+        def mps_to_knots(value: Optional[float]) -> Optional[float]:
+            return value * 1.94384 if value is not None else None
+
+        return {
+            "observed_at": observed_at,
+            "wind_direction_deg": number("WDIR"),
+            "wind_speed_kt": mps_to_knots(number("WSPD")),
+            "gust_kt": mps_to_knots(number("GST")),
+            "wave_height_ft": number("WVHT") * 3.28084 if number("WVHT") is not None else None,
+            "dominant_period_s": number("DPD"),
+            "average_period_s": number("APD"),
+            "wave_direction_deg": number("MWD"),
+            "pressure_inhg": number("PRES") * 0.029529983 if number("PRES") is not None else None,
+            "pressure_tendency_hpa": number("PTDY"),
+            "air_temp_f": c_to_f(number("ATMP")),
+            "water_temp_f": c_to_f(number("WTMP")),
+            "dewpoint_f": c_to_f(number("DEWP")),
+            "visibility_nm": number("VIS"),
+            "tide_ft": number("TIDE"),
+            "url": url,
+        }
+
+    def fetch_nearest_ndbc_data(self, lat: float, lon: float) -> Dict[str, Any]:
+        candidates = []
+        for station in self.fetch_ndbc_stations():
+            distance = distance_miles_between(lat, lon, float(station["lat"]), float(station["lon"]))
+            candidates.append((distance, station))
+        candidates.sort(key=lambda item: item[0])
+
+        for distance, station in candidates[:3]:
+            station_id = str(station.get("id") or "")
+            try:
+                observation = self.fetch_ndbc_observation(station_id)
+            except Exception as exc:
+                logging.debug("NDBC observation lookup failed for %s: %s", station_id, exc)
+                continue
+            useful_fields = [
+                "wave_height_ft", "dominant_period_s", "water_temp_f", "wind_speed_kt", "pressure_inhg"
+            ]
+            if not any(isinstance(observation.get(field), (int, float)) for field in useful_fields):
+                continue
+            wave_height = observation.get("wave_height_ft")
+            wave_period = observation.get("dominant_period_s")
+            if isinstance(wave_height, (int, float)):
+                value = f"{wave_height:.1f} ft"
+                if isinstance(wave_period, (int, float)):
+                    value += f" @ {wave_period:.0f}s"
+            else:
+                value = "Observation available"
+            return {
+                **observation,
+                "label": "NDBC Buoy / Coastal Station",
+                "value": value,
+                "detail": observation.get("observed_at") or "Latest NDBC observation",
+                "station": station.get("name") or station_id,
+                "station_id": station_id,
+                "distance_miles": distance,
+                "station_url": NDBC_STATION_URL_TEMPLATE.format(station_id=station_id),
+                "description": "Nearest active NDBC station with usable real-time observations.",
+            }
+        return {
+            "label": "NDBC Buoy / Coastal Station",
+            "value": "Unavailable",
+            "detail": "No nearby active NDBC station returned usable real-time observations.",
+            "station": "",
+            "distance_miles": None,
+            "station_url": "https://www.ndbc.noaa.gov/obs.shtml",
+        }
 
     def fetch_nearest_marine_data(self, lat: float, lon: float) -> Dict[str, Any]:
         nearest: Dict[str, Any] = {}
@@ -346,4 +602,5 @@ class MarineDataService:
                     "distance_miles": None,
                     "url": COOPS_MAP_URL,
                 }
+        nearest["ndbc"] = self.fetch_nearest_ndbc_data(lat, lon)
         return nearest
