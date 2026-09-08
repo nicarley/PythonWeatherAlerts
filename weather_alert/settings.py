@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import tempfile
 from typing import Any, Dict
 
 
@@ -27,19 +28,39 @@ class SettingsManager:
         try:
             with open(self.file_path, "r", encoding="utf-8") as f:
                 settings = json.load(f)
+                if not isinstance(settings, dict):
+                    logging.error("Settings in %s must contain a JSON object", self.file_path)
+                    return {}
                 logging.info("Settings loaded from %s", self.file_path)
                 return settings
-        except (json.JSONDecodeError, IOError) as e:
+        except (json.JSONDecodeError, UnicodeDecodeError, IOError) as e:
             logging.error("Error loading settings from %s: %s", self.file_path, e)
             return {}
 
     def save(self, settings: Dict[str, Any]) -> bool:
+        temporary_path = None
         try:
-            os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
-            with open(self.file_path, "w", encoding="utf-8") as f:
+            directory = os.path.dirname(os.path.abspath(self.file_path))
+            os.makedirs(directory, exist_ok=True)
+            # Replace only after the complete JSON has reached disk, so a
+            # failed save leaves the user's previous preferences intact.
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=directory,
+                prefix=".settings-", suffix=".tmp", delete=False,
+            ) as f:
+                temporary_path = f.name
                 json.dump(settings, f, indent=4)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(temporary_path, self.file_path)
             logging.info("Settings saved to %s", self.file_path)
             return True
-        except (IOError, OSError) as e:
+        except (OSError, TypeError, ValueError) as e:
             logging.error("Error saving settings to %s: %s", self.file_path, e)
             return False
+        finally:
+            if temporary_path and os.path.exists(temporary_path):
+                try:
+                    os.unlink(temporary_path)
+                except OSError as e:
+                    logging.warning("Could not remove temporary settings file %s: %s", temporary_path, e)

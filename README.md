@@ -20,6 +20,8 @@ PyWeatherAlert is a cross-platform desktop weather monitoring application built 
 - Browse alert history and export incident data to JSON, CSV, or PDF.
 - Use light and dark themes and customize visible panels and web sources.
 - Continue displaying cached data during temporary API outages.
+- Keep the last available weather visible during refresh, with distinct loading, cached, and unavailable states.
+- Use keyboard shortcuts: **F5** to refresh, **Ctrl+,** for Preferences, and **Enter** on a selected alert to open its details.
 
 ## Requirements
 
@@ -106,7 +108,7 @@ Run the unit test suite from the project root:
 python -m pytest
 ```
 
-The tests cover API handling, settings, alert rules, proximity ranking, lifecycle history, escalation, duplicate suppression, delivery health, marine utilities, and webhook behavior.
+The tests cover API handling, settings, alert rules, proximity ranking, lifecycle history, escalation, duplicate suppression, delivery health, marine utilities, webhook behavior, and desktop state transitions. Desktop tests run offscreen with isolated settings and simulated services.
 
 ## Building a desktop package
 

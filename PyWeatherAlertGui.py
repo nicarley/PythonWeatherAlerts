@@ -3054,7 +3054,7 @@ class WeatherAlertApp(QMainWindow):
         super().__init__()
         self.setWindowTitle(f"Weather Alert Station v{versionnumber}")
         self.setGeometry(70, 70, 1500, 920)
-        self.setMinimumSize(1180, 780)
+        self.setMinimumSize(1100, 720)
 
         self._log_buffer: List[str] = []
 
@@ -3168,6 +3168,7 @@ class WeatherAlertApp(QMainWindow):
 
         self._init_ui()
         self._apply_loaded_settings_to_ui()
+        QTimer.singleShot(0, self._set_initial_panel_sizes)
 
         self.log_to_gui(f"Monitoring Location: {self.get_current_location_name()}", level="INFO")
         self._update_location_data(self.current_location_id)
@@ -3492,8 +3493,8 @@ class WeatherAlertApp(QMainWindow):
 
         self.left_rail = QWidget()
         self.left_rail.setObjectName("DecisionRail")
-        self.left_rail.setMinimumWidth(380)
-        self.left_rail.setMaximumWidth(540)
+        self.left_rail.setMinimumWidth(360)
+        self.left_rail.setMaximumWidth(560)
         left_rail_layout = QVBoxLayout(self.left_rail)
         left_rail_layout.setContentsMargins(0, 0, 0, 0)
         left_rail_layout.setSpacing(8)
@@ -3508,7 +3509,12 @@ class WeatherAlertApp(QMainWindow):
         self.workbench_splitter.addWidget(self.right_workspace)
 
         self.dashboard_overview_panel = self._create_dashboard_overview()
-        left_rail_layout.addWidget(self.dashboard_overview_panel, 0)
+        self.overview_scroll = QScrollArea()
+        self.overview_scroll.setWidgetResizable(True)
+        self.overview_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.overview_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.overview_scroll.setWidget(self.dashboard_overview_panel)
+        left_rail_layout.addWidget(self.overview_scroll, 3)
 
         # Backward-compatible handle used by visibility code.
         self.alerts_forecasts_container = self.left_rail
@@ -3551,7 +3557,9 @@ class WeatherAlertApp(QMainWindow):
         self.alerts_display_area.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.alerts_display_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.alerts_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.alerts_display_area.itemDoubleClicked.connect(self._show_current_alert_details)
+        self.alerts_display_area.itemActivated.connect(self._show_current_alert_details)
+        self.alerts_display_area.setAccessibleName("Active weather alerts")
+        self.alerts_display_area.setToolTip("Double-click an alert or press Enter to read its full details.")
         alerts_layout.addWidget(self.alerts_display_area)
 
         self.lifecycle_display_area = QListWidget(self.alerts_group)
@@ -3563,7 +3571,7 @@ class WeatherAlertApp(QMainWindow):
         self.lifecycle_display_area.setSpacing(0)
         self.lifecycle_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         alerts_layout.addWidget(self.lifecycle_display_area)
-        left_rail_layout.addWidget(self.alerts_group, 1)
+        left_rail_layout.addWidget(self.alerts_group, 2)
 
         # Combined Forecasts Group
         self.combined_forecast_widget = QGroupBox("Forecast Board")
@@ -3579,10 +3587,12 @@ class WeatherAlertApp(QMainWindow):
         forecast_board_header_layout.setSpacing(10)
         self.forecast_board_location_label = QLabel("Select a location")
         self.forecast_board_location_label.setObjectName("ForecastBoardLocation")
+        self.forecast_board_location_label.setWordWrap(True)
         forecast_board_header_layout.addWidget(self.forecast_board_location_label)
         forecast_board_header_layout.addStretch()
         self.forecast_board_status_label = QLabel("Waiting for forecast data")
         self.forecast_board_status_label.setObjectName("ForecastBoardStatus")
+        self.forecast_board_status_label.setWordWrap(True)
         self.forecast_board_status_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         forecast_board_header_layout.addWidget(self.forecast_board_status_label)
         self.combined_forecast_main_layout.addWidget(self.forecast_board_header)
@@ -3732,6 +3742,13 @@ class WeatherAlertApp(QMainWindow):
             self.fishing_view = QLabel("Fishing conditions unavailable until a location loads.")
             self.fishing_view.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.fishing_view.setWordWrap(True)
+            for view in (
+                self.web_view, self.map_view, self.nws_view, self.digital_forecast_view,
+                self.forecast_trends_view, self.fishing_view,
+            ):
+                view.setWordWrap(True)
+                view.setMinimumWidth(0)
+                view.setMargin(20)
             self.web_tabs.addTab(self.web_view, "Radar")
             self.web_tabs.addTab(self.map_view, "Map")
             self.web_tabs.addTab(self.forecast_trends_view, "Data")
@@ -3762,11 +3779,13 @@ class WeatherAlertApp(QMainWindow):
 
         self.bottom_splitter.setSizes([760, 1])
         self.workbench_splitter.setSizes([440, 1060])
+        self.workbench_splitter.setStretchFactor(0, 0)
+        self.workbench_splitter.setStretchFactor(1, 1)
+        self.workbench_splitter.splitterMoved.connect(self._on_workbench_resized)
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
-        self.network_status_indicator = QLabel("● Network OK")
-        self.network_status_indicator.setStyleSheet("color: green; font-weight: bold;")
+        self.network_status_indicator = QLabel("● Waiting for NWS")
         self.status_bar.addPermanentWidget(self.network_status_indicator)
         self.startup_health_indicator = QLabel("Setup OK")
         self.startup_health_indicator.setStyleSheet("color: #047857; font-weight: bold;")
@@ -3774,6 +3793,16 @@ class WeatherAlertApp(QMainWindow):
         self._check_startup_health()
 
         self._init_system_tray()
+        self._set_control_accessibility()
+
+    def _set_control_accessibility(self) -> None:
+        """Give icon controls a useful name for keyboard and screen-reader users."""
+        for button in self.findChildren(QPushButton):
+            if not button.text() and button.toolTip():
+                button.setAccessibleName(button.toolTip())
+        self.location_combo.setAccessibleName("Selected weather location")
+        self.top_interval_combo.setAccessibleName("Weather check interval")
+        self.location_overview_list.setAccessibleName("Monitored locations")
 
     def _check_startup_health(self) -> None:
         warnings = []
@@ -3910,7 +3939,7 @@ class WeatherAlertApp(QMainWindow):
         strip = QFrame()
         self.top_status_strip = strip
         strip.setObjectName("TopStatusStrip")
-        strip_layout = QHBoxLayout(strip)
+        strip_layout = QGridLayout(strip)
         strip_layout.setContentsMargins(8, 6, 8, 6)
         strip_layout.setSpacing(8)
 
@@ -3925,11 +3954,6 @@ class WeatherAlertApp(QMainWindow):
         self.header_context_label.setObjectName("HeaderContext")
         brand_layout.addWidget(self.app_title_label)
         brand_layout.addWidget(self.header_context_label)
-
-        divider = QFrame()
-        divider.setObjectName("HeaderDivider")
-        divider.setFrameShape(QFrame.Shape.VLine)
-        divider.setFixedWidth(1)
 
         controls_section = QFrame()
         controls_section.setObjectName("TopToolbarSection")
@@ -3950,7 +3974,7 @@ class WeatherAlertApp(QMainWindow):
         self.top_repeater_label.setMaximumWidth(180)
         self.top_countdown_label = QLabel("Next --:--")
         self.top_countdown_label.setObjectName("TopStatusChip")
-        self.top_countdown_label.setMaximumWidth(150)
+        self.top_countdown_label.setMaximumWidth(200)
         self.current_temperature_label = QLabel("Temp --")
         self.current_temperature_label.setObjectName("TopStatusChip")
         self.current_temperature_label.setMaximumWidth(130)
@@ -3990,10 +4014,10 @@ class WeatherAlertApp(QMainWindow):
         self.top_interval_combo.currentTextChanged.connect(self._on_top_interval_changed)
         controls_layout.addWidget(self.top_interval_combo)
 
-        self.refresh_now_button = QPushButton("")
-        self.refresh_now_button.setObjectName("HeaderIconButton")
+        self.refresh_now_button = QPushButton("Refresh")
+        self.refresh_now_button.setObjectName("SecondaryActionButton")
         self.refresh_now_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_BrowserReload))
-        self.refresh_now_button.setToolTip("Refresh current location now")
+        self.refresh_now_button.setToolTip("Refresh current location now (F5)")
         self.refresh_now_button.setMinimumHeight(28)
         self.refresh_now_button.clicked.connect(self._refresh_current_location)
         controls_layout.addWidget(self.refresh_now_button)
@@ -4014,16 +4038,16 @@ class WeatherAlertApp(QMainWindow):
         self.mute_button.toggled.connect(self._on_mute_toggled)
         controls_layout.addWidget(self.mute_button)
 
-        self.incident_center_button = QPushButton("")
-        self.incident_center_button.setObjectName("HeaderIconButton")
+        self.incident_center_button = QPushButton("Incidents")
+        self.incident_center_button.setObjectName("SecondaryActionButton")
         self.incident_center_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView))
         self.incident_center_button.setToolTip("Open incident center")
         self.incident_center_button.setMinimumHeight(28)
         self.incident_center_button.clicked.connect(lambda checked=False: self._show_incident_center())
         controls_layout.addWidget(self.incident_center_button)
 
-        self.preferences_button = QPushButton("")
-        self.preferences_button.setObjectName("HeaderIconButton")
+        self.preferences_button = QPushButton("Preferences")
+        self.preferences_button.setObjectName("SecondaryActionButton")
         self.preferences_button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView))
         self.preferences_button.setToolTip("Open preferences")
         self.preferences_button.setMinimumHeight(28)
@@ -4035,11 +4059,11 @@ class WeatherAlertApp(QMainWindow):
         status_layout.addWidget(self.current_temperature_label)
         status_layout.addWidget(self.last_announcement_label)
         status_layout.addWidget(self.current_time_label)
-        strip_layout.addWidget(brand_section, 0)
-        strip_layout.addWidget(divider, 0)
-        strip_layout.addWidget(controls_section, 0)
-        strip_layout.addWidget(status_section, 0)
-        strip_layout.addStretch(1)
+        controls_layout.addStretch(1)
+        strip_layout.addWidget(brand_section, 0, 0)
+        strip_layout.addWidget(status_section, 0, 1, alignment=Qt.AlignmentFlag.AlignRight)
+        strip_layout.addWidget(controls_section, 1, 0, 1, 2)
+        strip_layout.setColumnStretch(0, 1)
 
         top_status_layout.addWidget(strip)
 
@@ -4061,9 +4085,12 @@ class WeatherAlertApp(QMainWindow):
         title_label = QLabel(title)
         title_label.setProperty("role", "title")
         value_label = QLabel("--")
+        value_label.setWordWrap(True)
+        value_label.setTextFormat(Qt.TextFormat.PlainText)
         value_label.setProperty("role", "value")
         value_label.setStyleSheet(f"color: {accent};")
         detail_label = QLabel("Waiting for data")
+        detail_label.setTextFormat(Qt.TextFormat.PlainText)
         detail_label.setWordWrap(True)
         detail_label.setProperty("role", "detail")
 
@@ -4085,6 +4112,8 @@ class WeatherAlertApp(QMainWindow):
         header_layout.setSpacing(1)
         self.dashboard_headline = QLabel("Awaiting station data")
         self.dashboard_headline.setObjectName("DashboardHeadline")
+        self.dashboard_headline.setWordWrap(True)
+        self.dashboard_headline.setTextFormat(Qt.TextFormat.PlainText)
         self.dashboard_subheadline = QLabel("Alerts, conditions, forecast trends, and notification health are summarized for rapid scan.")
         self.dashboard_subheadline.setWordWrap(True)
         self.dashboard_subheadline.setObjectName("DashboardSubheadline")
@@ -4127,10 +4156,14 @@ class WeatherAlertApp(QMainWindow):
 
         self.location_overview_list = QListWidget()
         self.location_overview_list.setObjectName("LocationOverviewList")
-        self.location_overview_list.setMinimumHeight(92)
-        self.location_overview_list.setMaximumHeight(138)
+        self.location_overview_list.setMinimumHeight(64)
+        self.location_overview_list.setMaximumHeight(100)
         self.location_overview_list.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.location_overview_list.setWordWrap(True)
+        self.location_overview_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.location_overview_list.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.location_overview_list.itemClicked.connect(self._on_location_overview_clicked)
+        self.location_overview_list.itemActivated.connect(self._on_location_overview_clicked)
         layout.addWidget(self.location_overview_list)
         return panel
 
@@ -4143,6 +4176,7 @@ class WeatherAlertApp(QMainWindow):
         preferences_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView),
                                      "&Preferences...", self)
         preferences_action.triggered.connect(lambda _checked=False: self._open_preferences_dialog("General"))
+        preferences_action.setShortcut("Ctrl+,")
         file_menu.addAction(preferences_action)
         self.file_show_monitoring_status_action = QAction("Show Operational Status", self, checkable=True)
         self.file_show_monitoring_status_action.toggled.connect(self._on_show_monitoring_status_toggled)
@@ -4351,16 +4385,16 @@ class WeatherAlertApp(QMainWindow):
             label.setMinimumHeight(max(label.minimumHeight(), line_height + 12))
             label.setMaximumHeight(max(label.maximumHeight(), line_height + 16))
             label.setStyleSheet(
-                f"padding: 4px 6px; background-color: {colors['bg']}; color: {colors['text']}; "
-                f"border: none; border-bottom: 1px solid {colors['border']}; font-weight: 700;"
+                f"QLabel {{ padding: 4px 6px; background-color: {colors['bg']}; color: {colors['text']}; "
+                f"border: none; border-bottom: 1px solid {colors['border']}; font-weight: 700; }}"
                 f"QToolTip {{ background-color: {tooltip_bg}; color: {tooltip_text}; "
                 f"border: 1px solid {tooltip_border}; padding: 8px 10px; border-radius: 6px; }}"
             )
         else:
             weight = "600" if row_index == 1 else "500"
             label.setStyleSheet(
-                f"padding: 4px 6px; background-color: {colors['bg']}; color: {colors['text']}; "
-                f"border: none; border-bottom: 1px solid {colors['border']}; font-weight: {weight};"
+                f"QLabel {{ padding: 4px 6px; background-color: {colors['bg']}; color: {colors['text']}; "
+                f"border: none; border-bottom: 1px solid {colors['border']}; font-weight: {weight}; }}"
                 f"QToolTip {{ background-color: {tooltip_bg}; color: {tooltip_text}; "
                 f"border: 1px solid {tooltip_border}; padding: 8px 10px; border-radius: 6px; }}"
             )
@@ -4374,7 +4408,7 @@ class WeatherAlertApp(QMainWindow):
     def _is_forecast_layout_stacked(self) -> bool:
         if not hasattr(self, "combined_forecast_widget"):
             return False
-        return self.combined_forecast_widget.width() < 860
+        return self.combined_forecast_widget.width() < 1200
 
     def _apply_forecast_layout_mode(self) -> None:
         if not hasattr(self, "forecast_cards_layout"):
@@ -4500,24 +4534,13 @@ class WeatherAlertApp(QMainWindow):
         title = alert.get("title", "N/A Title")
         severity = alert.get("severity") or "Unknown"
         urgency = alert.get("urgency") or "Unknown"
-        certainty = alert.get("certainty") or "Unknown"
-        summary = self._compact_text(alert.get("summary", "No summary available."), 280)
-        area_desc = self._compact_text(alert.get("area_desc", ""), 110)
-        instruction = self._compact_text(alert.get("instruction", ""), 180)
-
-        meta_parts = [f"Severity {severity}", f"Urgency {urgency}", f"Certainty {certainty}"]
+        meta_parts = [severity, urgency]
         if isinstance(distance_miles, (int, float)):
-            meta_parts.append(f"{distance_miles:.1f} mi from monitored point")
-        if area_desc:
-            meta_parts.append(f"Areas: {area_desc}")
-
-        timing = self._alert_time_window_text(alert)
-        if timing:
-            meta_parts.append(timing)
-
-        lines = [title, " | ".join(meta_parts), summary]
-        if instruction:
-            lines.append(f"Action: {instruction}")
+            meta_parts.append(f"{distance_miles:.1f} mi away")
+        if alert.get("ends") or alert.get("expires"):
+            meta_parts.append(self._expiration_countdown_text(alert))
+        detail = alert.get("instruction") or alert.get("summary") or "Open this alert for full details."
+        lines = [title, " · ".join(meta_parts), self._compact_text(detail, 160)]
         if escalation.get("escalate"):
             reasons = ", ".join(escalation.get("reasons", []))
             lines.insert(1, f"Escalated: {reasons or 'rule matched'}")
@@ -4599,14 +4622,25 @@ class WeatherAlertApp(QMainWindow):
         item.setForeground(QColor(foreground))
 
     def _update_location_data(self, location_id):
+        cached = self.last_known_data_by_location.get(location_id)
+        loading_status = {
+            "state": "loading",
+            "detail": "Refreshing from NWS",
+            "fetched_at": cached.get("fetched_at") if cached else None,
+        }
         if self._check_in_progress:
             self._pending_location_id = location_id
+            if location_id == self.current_location_id:
+                loading_status["detail"] = "Refresh queued; waiting for the current check"
+                self.location_runtime_status[location_id] = loading_status
+                self._clear_and_set_loading_states()
+                self._update_dashboard_summary()
+                self.update_status(f"Refresh queued for {self.get_location_name_by_id(location_id)}.")
             self.log_to_gui("A check is already running; queued latest location refresh request.", level="DEBUG")
             return
 
         self._check_in_progress = True
-        self.location_runtime_status[location_id] = {"state": "loading", "detail": "Refreshing from NWS"}
-        self._update_dashboard_summary()
+        self.location_runtime_status[location_id] = loading_status
         if location_id == self.current_location_id:
             self.update_status(f"Fetching data for {self.get_location_name_by_id(location_id)}...")
             self._clear_and_set_loading_states()
@@ -4615,6 +4649,7 @@ class WeatherAlertApp(QMainWindow):
                 f"Monitoring {self.get_location_name_by_id(location_id)} in the background...",
                 level="DEBUG",
             )
+        self._update_dashboard_summary()
 
         worker = Worker(self._fetch_all_data_for_location, location_id)
         worker.signals.result.connect(self._on_location_data_loaded)
@@ -4628,7 +4663,8 @@ class WeatherAlertApp(QMainWindow):
         if not is_active:
             self.main_check_timer.stop()
             self.countdown_timer.stop()
-            self.top_countdown_label.setText("Next Check: --:-- (Paused)")
+            self.top_countdown_label.setText("Auto-refresh paused")
+            self.top_countdown_label.setToolTip("Enable Auto-Refresh Station in the Monitor menu to schedule checks.")
             return
 
         if self.current_check_interval_ms <= 0:
@@ -4813,28 +4849,12 @@ class WeatherAlertApp(QMainWindow):
                 stale_text = f", stale {stale_seconds // 60}m {stale_seconds % 60}s"
             self.network_status_indicator.setText(f"● Offline (Using Cached Data{stale_text})")
             self.network_status_indicator.setStyleSheet("color: #b58900; font-weight: bold;")
-            self.current_coords = cached.get("coords")
-            self.current_conditions_by_location[failed_location_id] = cached.get("current_conditions") or {}
-            self.current_marine_data_by_location[failed_location_id] = cached.get("marine_data") or {}
             self.location_runtime_status[failed_location_id] = {
                 "state": "cached",
                 "detail": f"Cached data in use{stale_text}",
                 "fetched_at": cached.get("fetched_at"),
             }
-            self._update_alerts_display_area(cached.get("alerts", []), failed_location_id, None)
-            self._update_lifecycle_display(None)
-            self._update_hourly_forecast_display(cached.get("hourly_forecast"), cached.get("grid_forecast"))
-            self._update_daily_forecast_display(cached.get("daily_forecast"), cached.get("grid_forecast"))
-            self._update_forecast_trends(cached.get("hourly_forecast"), cached.get("grid_forecast"))
-            self._update_fishing_conditions(
-                cached.get("hourly_forecast"),
-                cached.get("grid_forecast"),
-                cached.get("marine_data"),
-            )
-            self._update_alert_map(cached.get("alerts", []))
-            self._update_nws_tab()
-            if QWebEngineView and self.web_view:
-                self._load_web_view_url(self.current_radar_url)
+            self._render_cached_location_data(failed_location_id)
             self._update_dashboard_summary()
             self._finish_check_cycle()
             return
@@ -4850,16 +4870,76 @@ class WeatherAlertApp(QMainWindow):
         self._update_daily_forecast_display(None, None)
         self._update_forecast_trends(None, None)
         self._update_fishing_conditions(None, None, None)
-        self._update_nws_tab()
+        self.forecast_board_status_label.setText("Forecast unavailable · refresh to retry")
+        self.forecast_board_status_label.setToolTip(str(e))
+        self.lifecycle_display_area.clear()
+        self.lifecycle_display_area.addItem("Lifecycle status unavailable until a check succeeds.")
+        self._set_location_web_placeholder("Weather data unavailable. Use Refresh to try again.")
         self._update_dashboard_summary()
         self._finish_check_cycle()
 
+    def _render_cached_location_data(self, location_id: str) -> None:
+        cached = self.last_known_data_by_location.get(location_id)
+        if not cached:
+            return
+        self.current_coords = cached.get("coords")
+        self.current_conditions_by_location[location_id] = cached.get("current_conditions") or {}
+        self.current_marine_data_by_location[location_id] = cached.get("marine_data") or {}
+        self._update_alerts_display_area(cached.get("alerts", []), location_id, None)
+        self._update_lifecycle_display(self.last_lifecycle_by_location.get(location_id))
+        self._update_hourly_forecast_display(cached.get("hourly_forecast"), cached.get("grid_forecast"))
+        self._update_daily_forecast_display(cached.get("daily_forecast"), cached.get("grid_forecast"))
+        self._update_forecast_trends(cached.get("hourly_forecast"), cached.get("grid_forecast"))
+        self._update_fishing_conditions(
+            cached.get("hourly_forecast"), cached.get("grid_forecast"), cached.get("marine_data")
+        )
+        self._update_alert_map(cached.get("alerts", []))
+        self._update_nws_tab()
+        if QWebEngineView and self.web_view:
+            self._load_web_view_url(self.current_radar_url)
+
+    def _set_location_web_placeholder(self, message: str) -> None:
+        """Avoid displaying the previous location's weather while coordinates resolve."""
+        text = f"{self.get_current_location_name()}: {message}"
+        background = "#151a20" if self.current_dark_mode_enabled else "#f5f8fb"
+        foreground = "#d7e1eb" if self.current_dark_mode_enabled else "#334155"
+        for name in ("web_view", "map_view", "nws_view", "digital_forecast_view"):
+            view = getattr(self, name, None)
+            if QWebEngineView and isinstance(view, QWebEngineView):
+                view.setHtml(
+                    "<html><body style='font-family: sans-serif; padding: 24px; "
+                    f"background: {background}; color: {foreground}'>"
+                    f"<p>{html.escape(text)}</p></body></html>"
+                )
+            elif isinstance(view, QLabel):
+                view.setText(text)
+        self._last_map_signature = ()
+        self._last_loaded_web_url = ""
+        self._last_loaded_nws_url = ""
+        self._last_nws_placeholder_location_id = self.current_location_id
+
     def _clear_and_set_loading_states(self):
+        cached = self.last_known_data_by_location.get(self.current_location_id)
+        if cached:
+            if getattr(self, "_displayed_location_id", None) != self.current_location_id:
+                self._render_cached_location_data(self.current_location_id)
+            self.network_status_indicator.setText("● Refreshing · previous data")
+            self.network_status_indicator.setStyleSheet("color: #b58900; font-weight: bold;")
+            self.network_status_indicator.setToolTip("Showing the last successful check while fresh data loads.")
+            self._apply_alert_filters()
+            self.forecast_board_status_label.setText("Refreshing · showing previous forecast")
+            return
+
+        self._displayed_location_id = self.current_location_id
+        self.current_coords = None
         self.alerts_display_area.clear()
-        self.alerts_meta_label.setText(f"{self.get_current_location_name()}: loading alerts and forecast data...")
-        self.alerts_display_area.addItem("Loading alerts...")
+        self._add_alert_placeholder("Checking NWS alerts…", "loading")
+        self._apply_alert_filters()
         self.lifecycle_display_area.clear()
-        self.lifecycle_display_area.addItem("Loading lifecycle...")
+        self.lifecycle_display_area.addItem("Lifecycle will appear after the first successful check.")
+        self.network_status_indicator.setText("● Checking NWS")
+        self.network_status_indicator.setStyleSheet("color: #64748b; font-weight: bold;")
+        self.network_status_indicator.setToolTip("Alert and forecast status have not been verified yet.")
         self.latest_temperature_reading = None
         self.current_conditions_by_location[self.current_location_id] = {}
         self.current_marine_data_by_location[self.current_location_id] = {}
@@ -4871,6 +4951,7 @@ class WeatherAlertApp(QMainWindow):
         self._add_forecast_empty_state(self.daily_forecast_layout, "Loading the five-day outlook…", 5)
         self._update_forecast_trends(None, None)
         self._update_fishing_conditions(None, None, None)
+        self._set_location_web_placeholder("Loading weather data…")
 
     def _get_location_config(self, location_id: str) -> Dict[str, Any]:
         for location in self.locations:
@@ -6647,16 +6728,26 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
 
         return new_alert_titles
 
+    def _add_alert_placeholder(self, message: str, reason: str) -> None:
+        item = QListWidgetItem(message)
+        item.setData(Qt.ItemDataRole.UserRole + 3, True)
+        item.setData(Qt.ItemDataRole.UserRole + 4, reason)
+        item.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        item.setSizeHint(QSize(item.sizeHint().width(), self._alert_item_height_for_text(message)))
+        self.alerts_display_area.addItem(item)
+
     def _update_alerts_display_area(self, alerts: List[Any], location_id: str, lifecycle: Optional[Dict[str, Any]] = None):
+        self._displayed_location_id = location_id
         self.alerts_display_area.clear()
         if not alerts:
-            item = QListWidgetItem(f"No active alerts for {self.get_location_name_by_id(location_id)}.")
-            item.setData(Qt.ItemDataRole.UserRole + 1, "generic")
-            item.setData(Qt.ItemDataRole.UserRole + 3, True)
-            item.setData(Qt.ItemDataRole.UserRole + 4, "none")
-            item.setSizeHint(QSize(item.sizeHint().width(), 54))
-            self.alerts_display_area.addItem(item)
-            self.alerts_meta_label.setText(f"{self.get_location_name_by_id(location_id)}: no active alerts right now.")
+            state = self.location_runtime_status.get(location_id, {}).get("state", "idle")
+            has_data = bool(self.last_known_data_by_location.get(location_id)) or state in {"online", "cached"}
+            if has_data:
+                self._add_alert_placeholder(f"No active alerts in the last successful check for {self.get_location_name_by_id(location_id)}.", "none")
+            elif state == "error":
+                self._add_alert_placeholder("Alert status unavailable. Use Refresh to try again.", "error")
+            else:
+                self._add_alert_placeholder("Checking NWS alerts…" if state == "loading" else "Waiting for the first alert check.", "loading")
             self._apply_alert_filters()
             return
 
@@ -6688,14 +6779,10 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
             rendered_alert_count += 1
 
         if rendered_alert_count == 0:
-            item = QListWidgetItem(
-                "Active NWS alerts are present, but none match this location's severity, type, or quiet-hour rules."
+            self._add_alert_placeholder(
+                "Active NWS alerts are present, but none match this location's severity, type, or quiet-hour rules.",
+                "suppressed",
             )
-            item.setData(Qt.ItemDataRole.UserRole + 1, "generic")
-            item.setData(Qt.ItemDataRole.UserRole + 3, True)
-            item.setData(Qt.ItemDataRole.UserRole + 4, "suppressed")
-            item.setSizeHint(QSize(item.sizeHint().width(), 64))
-            self.alerts_display_area.addItem(item)
         self._apply_alert_filters()
 
     def _play_alert_sound(self, alert_text: str, rules: Optional[Dict[str, Any]] = None, escalated: bool = False):
@@ -7646,6 +7733,7 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         if not hasattr(self, "location_overview_list"):
             return
         self.location_overview_list.blockSignals(True)
+        scroll_position = self.location_overview_list.verticalScrollBar().value()
         self.location_overview_list.clear()
         for loc in self.locations:
             loc_id = loc.get("id", "")
@@ -7654,11 +7742,16 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
                 f"  |  {self._describe_location_escalation(loc_id)}"
                 f"  |  {self._describe_location_health(loc_id)}"
             )
-            item = QListWidgetItem(text)
+            has_data = loc_id in self.last_known_data_by_location
+            alert_count = len(self.current_alerts_by_location.get(loc_id, []))
+            count_text = f"{alert_count} active alert{'s' if alert_count != 1 else ''}" if has_data else "Awaiting data"
+            item = QListWidgetItem(f"{loc.get('name', 'Unknown')} · {count_text}\n{self._describe_location_health(loc_id)}")
+            item.setToolTip(self._format_rich_tooltip(text))
             item.setData(Qt.ItemDataRole.UserRole, loc_id)
-            if loc_id == self.current_location_id:
-                item.setBackground(QColor("#dbeafe"))
             self.location_overview_list.addItem(item)
+            if loc_id == self.current_location_id:
+                self.location_overview_list.setCurrentItem(item)
+        self.location_overview_list.verticalScrollBar().setValue(scroll_position)
         self.location_overview_list.blockSignals(False)
 
     @staticmethod
@@ -7768,13 +7861,23 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         )
         return severity.upper(), detail
 
-    def _set_metric_card(self, value_label: QLabel, detail_label: QLabel, value: str, detail: str, limit: int = 86) -> None:
+    def _set_metric_card(self, value_label: QLabel, detail_label: QLabel, value: str, detail: str, limit: int = 86, tone: str = "neutral") -> None:
         compact_detail = self._compact_text(detail, limit)
         value_label.setText(value)
         detail_label.setText(compact_detail)
         tooltip = self._format_rich_tooltip(f"{value}\n{detail}")
         value_label.setToolTip(tooltip)
         detail_label.setToolTip(tooltip)
+        colors = (
+            {"neutral": "#b8c7d9", "good": "#6ee7b7", "info": "#7dd3fc", "warning": "#fdba74", "danger": "#fca5a5"}
+            if self.current_dark_mode_enabled else
+            {"neutral": "#475569", "good": "#047857", "info": "#0369a1", "warning": "#9a3412", "danger": "#b91c1c"}
+        )
+        accent = colors.get(tone, colors["neutral"])
+        value_label.setStyleSheet(f"color: {accent};")
+        accent_bar = value_label.parentWidget().findChild(QFrame, "OverviewCardAccent")
+        if accent_bar:
+            accent_bar.setStyleSheet(f"background-color: {accent};")
 
     def _update_dashboard_summary(self) -> None:
         if not hasattr(self, "dashboard_headline"):
@@ -7787,38 +7890,53 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         total_attempts = sum(int(data.get("attempts", 0)) for data in stats.values())
         total_failures = sum(int(data.get("failures", 0)) for data in stats.values())
         worst_alert = self._top_hazard_alert(alerts)
+        state = status.get("state", "idle")
+        has_data = self.current_location_id in self.last_known_data_by_location or state in {"online", "cached"}
+        data_is_old = state in {"loading", "cached"} and has_data
 
-        self.dashboard_headline.setText(f"Now monitoring {self.get_current_location_name()}")
+        self.dashboard_headline.setText(self.get_current_location_name())
         if hasattr(self, "header_context_label"):
-            self.header_context_label.setText(
-                f"{self.get_current_location_name()} | {len(alerts)} active | {self._describe_location_health(self.current_location_id)}"
-            )
-        if worst_alert:
-            self.dashboard_subheadline.setText(
+            self.header_context_label.setText("NWS alerts and local forecasts")
+        if not has_data:
+            summary = "Alert status is unavailable. Refresh to try again." if state == "error" else "Checking NWS alerts and forecasts for this location…"
+        elif data_is_old:
+            summary = "Showing the last available weather data while refreshing." if state == "loading" else "Refresh failed. Showing the last available weather data."
+        elif worst_alert:
+            summary = (
                 f"Primary hazard is {worst_alert.get('title', 'active alert')} "
                 f"({self._expiration_countdown_text(worst_alert)})."
             )
         else:
-            self.dashboard_subheadline.setText("No active alerts. Current conditions, forecast trends, and delivery health remain available.")
+            summary = "No active NWS alerts for this location."
+        self.dashboard_subheadline.setText(summary)
 
         hazard_value, hazard_detail = self._hazard_card_text(worst_alert)
-        self._set_metric_card(self.hazard_value_label, self.hazard_detail_label, hazard_value, hazard_detail, 78)
+        if not has_data:
+            hazard_value, hazard_detail = "Unknown", "Waiting for a successful NWS alert check."
+        elif data_is_old:
+            hazard_detail = f"Last available check: {hazard_detail}"
+        hazard_tone = "danger" if worst_alert and self._severity_rank(worst_alert.get("severity")) >= 3 else "warning" if worst_alert or data_is_old else "good" if has_data else "neutral"
+        self._set_metric_card(self.hazard_value_label, self.hazard_detail_label, hazard_value, hazard_detail, 78, hazard_tone)
 
         condition_value, condition_detail = self._condition_card_text(conditions)
-        self._set_metric_card(self.conditions_value_label, self.conditions_detail_label, condition_value, condition_detail, 86)
+        self._set_metric_card(self.conditions_value_label, self.conditions_detail_label, condition_value, condition_detail, 86, "info")
 
         active_detail = (
             "No active alerts." if not alerts else
             f"Highest severity: {worst_alert.get('severity', 'Unknown')} · {len(lifecycle.get('new', []))} new this cycle"
         )
-        self._set_metric_card(self.active_alerts_value_label, self.active_alerts_detail_label, str(len(alerts)), active_detail)
+        if not has_data:
+            active_detail = "Alert count is not available yet."
+        elif data_is_old:
+            active_detail = f"Last available check: {len(alerts)} active."
+        self._set_metric_card(self.active_alerts_value_label, self.active_alerts_detail_label, str(len(alerts)) if has_data else "—", active_detail, tone=hazard_tone)
 
         escalation_count = self._active_escalation_count(self.current_location_id)
         escalation_detail = (
             "No repeating escalations armed." if escalation_count == 0 else
             f"{escalation_count} escalated alert(s) still repeating."
         )
-        self._set_metric_card(self.escalations_value_label, self.escalations_detail_label, str(escalation_count), escalation_detail)
+        self._set_metric_card(self.escalations_value_label, self.escalations_detail_label, str(escalation_count), escalation_detail, tone="warning" if escalation_count else "neutral")
 
         state_value = {
             "loading": "LOADING",
@@ -7831,6 +7949,7 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
             self.data_state_detail_label,
             state_value,
             self._describe_location_health(self.current_location_id),
+            tone={"online": "good", "cached": "warning", "error": "danger", "loading": "info"}.get(state, "neutral"),
         )
 
         success_rate = 100.0 if total_attempts == 0 else ((total_attempts - total_failures) / total_attempts) * 100.0
@@ -7838,7 +7957,14 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
             "No notification traffic yet." if total_attempts == 0 else
             f"{total_failures} failed of {total_attempts} recent attempts."
         )
-        self._set_metric_card(self.delivery_value_label, self.delivery_detail_label, f"{success_rate:.0f}%", delivery_detail)
+        self._set_metric_card(self.delivery_value_label, self.delivery_detail_label, f"{success_rate:.0f}%" if total_attempts else "—", delivery_detail, tone="warning" if total_failures else "good" if total_attempts else "neutral")
+
+        if hasattr(self, "network_status_indicator"):
+            network_text = {"loading": "Refreshing NWS", "online": "NWS connected", "cached": "Using cached data", "error": "NWS unavailable"}.get(state, "Waiting for NWS")
+            color = ("#6ee7b7" if self.current_dark_mode_enabled else "#047857") if state == "online" else ("#fdba74" if self.current_dark_mode_enabled else "#9a3412") if state in {"cached", "error"} else ("#b8c7d9" if self.current_dark_mode_enabled else "#475569")
+            self.network_status_indicator.setText(f"● {network_text}")
+            self.network_status_indicator.setStyleSheet(f"color: {color}; font-weight: bold;")
+            self.network_status_indicator.setToolTip(self._describe_location_health(self.current_location_id))
 
         self._refresh_location_overview()
 
@@ -7923,7 +8049,8 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
             self.log_to_gui("Timed checks paused.", level="INFO")
             self.main_check_timer.stop()
             self.countdown_timer.stop()
-            self.top_countdown_label.setText("Next --:-- (Paused)")
+            self.top_countdown_label.setText("Auto-refresh paused")
+            self.top_countdown_label.setToolTip("Enable Auto-Refresh Station in the Monitor menu to schedule checks.")
 
     def _reset_and_start_countdown(self, total_seconds: int):
         self.countdown_timer.stop()
@@ -7972,6 +8099,7 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         self.log_widget.setVisible(show_log and not tabs_fullscreen)
         if hasattr(self, "dashboard_overview_panel"):
             self.dashboard_overview_panel.setVisible(show_monitoring_status and not tabs_fullscreen)
+            self.overview_scroll.setVisible(show_monitoring_status and not tabs_fullscreen)
         if hasattr(self, "location_overview_header"):
             self.location_overview_header.setVisible(show_location_overview and not tabs_fullscreen)
         if hasattr(self, "location_overview_list"):
@@ -7980,6 +8108,7 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
             self.top_status_strip.setVisible(not tabs_fullscreen)
         if self.statusBar():
             self.statusBar().setVisible(not tabs_fullscreen)
+        QTimer.singleShot(0, self._on_workbench_resized)
 
     # --- Action Handlers ---
     def _on_announce_alerts_toggled(self, checked):
@@ -8385,13 +8514,13 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         self.daily_forecast_widget.setFont(daily_font)
 
     def _apply_forecast_panel_sizes(self) -> None:
-        window_height = max(self.height(), 820)
+        window_height = max(self.height(), 720)
         is_stacked = self._is_forecast_layout_stacked() if hasattr(self, "combined_forecast_widget") else False
         alerts_panel_height = max(140, min(300 if is_stacked else 220, int(window_height * (0.23 if is_stacked else 0.17))))
         lifecycle_height = max(42, min(70, int(window_height * 0.055)))
         forecast_panel_height = max(
-            184,
-            min(236 if is_stacked else 212, int(window_height * (0.23 if is_stacked else 0.19))),
+            130,
+            min(180 if is_stacked else 212, int(window_height * (0.17 if is_stacked else 0.19))),
         )
 
         self.alerts_display_area.setMinimumHeight(alerts_panel_height)
@@ -8410,14 +8539,16 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         unified_outer_height = max(alerts_outer_height, forecast_outer_height)
         self.alerts_group.setMinimumHeight(unified_outer_height)
         self.alerts_group.setMaximumHeight(unified_outer_height)
-        combined_outer_height = (forecast_panel_height * (2 if is_stacked else 1)) + (112 if is_stacked else 82)
+        both_forecasts = not self.hourly_forecast_group.isHidden() and not self.daily_forecast_group.isHidden()
+        stacked_pair = is_stacked and both_forecasts
+        combined_outer_height = (forecast_panel_height * (2 if stacked_pair else 1)) + (112 if stacked_pair else 82)
         unified_combined_height = combined_outer_height if hasattr(self, "workbench_splitter") else max(unified_outer_height, combined_outer_height)
         self.combined_forecast_widget.setMinimumHeight(unified_combined_height)
         self.combined_forecast_widget.setMaximumHeight(unified_combined_height)
         if hasattr(self, "workbench_splitter"):
-            self.alerts_display_area.setMinimumHeight(max(220, int(window_height * 0.28)))
+            self.alerts_display_area.setMinimumHeight(140)
             self.alerts_display_area.setMaximumHeight(16777215)
-            self.alerts_group.setMinimumHeight(260)
+            self.alerts_group.setMinimumHeight(220)
             self.alerts_group.setMaximumHeight(16777215)
 
     def _apply_color_scheme(self):
@@ -8430,6 +8561,15 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         tooltip_palette.setColor(QPalette.ColorRole.Text, QColor("#102a43"))
         QToolTip.setPalette(tooltip_palette)
         self._apply_forecast_font_sizes()
+        for index in range(self.alerts_display_area.count()):
+            item = self.alerts_display_area.item(index)
+            alert = item.data(Qt.ItemDataRole.UserRole + 2)
+            if isinstance(alert, dict):
+                self._apply_alert_item_visuals(
+                    item, alert, self._classify_alert_category(alert),
+                    bool(alert.get("_escalation", {}).get("escalate")),
+                    bool(alert.get("_notify_allowed")),
+                )
         cached = self.last_known_data_by_location.get(self.current_location_id)
         if cached:
             self._update_hourly_forecast_display(cached.get("hourly_forecast"), cached.get("grid_forecast"))
@@ -8441,6 +8581,18 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
                 cached.get("marine_data"),
             )
         self.log_to_gui(f"Applied {'dark' if self.current_dark_mode_enabled else 'light'} theme.", level="INFO")
+        self._update_dashboard_summary()
+
+    def _set_initial_panel_sizes(self) -> None:
+        self.workbench_splitter.setSizes([440, max(660, self.width() - 480)])
+        self._on_workbench_resized()
+
+    def _on_workbench_resized(self, *_args) -> None:
+        self._apply_forecast_layout_mode()
+        self._apply_forecast_panel_sizes()
+        for index in range(self.alerts_display_area.count()):
+            item = self.alerts_display_area.item(index)
+            item.setSizeHint(QSize(0, self._alert_item_height_for_text(item.text())))
 
     def _apply_log_sort(self):
         current_text = self.log_area.toPlainText()
@@ -8461,9 +8613,10 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         if hasattr(self, "hourly_forecast_widget") and hasattr(self, "daily_forecast_widget"):
-            self._apply_forecast_layout_mode()
+            self._on_workbench_resized()
             self._apply_forecast_font_sizes()
-            self._apply_forecast_panel_sizes()
+            # Child geometries settle after the window resize event.
+            QTimer.singleShot(0, self._on_workbench_resized)
 
     @Slot()
     def _sort_log_ascending(self):
@@ -8567,13 +8720,21 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         location_name: str,
         placeholder_reason: str = "",
     ) -> None:
+        state = self.location_runtime_status.get(self.current_location_id, {}).get("state", "idle")
+        freshness_note = " · refreshing" if state == "loading" else " · cached data" if state == "cached" else ""
         if total_count == 0:
+            if placeholder_reason == "loading":
+                self.alerts_meta_label.setText(f"{location_name}: checking alert status…")
+                return
+            if placeholder_reason == "error":
+                self.alerts_meta_label.setText(f"{location_name}: alert status unavailable. Refresh to retry.")
+                return
             if placeholder_reason == "suppressed":
                 self.alerts_meta_label.setText(
-                    f"{location_name}: active alerts are present, but current rules suppress them."
+                    f"{location_name}: active alerts are present, but current rules suppress them{freshness_note}."
                 )
                 return
-            self.alerts_meta_label.setText(f"{location_name}: no active alerts right now.")
+            self.alerts_meta_label.setText(f"{location_name}: no active alerts in the last successful check{freshness_note}.")
             return
         filter_bits = []
         if self.warning_button.isChecked():
@@ -8584,7 +8745,7 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
             filter_bits.append("advisories")
         filter_text = "all alert types" if self.all_alerts_button.isChecked() or not filter_bits else ", ".join(filter_bits)
         self.alerts_meta_label.setText(
-            f"{location_name}: showing {visible_count} of {total_count} alerts • filter: {filter_text}"
+            f"{location_name}: showing {visible_count} of {total_count} alerts • filter: {filter_text}{freshness_note}"
         )
 
     def _apply_alert_filters(self) -> None:
@@ -8596,6 +8757,12 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         total_alert_count = 0
         placeholder_reason = ""
 
+        # Recreate the filter empty state after counting actual alert rows.
+        for i in range(self.alerts_display_area.count() - 1, -1, -1):
+            item = self.alerts_display_area.item(i)
+            if item.data(Qt.ItemDataRole.UserRole + 4) == "filtered":
+                self.alerts_display_area.takeItem(i)
+
         for i in range(self.alerts_display_area.count()):
             item = self.alerts_display_area.item(i)
             is_placeholder = bool(item.data(Qt.ItemDataRole.UserRole + 3))
@@ -8606,7 +8773,7 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
 
             total_alert_count += 1
             category = item.data(Qt.ItemDataRole.UserRole + 1) or "generic"
-            if show_all or category == "generic":
+            if show_all:
                 item.setHidden(False)
                 visible_count += 1
                 continue
@@ -8619,6 +8786,8 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
             item.setHidden(not show)
             if show:
                 visible_count += 1
+        if total_alert_count and not visible_count:
+            self._add_alert_placeholder("No alerts match these filters. Choose All to see every alert type.", "filtered")
         self._update_alerts_meta_label(
             visible_count,
             total_alert_count,

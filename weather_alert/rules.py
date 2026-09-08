@@ -34,13 +34,21 @@ def normalize_location_entry(location: Dict[str, Any]) -> Dict[str, Any]:
     normalized = copy.deepcopy(location)
     normalized.setdefault("name", "Unnamed")
     normalized.setdefault("id", "")
-    rules = normalized.get("rules", {})
-    merged = default_location_rules()
-    merged.update(rules)
-    if "quiet_hours" in rules and isinstance(rules["quiet_hours"], dict):
-        merged["quiet_hours"].update(rules["quiet_hours"])
-    normalized["rules"] = merged
+    normalized["rules"] = _merge_rule_defaults(default_location_rules(), normalized.get("rules"))
     return normalized
+
+
+def _merge_rule_defaults(defaults: Dict[str, Any], overrides: Any) -> Dict[str, Any]:
+    """Keep nested defaults when older settings contain only some rule fields."""
+    merged = copy.deepcopy(defaults)
+    if not isinstance(overrides, dict):
+        return merged
+    for key, value in overrides.items():
+        if isinstance(defaults.get(key), dict):
+            merged[key] = _merge_rule_defaults(defaults[key], value)
+        else:
+            merged[key] = copy.deepcopy(value)
+    return merged
 
 
 def get_alert_type(alert_title: str, event: str = "") -> str:
