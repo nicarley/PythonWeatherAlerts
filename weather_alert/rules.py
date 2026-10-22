@@ -2,6 +2,8 @@ import copy
 from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
+from weather_alert.identity import SEMANTIC_FIELDS, alert_revision, is_cancelled
+
 SEVERITY_ORDER = {"Unknown": 0, "Minor": 1, "Moderate": 2, "Severe": 3, "Extreme": 4}
 
 
@@ -34,6 +36,7 @@ def normalize_location_entry(location: Dict[str, Any]) -> Dict[str, Any]:
     normalized = copy.deepcopy(location)
     normalized.setdefault("name", "Unnamed")
     normalized.setdefault("id", "")
+    normalized["group"] = str(normalized.get("group") or "Ungrouped").strip() or "Ungrouped"
     normalized["rules"] = _merge_rule_defaults(default_location_rules(), normalized.get("rules"))
     return normalized
 
@@ -100,22 +103,39 @@ def evaluate_location_rule(alert: Dict[str, Any], rules: Dict[str, Any], now: da
     return True, "allowed"
 
 
-def _fingerprint(alert: Dict[str, Any]) -> Tuple[str, str, str, str]:
-    return (
-        alert.get("updated", ""),
-        alert.get("expires", ""),
-        alert.get("severity", ""),
-        alert.get("summary", ""),
-    )
-
+def _fingerprint(alert: Dict[str, Any]) -> str:
+    return alert_revision(alert)
 
 def summarize_lifecycle(previous_alerts: Dict[str, Dict[str, Any]], current_alerts: List[Dict[str, Any]]) -> Dict[str, Any]:
-    current_by_id = {a.get("id", ""): a for a in current_alerts if a.get("id")}
+    notices = [alert for alert in current_alerts if is_cancelled(alert)]
+    known = {**previous_alerts, **{a.get("id"): a for a in current_alerts if a.get("id") and not is_cancelled(a)}}
+    cancelled_by_id = {}
+    notice_ids = {a.get("id") for a in notices if a.get("id")}
+    for notice in notices:
+        targets = {notice["id"]} if notice.get("id") in known else set()
+        for reference in notice.get("references") or []:
+            if isinstance(reference, dict):
+                candidates = [reference.get("identifier"), reference.get("id"), reference.get("@id")]
+            elif isinstance(reference, str):
+                candidates = [reference, *reference.split(",")[1:2]]
+            else:
+                candidates = []
+            targets.update(candidate for candidate in candidates if isinstance(candidate, str) and candidate in known)
+        if not targets and notice.get("id"):
+            targets.add(notice["id"])
+        for target in targets:
+            cancelled_by_id[target] = {**known.get(target, notice), "id": target, "message_type": "Cancel", "cancellation_id": notice.get("id", "")}
+    cancelled = [cancelled_by_id[key] for key in sorted(cancelled_by_id)]
+    cancelled_ids = set(cancelled_by_id) | notice_ids
+    current_by_id = {
+        a["id"]: a for a in current_alerts
+        if a.get("id") and a["id"] not in cancelled_ids and not is_cancelled(a)
+    }
     previous_ids = set(previous_alerts.keys())
     current_ids = set(current_by_id.keys())
 
     new_ids = sorted(list(current_ids - previous_ids))
-    expired_ids = sorted(list(previous_ids - current_ids))
+    expired_ids = sorted(list(previous_ids - current_ids - cancelled_ids))
 
     updated = []
     for aid in sorted(list(previous_ids & current_ids)):
@@ -123,12 +143,13 @@ def summarize_lifecycle(previous_alerts: Dict[str, Dict[str, Any]], current_aler
         new = current_by_id[aid]
         if _fingerprint(old) != _fingerprint(new):
             changes = []
-            for field in ["severity", "expires", "updated", "summary"]:
+            for field in SEMANTIC_FIELDS:
                 if old.get(field) != new.get(field):
-                    changes.append(f"{field}: '{old.get(field, '')}' -> '{new.get(field, '')}'")
+                    if field in {"geometry", "geocode", "parameters", "references", "affected_zones"}:
+                        changes.append(f"{field} changed")
+                    else:
+                        changes.append(f"{field}: '{old.get(field, '')}' -> '{new.get(field, '')}'")
             updated.append({"id": aid, "changes": changes, "title": new.get("title", aid)})
-
-    cancelled = [a for a in current_alerts if a.get("message_type", "").lower() == "cancel"]
 
     return {
         "new": [current_by_id[aid] for aid in new_ids],

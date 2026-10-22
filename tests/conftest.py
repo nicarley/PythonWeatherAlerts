@@ -37,6 +37,31 @@ def isolated_gui_window(monkeypatch, tmp_path, app):
     """Create the actual window while containing all external side effects."""
     import PyWeatherAlertGui as gui
     from PySide6.QtCore import QTimer
+    import itertools
+    import weather_alert.runtime as runtime
+    from weather_alert.secrets import CredentialStore
+
+    class MemoryVault:
+        def __init__(self):
+            self.values = {}
+
+        def get_password(self, service, channel):
+            return self.values.get((service, channel))
+
+        def set_password(self, service, channel, value):
+            self.values[(service, channel)] = value
+
+        def delete_password(self, service, channel):
+            self.values.pop((service, channel), None)
+
+    vault = MemoryVault()
+    monkeypatch.setattr(gui, "CredentialStore", lambda: CredentialStore(backend=vault))
+    coordinator = MagicMock()
+    generations = itertools.count(1)
+    coordinator.refresh.side_effect = lambda *_args: next(generations)
+    monkeypatch.setattr(runtime, "MonitoringCoordinator", MagicMock(return_value=coordinator))
+    monkeypatch.setattr(runtime, "SpeechQueue", MagicMock())
+    monkeypatch.setattr(runtime.DeliveryService, "start", MagicMock())
 
     monkeypatch.setattr(gui, "QWebEngineView", None)
     monkeypatch.setattr(gui, "ModularNwsApiClient", MagicMock())

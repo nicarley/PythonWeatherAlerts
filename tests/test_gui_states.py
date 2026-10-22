@@ -37,11 +37,21 @@ def _list_text(window):
     )
 
 
-def test_first_refresh_error_does_not_report_all_clear(gui_window, monkeypatch):
-    window = gui_window
-    monkeypatch.setattr(window, "_finish_check_cycle", MagicMock())
+def test_first_refresh_error_does_not_report_all_clear(gui_window):
+    from weather_alert.models import COMPONENT_NAMES, ComponentSnapshot, LocationSnapshot
 
-    window._on_data_load_error(RuntimeError("NWS timeout"), window.current_location_id)
+    window = gui_window
+    location_id = window.current_location_id
+    window.runtime.refresh(location_id)
+    generation = window.runtime.generations[location_id]
+    window.runtime.on_snapshot(LocationSnapshot(
+        location_id=location_id,
+        generation=generation,
+        started_at=1000,
+        finished_at=1001,
+        revision=1,
+        components={name: ComponentSnapshot(error="NWS timeout", revision=1) for name in COMPONENT_NAMES},
+    ))
 
     assert "status unavailable" in _list_text(window).lower()
     assert "no active alerts" not in window.alerts_meta_label.text().lower()
@@ -78,10 +88,12 @@ def test_same_location_refresh_keeps_known_alerts_and_conditions(gui_window):
     assert "Tornado Warning" in _list_text(window)
     assert window.current_conditions_by_location[location_id] == data["current_conditions"]
     assert "refreshing" in window.alerts_meta_label.text().lower()
-    window.thread_pool.start.assert_called_once()
+    window.monitoring_coordinator.refresh.assert_called_once()
+    assert window.runtime.generations[location_id] == 1
+    assert location_id in window.runtime.active
 
 
-def test_queued_location_switch_clears_previous_location_immediately(gui_window):
+def test_location_switch_starts_independent_generation_and_clears_previous_location(gui_window):
     window = gui_window
     first_id = window.current_location_id
     first_data = _cache(window, first_id, [_alert()])
@@ -92,22 +104,23 @@ def test_queued_location_switch_clears_previous_location_immediately(gui_window)
     window.location_combo.blockSignals(True)
     window.location_combo.addItem("Second station", "second")
     second_index = window.location_combo.findData("second")
-    window.location_combo.setCurrentIndex(second_index)
     window.location_combo.blockSignals(False)
-    window._check_in_progress = True
+    window._update_location_data(first_id)
 
-    window._on_location_selected(second_index)
+    window.location_combo.setCurrentIndex(second_index)
 
-    assert window._pending_location_id == "second"
+    assert window._pending_location_id is None
+    assert window.runtime.active == {first_id, "second"}
+    assert window.runtime.generations == {first_id: 1, "second": 2}
     assert window.current_coords is None
     assert "Tornado Warning" not in _list_text(window)
     assert "Second station" in window.alerts_meta_label.text()
     assert "Second station" in window.map_view.text()
     assert window.location_runtime_status["second"]["state"] == "loading"
-    window.thread_pool.start.assert_not_called()
+    assert window.monitoring_coordinator.refresh.call_count == 2
 
 
-def test_queued_switch_uses_selected_locations_cached_alerts(gui_window):
+def test_switch_uses_selected_locations_cached_alerts(gui_window):
     window = gui_window
     first_id = window.current_location_id
     _cache(window, first_id, [_alert()])
@@ -116,7 +129,6 @@ def test_queued_switch_uses_selected_locations_cached_alerts(gui_window):
     window._displayed_location_id = first_id
     window.locations = [*window.locations, {"name": "Second station", "id": "second"}]
     window.current_location_id = "second"
-    window._check_in_progress = True
 
     window._update_location_data("second")
 

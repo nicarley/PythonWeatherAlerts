@@ -1,3 +1,4 @@
+import copy
 import logging
 import re
 import time
@@ -51,9 +52,18 @@ class NwsApiClient:
         self.forecast_ttl_s = forecast_ttl_s
         self.coords_ttl_s = coords_ttl_s
         self.headers = {"User-Agent": self.user_agent, "Accept": "application/geo+json"}
-        self.pgeocode_client = pgeocode.Nominatim("us") if pgeocode else None
+        self._pgeocode_client = None
 
-        self.session = requests.Session()
+        self.session = self._new_session()
+
+        self._coords_cache: Dict[str, Tuple[float, Tuple[float, float]]] = {}
+        self._forecast_url_cache: Dict[str, Tuple[float, Dict[str, str]]] = {}
+        self._forecast_data_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+        self._observation_station_cache: Dict[str, Tuple[float, Optional[str]]] = {}
+
+    @staticmethod
+    def _new_session() -> requests.Session:
+        session = requests.Session()
         retry = Retry(
             total=3,
             backoff_factor=0.7,
@@ -64,13 +74,52 @@ class NwsApiClient:
             raise_on_status=False,
         )
         adapter = HTTPAdapter(max_retries=retry)
-        self.session.mount("https://", adapter)
-        self.session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        return session
 
-        self._coords_cache: Dict[str, Tuple[float, Tuple[float, float]]] = {}
-        self._forecast_url_cache: Dict[str, Tuple[float, Dict[str, str]]] = {}
-        self._forecast_data_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
-        self._observation_station_cache: Dict[str, Tuple[float, Optional[str]]] = {}
+    @property
+    def geocoding_available(self) -> bool:
+        """Report backend availability without downloading postal-code data."""
+        return self._pgeocode_client is not None or pgeocode is not None
+
+    @property
+    def pgeocode_client(self) -> Any:
+        if self._pgeocode_client is None and pgeocode is not None:
+            self._pgeocode_client = pgeocode.Nominatim("us")
+        return self._pgeocode_client
+
+    @pgeocode_client.setter
+    def pgeocode_client(self, value: Any) -> None:
+        self._pgeocode_client = value
+
+    def fork_for_worker(self) -> "NwsApiClient":
+        """Give a monitoring worker its own mutable session and caches.
+
+        Postal-code data is shared read-only; the coordinator serializes geocoding.
+        No constructor/geocoding download is repeated when workers are created.
+        """
+        client = copy.copy(self)
+        client.session = self._new_session()
+        client.session.headers.update(self.session.headers)
+        client.session.proxies.update(self.session.proxies)
+        client.session.auth = self.session.auth
+        client.session.verify = self.session.verify
+        client.session.cert = self.session.cert
+        client.session.trust_env = self.session.trust_env
+        client.session.cookies.update(self.session.cookies)
+        client.headers = dict(self.headers)
+        for name in ("_coords_cache", "_forecast_url_cache", "_forecast_data_cache", "_observation_station_cache"):
+            setattr(client, name, copy.deepcopy(getattr(self, name)))
+        return client
+
+    def close(self) -> None:
+        self.session.close()
+
+    def get_forecast_fetched_at(self, url: str) -> Optional[float]:
+        """Original retrieval time, including when get_forecast_data hits cache."""
+        cached = self._forecast_data_cache.get(url)
+        return cached[0] - self.forecast_ttl_s if cached else None
 
     def _get_json(self, url: str, *, headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         use_headers = headers if headers else self.headers
@@ -515,6 +564,10 @@ class NwsApiClient:
             "event": event,
             "area_desc": props.get("areaDesc", ""),
             "instruction": props.get("instruction", ""),
+            "references": props.get("references") or [],
+            "geocode": props.get("geocode") or {},
+            "affected_zones": props.get("affectedZones") or [],
+            "parameters": props.get("parameters") or {},
             "geometry": feature.get("geometry"),
         }
 
@@ -528,9 +581,14 @@ class NwsApiClient:
         url = f"{ALERTS_API_URL}?{urlencode(params)}"
         try:
             data = self._get_json(url)
-            features = data.get("features", [])
+            if not isinstance(data, dict) or not isinstance(data.get("features"), list):
+                raise ValueError("Alert response must contain a features list")
+            features = data["features"]
+            if any(not isinstance(feature, dict) or not isinstance(feature.get("properties"), dict)
+                   for feature in features):
+                raise ValueError("Alert features must contain properties objects")
             return [self._normalize_alert(feature) for feature in features]
-        except (requests.RequestException, ValueError) as e:
+        except (requests.RequestException, ValueError, TypeError, AttributeError) as e:
             logging.error("Error fetching alerts from %s: %s", url, e)
             # An alert-endpoint outage is not equivalent to an all-clear. Let
             # the application retain and label its last-known alert data.

@@ -201,3 +201,32 @@ def test_shared_session_does_not_retry_webhook_posts():
     retry = client.session.get_adapter("https://").max_retries
 
     assert set(retry.allowed_methods) == {"GET"}
+
+
+@pytest.mark.parametrize("payload", [{}, None, [], {"features": None}, {"features": {}},
+                                     {"features": [None]}, {"features": [{}]},
+                                     {"features": [{"properties": None}]}])
+def test_malformed_alert_response_is_never_an_all_clear(monkeypatch, payload):
+    client = NwsApiClient("test-agent")
+    monkeypatch.setattr(client, "_get_json", lambda _url: payload)
+
+    with pytest.raises(ApiError):
+        client.get_alerts(38.6, -90.2)
+
+
+def test_alert_normalization_preserves_identity_and_cancellation_references(monkeypatch):
+    client = NwsApiClient("test-agent")
+    properties = {
+        "id": "cancel-1", "event": "Flood Warning", "messageType": "Cancel",
+        "references": [{"identifier": "alert-1"}],
+        "geocode": {"UGC": ["ILC001"]}, "affectedZones": ["https://api.weather.gov/zones/county/ILC001"],
+        "parameters": {"VTEC": ["/O.CAN.KLSX.FA.W.0001.000000T0000Z-261022T1600Z/"]},
+    }
+    monkeypatch.setattr(client, "_get_json", lambda _url: {"features": [{"properties": properties}]})
+
+    alert = client.get_alerts(38.6, -90.2)[0]
+
+    assert alert["references"] == properties["references"]
+    assert alert["geocode"] == properties["geocode"]
+    assert alert["affected_zones"] == properties["affectedZones"]
+    assert alert["parameters"] == properties["parameters"]

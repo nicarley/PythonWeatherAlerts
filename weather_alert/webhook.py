@@ -12,8 +12,8 @@ def _post_json(session: requests.Session, url: str, payload: Dict[str, Any], tim
         response.raise_for_status()
         return True, ""
     except requests.RequestException as e:
-        logging.error("Notification delivery failed for %s: %s", url, e)
-        return False, str(e)
+        logging.error("Notification delivery failed (%s)", type(e).__name__)
+        return False, f"Notification delivery failed ({type(e).__name__})"
 
 
 def _discord_payload(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -42,6 +42,17 @@ def _slack_payload(data: Dict[str, Any]) -> Dict[str, Any]:
     if link:
         text += f"\n<{link}|Open alert>"
     return {"text": text}
+
+
+def format_notification_payload(channel: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Build the same per-channel body for immediate and durable delivery."""
+    if channel == "generic":
+        return dict(payload)
+    if channel == "discord":
+        return _discord_payload(payload)
+    if channel == "slack":
+        return _slack_payload(payload)
+    raise ValueError(f"Unsupported notification channel: {channel}")
 
 
 def dispatch_notification_channels(

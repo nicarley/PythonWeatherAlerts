@@ -69,3 +69,26 @@ def test_failed_replacement_preserves_saved_preferences(tmp_path, monkeypatch):
     assert manager.save({"theme": "light"}) is False
     assert path.read_bytes() == original
     assert list(tmp_path.iterdir()) == [path]
+
+
+@pytest.mark.parametrize("payload", [{"schema_version": 99}, {"locations": "wrong"},
+    {"locations": [{"id": "same"}, {"id": "same"}]}, {"splitter_sizes": {"workbench": [-1, 2]}},
+    {"webhook_url": 42}])
+def test_invalid_restore_cannot_replace_good_settings(tmp_path, payload):
+    path = tmp_path / "settings.json"
+    manager = SettingsManager(str(path))
+    assert manager.save({"schema_version": 2, "locations": [{"id": "62881"}]})
+    original = path.read_bytes()
+    assert manager.save(payload) is False
+    assert path.read_bytes() == original
+
+
+def test_corrupt_settings_are_preserved_before_defaults_are_saved(tmp_path):
+    path = tmp_path / "settings.json"
+    path.write_text("{truncated", encoding="utf-8")
+    manager = SettingsManager(str(path))
+    assert manager.load() == {}
+    assert manager.save({"schema_version": 2})
+    recovered = list(tmp_path.glob("settings.json.recovery-*"))
+    assert len(recovered) == 1
+    assert recovered[0].read_text(encoding="utf-8") == "{truncated"
