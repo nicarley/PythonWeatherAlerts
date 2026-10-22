@@ -1,0 +1,447 @@
+{
+  "schema_version": 1,
+  "description": "Fictional normalized NWS alert cases. Expected desktop behavior and target native-platform contract; passing Python tests does not establish native conformance.",
+  "revision": {
+    "alert": {
+      "id": "alert-A",
+      "title": "Tornado Warning",
+      "event": "Tornado Warning",
+      "summary": "Move to an interior room.",
+      "instruction": "Protect your head.",
+      "severity": "Severe",
+      "urgency": "Immediate",
+      "certainty": "Observed",
+      "updated": "2026-10-22T14:00:00Z",
+      "expires": "2026-10-22T15:00:00Z",
+      "area_desc": "Fictional county – north",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -90,
+              38
+            ],
+            [
+              -89,
+              38
+            ],
+            [
+              -89,
+              39
+            ],
+            [
+              -90,
+              38
+            ]
+          ]
+        ]
+      }
+    },
+    "ignored_patch": {
+      "distance_miles": 2.1,
+      "_rule_allowed": false,
+      "_notify_allowed": false,
+      "_escalation": {
+        "escalate": true
+      },
+      "location": "Renamed site"
+    },
+    "semantic_patches": [
+      {
+        "instruction": "Move underground now."
+      },
+      {
+        "title": "Updated tornado warning"
+      },
+      {
+        "urgency": "Expected"
+      },
+      {
+        "severity": "Extreme"
+      },
+      {
+        "expires": "2026-10-22T16:00:00Z"
+      },
+      {
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -91,
+                38
+              ],
+              [
+                -89,
+                38
+              ],
+              [
+                -89,
+                39
+              ],
+              [
+                -91,
+                38
+              ]
+            ]
+          ]
+        }
+      }
+    ],
+    "expected_sha256": "6b1abf7afa635ef49e485f3d71a5ee00a9266d2272f847e1d9ffba683036a0f8"
+  },
+  "rules": [
+    {
+      "name": "warning meets threshold",
+      "alert": {
+        "title": "Tornado Warning",
+        "severity": "Severe"
+      },
+      "rules": {
+        "min_severity": "Severe",
+        "types": [
+          "warning"
+        ]
+      },
+      "now": "2026-10-22T12:00:00",
+      "allowed": true,
+      "reason": "allowed"
+    },
+    {
+      "name": "advisory below threshold",
+      "alert": {
+        "title": "Flood Advisory",
+        "severity": "Moderate"
+      },
+      "rules": {
+        "min_severity": "Severe"
+      },
+      "now": "2026-10-22T12:00:00",
+      "allowed": false,
+      "reason": "below min severity"
+    },
+    {
+      "name": "event supplies alert kind",
+      "alert": {
+        "title": "Bulletin",
+        "event": "Tornado Warning",
+        "severity": "Severe"
+      },
+      "rules": {
+        "types": [
+          "warning"
+        ]
+      },
+      "now": "2026-10-22T12:00:00",
+      "allowed": true,
+      "reason": "allowed"
+    },
+    {
+      "name": "generic bulletin excluded by warning filter",
+      "alert": {
+        "title": "Special Weather Statement",
+        "severity": "Minor"
+      },
+      "rules": {
+        "types": [
+          "warning"
+        ]
+      },
+      "now": "2026-10-22T12:00:00",
+      "allowed": false,
+      "reason": "type other"
+    },
+    {
+      "name": "overnight quiet begins inclusively",
+      "alert": {
+        "title": "Tornado Warning",
+        "severity": "Severe"
+      },
+      "rules": {
+        "quiet_hours": {
+          "enabled": true,
+          "start": "22:00",
+          "end": "07:00"
+        }
+      },
+      "now": "2026-10-22T22:00:00",
+      "allowed": false,
+      "reason": "quiet hours"
+    },
+    {
+      "name": "overnight quiet before dawn",
+      "alert": {
+        "title": "Tornado Warning",
+        "severity": "Severe"
+      },
+      "rules": {
+        "quiet_hours": {
+          "enabled": true,
+          "start": "22:00",
+          "end": "07:00"
+        }
+      },
+      "now": "2026-10-23T06:59:00",
+      "allowed": false,
+      "reason": "quiet hours"
+    },
+    {
+      "name": "quiet ends exclusively",
+      "alert": {
+        "title": "Tornado Warning",
+        "severity": "Severe"
+      },
+      "rules": {
+        "quiet_hours": {
+          "enabled": true,
+          "start": "22:00",
+          "end": "07:00"
+        }
+      },
+      "now": "2026-10-23T07:00:00",
+      "allowed": true,
+      "reason": "allowed"
+    },
+    {
+      "name": "explicit escalation override",
+      "alert": {
+        "title": "Tornado Warning",
+        "severity": "Severe"
+      },
+      "rules": {
+        "quiet_hours": {
+          "enabled": true,
+          "start": "22:00",
+          "end": "07:00"
+        }
+      },
+      "now": "2026-10-22T23:00:00",
+      "ignore_quiet_hours": true,
+      "allowed": true,
+      "reason": "allowed"
+    }
+  ],
+  "lifecycle": [
+    {
+      "name": "new updated expired",
+      "previous": [
+        {
+          "id": "A",
+          "title": "Advisory",
+          "severity": "Minor",
+          "summary": "Old"
+        },
+        {
+          "id": "B",
+          "title": "Warning",
+          "severity": "Severe",
+          "instruction": "Old instruction"
+        }
+      ],
+      "current": [
+        {
+          "id": "B",
+          "title": "Warning",
+          "severity": "Severe",
+          "instruction": "New instruction"
+        },
+        {
+          "id": "C",
+          "title": "New Watch",
+          "severity": "Moderate"
+        }
+      ],
+      "expected": {
+        "new": [
+          "C"
+        ],
+        "updated": [
+          "B"
+        ],
+        "expired": [
+          "A"
+        ],
+        "cancelled": [],
+        "active": [
+          "B",
+          "C"
+        ]
+      }
+    },
+    {
+      "name": "same ID cancellation is not active or expired",
+      "previous": [
+        {
+          "id": "A",
+          "title": "Warning",
+          "severity": "Severe"
+        }
+      ],
+      "current": [
+        {
+          "id": "A",
+          "title": "Warning",
+          "severity": "Severe",
+          "message_type": "Cancel"
+        }
+      ],
+      "expected": {
+        "new": [],
+        "updated": [],
+        "expired": [],
+        "cancelled": [
+          "A"
+        ],
+        "active": []
+      }
+    },
+    {
+      "name": "reference cancellation clears original ID",
+      "previous": [
+        {
+          "id": "A",
+          "title": "Warning",
+          "severity": "Severe"
+        }
+      ],
+      "current": [
+        {
+          "id": "cancel-A",
+          "title": "Cancellation",
+          "message_type": "Cancel",
+          "references": [
+            {
+              "identifier": "A"
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "new": [],
+        "updated": [],
+        "expired": [],
+        "cancelled": [
+          "A"
+        ],
+        "active": []
+      }
+    },
+    {
+      "name": "runtime metadata is not an update",
+      "previous": [
+        {
+          "id": "A",
+          "title": "Warning",
+          "severity": "Severe",
+          "distance_miles": 1,
+          "_rule_allowed": true
+        }
+      ],
+      "current": [
+        {
+          "id": "A",
+          "title": "Warning",
+          "severity": "Severe",
+          "distance_miles": 2,
+          "_rule_allowed": false
+        }
+      ],
+      "expected": {
+        "new": [],
+        "updated": [],
+        "expired": [],
+        "cancelled": [],
+        "active": [
+          "A"
+        ]
+      }
+    }
+  ],
+  "priority": {
+    "alerts": [
+      {
+        "id": "minor-near",
+        "severity": "Minor",
+        "urgency": "Immediate",
+        "certainty": "Observed",
+        "distance_miles": 0
+      },
+      {
+        "id": "severe-future",
+        "severity": "Severe",
+        "urgency": "Future",
+        "certainty": "Observed",
+        "distance_miles": 0
+      },
+      {
+        "id": "severe-unknown-distance",
+        "severity": "Severe",
+        "urgency": "Immediate",
+        "certainty": "Observed"
+      },
+      {
+        "id": "extreme-far",
+        "severity": "Extreme",
+        "urgency": "Expected",
+        "certainty": "Likely",
+        "distance_miles": 100
+      },
+      {
+        "id": "severe-near",
+        "severity": "Severe",
+        "urgency": "Immediate",
+        "certainty": "Observed",
+        "distance_miles": 1
+      },
+      {
+        "id": "severe-likely",
+        "severity": "Severe",
+        "urgency": "Immediate",
+        "certainty": "Likely",
+        "distance_miles": 0
+      }
+    ],
+    "expected_ids": [
+      "extreme-far",
+      "severe-near",
+      "severe-unknown-distance",
+      "severe-likely",
+      "severe-future",
+      "minor-near"
+    ]
+  },
+  "expiry": [
+    {
+      "alert": {
+        "expires": "2026-10-22T15:00:00Z"
+      },
+      "expected": 1792681200
+    },
+    {
+      "alert": {
+        "expires": "2026-10-22T10:00:00-05:00"
+      },
+      "expected": 1792681200
+    },
+    {
+      "alert": {
+        "expires": "2026-10-22T15:00:00"
+      },
+      "expected": 1792681200
+    },
+    {
+      "alert": {
+        "expires": "2026-10-22T16:00:00Z",
+        "ends": "2026-10-22T15:00:00Z"
+      },
+      "expected": 1792681200
+    },
+    {
+      "alert": {
+        "expires": "invalid"
+      },
+      "expected": null
+    }
+  ]
+}
