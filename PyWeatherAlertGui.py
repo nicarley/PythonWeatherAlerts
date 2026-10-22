@@ -61,7 +61,7 @@ from weather_alert.marine import (
 from weather_alert.security import first_payload_entry, html_attr, safe_external_url
 
 # --- Application Version ---
-versionnumber = "26.10.22"
+versionnumber = "26.10.22.1"
 
 # --- Constants ---
 FALLBACK_INITIAL_CHECK_INTERVAL_MS = 900 * 1000
