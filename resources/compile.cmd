@@ -1,2 +1,3 @@
-pyinstaller --noconfirm --onedir --windowed --icon "..\resources\icon.ico" --name "Weather Alert Monitor" --add-data "../resources;resources/"  "..\PyWeatherAlertGUI.py"
-
+@echo off
+python "%~dp0..\build_release.py" %*
+exit /b %errorlevel%

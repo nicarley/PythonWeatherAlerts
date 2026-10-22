@@ -3,6 +3,7 @@ import logging
 import os
 import tempfile
 import shutil
+import math
 from datetime import datetime
 from typing import Any, Dict
 
@@ -28,8 +29,26 @@ class SettingsManager:
         if not isinstance(settings, dict):
             raise ValueError("Settings must be a JSON object")
         version = settings.get("schema_version", 1)
-        if not isinstance(version, int) or version not in (1, 2):
+        if type(version) is not int or version not in (1, 2):
             raise ValueError("Unsupported settings schema version")
+        bool_names = {"mute_audio", "dark_mode_enabled", "auto_refresh_content", "first_run_completed"}
+        for key, value in settings.items():
+            if key in bool_names or key.startswith(("announce_", "show_", "toolbar_show_", "enable_")):
+                if type(value) is not bool:
+                    raise ValueError(f"{key} must be true or false")
+        for key in ("current_location_id", "check_interval_key", "repeater_info", "radar_url", "forecast_view", "log_sort_order"):
+            if key in settings and not isinstance(settings[key], str):
+                raise ValueError(f"{key} must be text")
+        if "radar_options_dict" in settings:
+            options = settings["radar_options_dict"]
+            if not isinstance(options, dict) or any(not isinstance(key, str) or not isinstance(value, str) for key, value in options.items()):
+                raise ValueError("Web sources must map names to URLs")
+        state = settings.get("credential_state", {})
+        if not isinstance(state, dict):
+            raise ValueError("Credential state must be an object")
+        for channel, value in state.items():
+            if channel not in ("generic", "discord", "slack") or not isinstance(value, dict) or any(type(value.get(key)) is not bool for key in ("configured", "persisted")):
+                raise ValueError("Credential state is invalid")
         locations = settings.get("locations")
         if locations is not None:
             if not isinstance(locations, list) or len(locations) > 100:
@@ -37,8 +56,12 @@ class SettingsManager:
             for location in locations:
                 if not isinstance(location, dict) or not isinstance(location.get("id"), str) or not location["id"].strip():
                     raise ValueError("Each location needs a nonempty identifier")
-                if "rules" in location and not isinstance(location["rules"], dict):
-                    raise ValueError("Location rules must be an object")
+                for name in ("name", "group"):
+                    if name in location and not isinstance(location[name], str):
+                        raise ValueError(f"Location {name} must be text")
+                if "rules" in location:
+                    from .rules import default_location_rules
+                    SettingsManager._validate_rule_types(location["rules"], default_location_rules())
             if len({loc["id"] for loc in locations}) != len(locations):
                 raise ValueError("Location identifiers must be unique")
         if "splitter_sizes" in settings:
@@ -49,6 +72,31 @@ class SettingsManager:
             if field in settings and not isinstance(settings[field], str):
                 raise ValueError("Notification destinations must be text")
         return settings
+
+    @staticmethod
+    def _validate_rule_types(values, defaults):
+        if not isinstance(values, dict):
+            raise ValueError("Location rules must be an object")
+        for key, value in values.items():
+            if key not in defaults:
+                continue
+            expected = defaults[key]
+            if isinstance(expected, dict):
+                SettingsManager._validate_rule_types(value, expected)
+            elif expected is None:
+                if value is not None and type(value) is not bool:
+                    raise ValueError(f"{key} must be true, false, or null")
+            elif isinstance(expected, bool):
+                if type(value) is not bool:
+                    raise ValueError(f"{key} must be true or false")
+            elif isinstance(expected, (int, float)):
+                if type(value) not in (int, float) or not math.isfinite(value) or value < 0:
+                    raise ValueError(f"{key} must be a nonnegative number")
+            elif isinstance(expected, list):
+                if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+                    raise ValueError(f"{key} must be a list of text values")
+            elif not isinstance(value, str):
+                raise ValueError(f"{key} must be text")
 
     def load(self) -> Dict[str, Any]:
         if not os.path.exists(self.file_path):

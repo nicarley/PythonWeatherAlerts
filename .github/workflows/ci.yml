@@ -3,18 +3,47 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: Tests and packaged smoke (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      QT_QPA_PLATFORM: offscreen
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install test dependencies
+      - name: Install Linux Qt and audio libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libopengl0 libxcb-cursor0 libxkbcommon-x11-0 libnss3 libasound2t64 espeak-ng
+      - name: Install test and packaging dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install -r requirements-build.txt -r requirements-test.txt
       - name: Run tests
-        run: pytest -q
+        run: python -m pytest -q
+      - name: Run isolated source smoke test
+        run: python PyWeatherAlertGui.py --smoke-test
+      - name: Build and smoke-test native package
+        run: python build_release.py --output-dir artifacts
+      - name: Save verified packages and manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: weather-alert-${{ runner.os }}
+          if-no-files-found: error
+          path: |
+            artifacts/*.zip
+            artifacts/*.tar.gz
+            artifacts/*.json

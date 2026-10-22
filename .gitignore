@@ -1,3 +1,7 @@
-/Build/
+/Build/*
+!/Build/compile.cmd
+!/Build/compile.sh
+/dist/
+/artifacts/
 __pycache__/
 *.py[cod]

@@ -232,3 +232,16 @@ def test_diagnostics_export_is_local_and_excludes_location_identity(gui_window, 
         document = json.loads(text)
     assert "private-location-id" not in text
     assert document["metrics"][0]["kind"] == "fetch_duration_ms"
+
+
+def test_narrow_window_keeps_optional_status_chips_reachable(gui_window, qapp):
+    window = gui_window
+    window.show()
+    window.resize(1100, 720)
+    qapp.processEvents()
+    assert window.width() == 1100
+    assert window._header_status_wrapped
+    assert window.monitoring_toggle_button.geometry().right() <= window.top_status_strip.width()
+    window.resize(1500, 920)
+    qapp.processEvents()
+    assert not window._header_status_wrapped

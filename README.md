@@ -16,9 +16,12 @@ PyWeatherAlert is a cross-platform desktop weather monitoring application built 
 - Track new, updated, expired, and cancelled alerts while suppressing duplicate notifications.
 - Announce alerts and optional repeater/call-sign messages using text-to-speech.
 - Send generic, Discord, and Slack webhook notifications.
-- Review notification-delivery health and send test notifications.
+- Review durable per-channel delivery results, safe retries, and uncertain outcomes in **Incidents > Operations**.
+- Group monitored locations and acknowledge individual alert revisions with operator notes.
+- Keep valid warnings available when forecasts or marine data fail; inspect retrieval and observation times for each source.
 - Browse alert history and export incident data to JSON, CSV, or PDF.
-- Use light and dark themes and customize visible panels and web sources.
+- Use light and dark themes, switch between hourly and five-day forecasts, and save adjustable panel sizes.
+- Pause or resume monitoring independently from spoken announcements.
 - Continue displaying cached data during temporary API outages.
 - Keep the last available weather visible during refresh, with distinct loading, cached, and unavailable states.
 - Use keyboard shortcuts: **F5** to refresh, **Ctrl+,** for Preferences, and **Enter** on a selected alert to open its details.
@@ -71,7 +74,7 @@ Start the graphical application from the project root:
 python PyWeatherAlertGui.py
 ```
 
-On first launch, open **File > Preferences** to:
+On first launch, the setup assistant helps you choose a location and monitoring options. Use **File > Preferences** afterward to:
 
 1. Add one or more locations.
 2. Choose the weather-check interval.
@@ -96,19 +99,25 @@ python PyWeatherAlert.py
 
 ## Settings and application data
 
-The GUI stores `settings.json` and `alert_history.json` in Qt's platform-specific local application-data directory under `PythonWeatherAlerts`. Use **File > Backup Settings** and **File > Restore Settings** to move configuration safely between installations.
+The GUI stores versioned settings and alert history, operations.sqlite3 (acknowledgments, metrics, and last-known weather), and delivery.sqlite3 (notification recovery and deduplication) in the platform-specific local application-data directory under PythonWeatherAlerts. Preserve these databases when upgrading. User data is separate from the packaged application.
 
-Webhook URLs may grant access to external services. Treat settings backups as sensitive, do not commit personal settings, and use test notifications after changing delivery configuration.
+Webhook credentials use the operating system credential store through keyring. Existing plaintext settings migrate when secure storage succeeds. If the store is unavailable, new credentials work for the current session and the app warns that they were not saved securely; an existing legacy value is retained until migration succeeds. **Backup Settings** excludes webhook credentials, so configure them again on the destination machine. Backups still contain location information.
+
+**Help > Export diagnostics** creates a local support archive with aggregate source health, package versions, and delivery outcomes. It excludes location identifiers, settings, notification payloads, and credentials. Nothing is uploaded automatically.
+
+A notification marked **Provider accepted** has been accepted by the external service. Human acknowledgment is recorded separately. Uncertain outcomes are not automatically resent. Saved pending warnings wait for a fresh alert check before recovery, and expired or cancelled warnings are removed from pending work.
 
 ## Running tests
 
-Run the unit test suite from the project root:
+Install pytest and run the suite from the project root:
 
 ```bash
+python -m pip install -r requirements-test.txt
 python -m pytest
+python PyWeatherAlertGui.py --smoke-test
 ```
 
-The tests cover API handling, settings, alert rules, proximity ranking, lifecycle history, escalation, duplicate suppression, delivery health, marine utilities, webhook behavior, and desktop state transitions. Desktop tests run offscreen with isolated settings and simulated services.
+Tests cover partial outages, obsolete responses, delivery recovery, speech ownership, settings and history migrations, alert rules, lifecycle, incident exports, and desktop state transitions. Desktop and smoke tests use isolated data and inert external adapters. They do not send live notifications. Shared behavior fixtures and current native iPad limitations are documented in [the platform contract](docs/platform-contract.md).
 
 ## Building a desktop package
 
@@ -118,7 +127,9 @@ Install PyInstaller separately if you want to package the application:
 python -m pip install pyinstaller
 ```
 
-Build scripts are provided in `resources/compile.cmd` for Windows and `resources/compilemacos.sh` for macOS. Run them from the `resources` directory. Generated packages are written to PyInstaller's `dist` directory.
+Use build_release.py on the target operating system, or the Windows/macOS wrappers in resources. The release helper reads the authoritative versionnumber in PyWeatherAlertGui.py, validates its yy.mm.dd.buildnumber format, and checks the packaged app with the offline smoke test. Release artifacts include dependency and checksum evidence. Signing requires owner credentials; a local build does not imply a signed or published release.
+
+See [release readiness](docs/release-readiness.md) and the [operator pilot protocol](docs/pilot-validation.md) for validation evidence and remaining external checks.
 
 ## Project structure
 
@@ -141,7 +152,7 @@ Core services in `weather_alert/` handle NWS API access, settings, history, rule
 - **No location data:** Confirm the location format and verify that `api.weather.gov` is reachable.
 - **No embedded web view:** Reinstall or upgrade PySide6; the application continues with web-view features disabled if `QtWebEngineWidgets` is unavailable.
 - **No audio:** Check the operating system's speech engine and output device, then confirm that audio is enabled and not muted in Preferences.
-- **No webhook message:** Verify the webhook URL, enable its channel, use **Send Test Notifications**, and review the delivery-health dashboard.
+- **No webhook message:** Verify the credential and enable both the global channel and the location webhook rule. Use **Send Test Notifications**, then inspect **Operations**. Queued warnings await a fresh source check; uncertain outcomes require checking the receiving service.
 - **Stale information:** Check the in-app log and connection state. Cached data may be shown when an upstream service is unavailable.
 
 ## Data sources and privacy

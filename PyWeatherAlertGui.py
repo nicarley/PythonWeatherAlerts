@@ -3230,6 +3230,9 @@ class WeatherSetupDialog(QDialog):
         self.cancel_button.clicked.connect(self.reject)
         self.next_button = QPushButton("Next: monitoring")
         self.next_button.setEnabled(False)
+        self.next_button.setDefault(True)
+        self.cancel_button.setAutoDefault(False)
+        self.back_button.setAutoDefault(False)
         self.next_button.clicked.connect(self._next)
         self.finish_button = QPushButton("Finish setup")
         self.finish_button.setVisible(False)
@@ -3255,6 +3258,7 @@ class WeatherSetupDialog(QDialog):
         self.next_button.hide()
         self.back_button.show()
         self.finish_button.show()
+        self.finish_button.setDefault(True)
         self.monitoring_check.setFocus()
 
     def _back(self):
@@ -3263,6 +3267,7 @@ class WeatherSetupDialog(QDialog):
         self.back_button.hide()
         self.finish_button.hide()
         self.next_button.show()
+        self.next_button.setDefault(True)
         self.location_input_edit.setFocus()
 
     def get_data(self):
@@ -3328,7 +3333,7 @@ class WeatherAlertApp(QMainWindow):
         self._last_valid_radar_text = FALLBACK_DEFAULT_RADAR_DISPLAY_NAME
         self.current_radar_url = FALLBACK_DEFAULT_RADAR_URL
         self.current_repeater_info = FALLBACK_INITIAL_REPEATER_INFO
-        self.locations = FALLBACK_DEFAULT_LOCATIONS
+        self.locations = [normalize_location_entry(loc) for loc in FALLBACK_DEFAULT_LOCATIONS]
         self.current_location_id = self.locations[0]["id"]
         self.current_interval_key = FALLBACK_DEFAULT_INTERVAL_KEY
         self.current_announce_alerts_checked = FALLBACK_ANNOUNCE_ALERTS_CHECKED
@@ -3605,17 +3610,11 @@ class WeatherAlertApp(QMainWindow):
         self.current_mute_audio_checked = settings.get("mute_audio", FALLBACK_MUTE_AUDIO_CHECKED)
         self.current_enable_sounds = settings.get("enable_sounds", FALLBACK_ENABLE_SOUNDS)
         self.current_enable_desktop_notifications = settings.get("enable_desktop_notifications", FALLBACK_ENABLE_DESKTOP_NOTIFICATIONS)
-        self.current_webhook_url = settings.get("webhook_url") or self.credentials.get("generic")
-        if settings.get("webhook_url"):
-            self.credentials.set("generic", self.current_webhook_url)
+        self.current_webhook_url = self._load_notification_credential(settings, "generic", "webhook_url")
         self.current_enable_webhook_notifications = settings.get("enable_webhook_notifications", FALLBACK_ENABLE_WEBHOOK_NOTIFICATIONS)
-        self.current_discord_webhook_url = settings.get("discord_webhook_url") or self.credentials.get("discord")
-        if settings.get("discord_webhook_url"):
-            self.credentials.set("discord", self.current_discord_webhook_url)
+        self.current_discord_webhook_url = self._load_notification_credential(settings, "discord", "discord_webhook_url")
         self.current_enable_discord_notifications = settings.get("enable_discord_notifications", FALLBACK_ENABLE_DISCORD_NOTIFICATIONS)
-        self.current_slack_webhook_url = settings.get("slack_webhook_url") or self.credentials.get("slack")
-        if settings.get("slack_webhook_url"):
-            self.credentials.set("slack", self.current_slack_webhook_url)
+        self.current_slack_webhook_url = self._load_notification_credential(settings, "slack", "slack_webhook_url")
         self.current_enable_slack_notifications = settings.get("enable_slack_notifications", FALLBACK_ENABLE_SLACK_NOTIFICATIONS)
         self.current_announce_repeater_at_interval = settings.get(
             "announce_repeater_at_interval", FALLBACK_ANNOUNCE_REPEATER_AT_INTERVAL
@@ -3635,6 +3634,21 @@ class WeatherAlertApp(QMainWindow):
 
         self._last_valid_radar_text = self._get_display_name_for_url(self.current_radar_url) or \
                                       (list(self.RADAR_OPTIONS.keys())[0] if self.RADAR_OPTIONS else "")
+
+    def _load_notification_credential(self, settings, channel, key):
+        state = settings.get("credential_state", {}).get(channel, {})
+        if state and not state.get("configured"):
+            self.credentials.set_session(channel, "")
+            return ""
+        if settings.get(key):
+            self.credentials.set(channel, settings[key])
+            return settings[key]
+        if state and not state.get("persisted"):
+            self.log_to_gui(f"{channel.title()} needs its notification credential entered again; the prior value was session-only.", level="WARNING")
+            value = self.credentials.session_value(channel)
+            self.credentials.set_session(channel, value)
+            return value
+        return self.credentials.get(channel)
 
     def _apply_fallback_settings(self, reason_message: str):
         self.log_to_gui(reason_message, level="WARNING")
@@ -3690,15 +3704,18 @@ class WeatherAlertApp(QMainWindow):
 
     @Slot()
     def _save_settings(self):
-        credentials_saved = all([self.credentials.set(channel, value) for channel, value in (
-            ("generic", self.current_webhook_url), ("discord", self.current_discord_webhook_url),
-            ("slack", self.current_slack_webhook_url))])
+        if getattr(self, "_applying_settings", False):
+            return
+        credential_values = {"generic": self.current_webhook_url, "discord": self.current_discord_webhook_url, "slack": self.current_slack_webhook_url}
+        credential_results = {channel: self.credentials.set(channel, value) for channel, value in credential_values.items()}
+        credentials_saved = all(credential_results.values())
         if not credentials_saved:
             self.log_to_gui("Notification credentials are available for this session only. Unlock or install the system credential store, then save again.", level="WARNING")
         if hasattr(self, "runtime") and not self.runtime.closing:
             self.runtime.sync_channels()
         settings = {
             "schema_version": 2,
+            "credential_state": {channel: {"configured": bool(value), "persisted": credential_results[channel]} for channel, value in credential_values.items()},
             "first_run_completed": self.first_run_completed,
             "forecast_view": self.current_forecast_view,
             "show_specialist_tools": self.current_show_specialist_tools,
@@ -3754,11 +3771,11 @@ class WeatherAlertApp(QMainWindow):
         # Newly entered secrets never fall back to plaintext persistence.
         if not credentials_saved:
             legacy = self.settings_manager.load()
-            for key in ("webhook_url", "discord_webhook_url", "slack_webhook_url"):
-                if legacy.get(key):
+            for channel, key in (("generic", "webhook_url"), ("discord", "discord_webhook_url"), ("slack", "slack_webhook_url")):
+                if not credential_results[channel] and legacy.get(key) == credential_values[channel] and legacy.get(key):
                     settings[key] = legacy[key]
         if self.settings_manager.save(settings):
-            self.update_status("Settings saved.")
+            self.update_status("Settings saved." if credentials_saved else "Settings saved; some notification credentials are session-only. Check the event log.")
         else:
             self.log_to_gui("Error saving settings.", level="ERROR")
             QMessageBox.critical(self, "Error", "Could not save settings to file.")
@@ -3795,6 +3812,7 @@ class WeatherAlertApp(QMainWindow):
 
         self.right_workspace = QWidget()
         self.right_workspace.setObjectName("Workspace")
+        self.right_workspace.setMinimumWidth(600)
         right_workspace_layout = QVBoxLayout(self.right_workspace)
         right_workspace_layout.setContentsMargins(0, 0, 0, 0)
         right_workspace_layout.setSpacing(8)
@@ -3811,6 +3829,7 @@ class WeatherAlertApp(QMainWindow):
         self.dashboard_overview_panel = self._create_dashboard_overview()
         self.overview_scroll = QScrollArea()
         self.overview_scroll.setWidgetResizable(True)
+        self.overview_scroll.setMinimumHeight(230)
         self.overview_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self.overview_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.overview_scroll.setWidget(self.dashboard_overview_panel)
@@ -4279,19 +4298,12 @@ class WeatherAlertApp(QMainWindow):
         layout.insertWidget(index, actions)
         layout.insertWidget(index + 1, self.acknowledgment_status_label)
         self.alerts_display_area.itemSelectionChanged.connect(self._update_acknowledgment_controls)
-        for action in self.menuBar().actions():
-            menu = action.menu()
-            if not menu:
-                continue
-            name = action.text().replace("&", "")
-            if name == "Incidents":
-                self.operations_action = QAction("Monitoring operations…", self)
-                menu.addAction(self.operations_action)
-                self.operations_action.triggered.connect(self._show_operations)
-            elif name == "Help":
-                self.export_diagnostics_action = QAction("Export diagnostics…", self)
-                menu.addAction(self.export_diagnostics_action)
-                self.export_diagnostics_action.triggered.connect(self._export_diagnostics_bundle)
+        self.operations_action = QAction("Monitoring operations…", self)
+        self.incidents_menu.addAction(self.operations_action)
+        self.operations_action.triggered.connect(self._show_operations)
+        self.export_diagnostics_action = QAction("Export diagnostics…", self)
+        self.help_menu.addAction(self.export_diagnostics_action)
+        self.export_diagnostics_action.triggered.connect(self._export_diagnostics_bundle)
         self._update_acknowledgment_controls()
 
     def _selected_alert_record(self):
@@ -4378,6 +4390,7 @@ class WeatherAlertApp(QMainWindow):
         self.top_status_strip = strip
         strip.setObjectName("TopStatusStrip")
         grid = QGridLayout(strip)
+        self._header_grid = grid
         grid.setContentsMargins(12, 8, 12, 8)
         grid.setHorizontalSpacing(12)
         grid.setVerticalSpacing(8)
@@ -4410,6 +4423,7 @@ class WeatherAlertApp(QMainWindow):
         grid.addLayout(monitoring, 0, 1)
 
         controls = QHBoxLayout()
+        self._header_controls_layout = controls
         controls.setSpacing(7)
         self.location_icon_label = QLabel("Location")
         self.location_combo = QComboBox()
@@ -4455,9 +4469,15 @@ class WeatherAlertApp(QMainWindow):
         self.current_temperature_label = QLabel("Temp —")
         self.last_announcement_label = QLabel("Last announcement —")
         self.current_time_label = QLabel("Time —")
+        self.toolbar_status_section = QWidget()
+        optional_status = QHBoxLayout(self.toolbar_status_section)
+        optional_status.setContentsMargins(0, 0, 0, 0)
+        optional_status.setSpacing(5)
         for label in (self.top_repeater_label, self.current_temperature_label, self.last_announcement_label, self.current_time_label):
             label.setObjectName("TopStatusChip")
-            controls.addWidget(label)
+            optional_status.addWidget(label)
+        controls.addWidget(self.toolbar_status_section)
+        self._header_status_wrapped = False
         for index in range(controls.count()):
             widget = controls.itemAt(index).widget()
             if isinstance(widget, (QPushButton, QComboBox)):
@@ -4466,6 +4486,20 @@ class WeatherAlertApp(QMainWindow):
         grid.setColumnStretch(0, 1)
         outer.addWidget(strip)
         return outer
+
+    def _reflow_header_status(self) -> None:
+        if not hasattr(self, "toolbar_status_section"):
+            return
+        wrapped = self.width() < 1240
+        if wrapped == self._header_status_wrapped:
+            return
+        self._header_status_wrapped = wrapped
+        if wrapped:
+            self._header_controls_layout.removeWidget(self.toolbar_status_section)
+            self._header_grid.addWidget(self.toolbar_status_section, 2, 0, 1, 2, alignment=Qt.AlignmentFlag.AlignRight)
+        else:
+            self._header_grid.removeWidget(self.toolbar_status_section)
+            self._header_controls_layout.addWidget(self.toolbar_status_section)
 
     def _sync_monitoring_controls(self, enabled: bool) -> None:
         self.monitoring_toggle_button.blockSignals(True)
@@ -4619,7 +4653,9 @@ class WeatherAlertApp(QMainWindow):
         style = self.style()
 
         # File Menu
-        file_menu = menu_bar.addMenu("&File")
+        self.file_menu = QMenu("&File", self)
+        menu_bar.addMenu(self.file_menu)
+        file_menu = self.file_menu
         preferences_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_FileDialogDetailedView),
                                      "&Preferences...", self)
         preferences_action.triggered.connect(lambda _checked=False: self._open_preferences_dialog("General"))
@@ -4643,8 +4679,11 @@ class WeatherAlertApp(QMainWindow):
         file_menu.addAction(exit_action)
 
         # View Menu
-        view_menu = menu_bar.addMenu("&View")
-        self.web_sources_menu = view_menu.addMenu("&Sources")
+        self.view_menu = QMenu("&View", self)
+        menu_bar.addMenu(self.view_menu)
+        view_menu = self.view_menu
+        self.web_sources_menu = QMenu("&Sources", self)
+        view_menu.addMenu(self.web_sources_menu)
         self.web_sources_menu.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_ComputerIcon))
         self.web_sources_menu.aboutToShow.connect(self._update_web_sources_menu)
         view_menu.addSeparator()
@@ -4681,7 +4720,9 @@ class WeatherAlertApp(QMainWindow):
         view_menu.addAction(self.dark_mode_action)
 
         # Incidents Menu
-        history_menu = menu_bar.addMenu("&Incidents")
+        self.incidents_menu = QMenu("&Incidents", self)
+        menu_bar.addMenu(self.incidents_menu)
+        history_menu = self.incidents_menu
         incident_center_action = QAction("Open Incident Center", self)
         incident_center_action.triggered.connect(lambda checked=False: self._show_incident_center())
         history_menu.addAction(incident_center_action)
@@ -4697,7 +4738,9 @@ class WeatherAlertApp(QMainWindow):
         history_menu.addAction(export_incident_action)
 
         # Actions Menu
-        actions_menu = menu_bar.addMenu("&Monitor")
+        self.monitor_menu = QMenu("&Monitor", self)
+        menu_bar.addMenu(self.monitor_menu)
+        actions_menu = self.monitor_menu
         refresh_now_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_BrowserReload), "Refresh Now", self)
         refresh_now_action.setShortcut("F5")
         refresh_now_action.triggered.connect(self._refresh_current_location)
@@ -4728,7 +4771,9 @@ class WeatherAlertApp(QMainWindow):
         actions_menu.addAction(test_channels_action)
 
         # Help Menu
-        help_menu = menu_bar.addMenu("&Help")
+        self.help_menu = QMenu("&Help", self)
+        menu_bar.addMenu(self.help_menu)
+        help_menu = self.help_menu
         github_help_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_MessageBoxQuestion),
                                      "View Help on GitHub", self)
         github_help_action.triggered.connect(self._show_github_help)
@@ -5124,179 +5169,6 @@ class WeatherAlertApp(QMainWindow):
                 return loc["name"]
         return "Unknown"
 
-    def _fetch_all_data_for_location(self, location_id: str) -> Dict[str, Any]:
-        coords = self.api_client.get_coordinates_for_location(location_id)
-        if not coords:
-            raise ValueError(f"Could not find coordinates for location '{location_id}'.")
-
-        lat, lon = coords
-        alerts = self.api_client.get_alerts(lat, lon)
-        forecast_urls = self.api_client.get_forecast_urls(lat, lon)
-        if not forecast_urls:
-            raise ModularApiError(f"Could not retrieve forecast URLs for {lat},{lon}. API might be down or rate-limited.")
-
-        hourly_forecast = None
-        daily_forecast = None
-        grid_forecast = None
-        current_conditions = None
-        marine_data = {}
-
-        if forecast_urls.get("hourly"):
-            hourly_forecast = self.api_client.get_forecast_data(forecast_urls["hourly"])
-            if not hourly_forecast:
-                raise ModularApiError(f"Failed to fetch hourly forecast data from {forecast_urls['hourly']}.")
-
-        if forecast_urls.get("daily"):
-            daily_forecast = self.api_client.get_forecast_data(forecast_urls["daily"])
-            if not daily_forecast:
-                raise ModularApiError(f"Failed to fetch daily forecast data from {forecast_urls['daily']}.")
-
-        if forecast_urls.get("grid"):
-            grid_forecast = self.api_client.get_forecast_data(forecast_urls["grid"])
-
-        if forecast_urls.get("observations"):
-            current_conditions = self.api_client.get_current_conditions(forecast_urls["observations"])
-
-        marine_data = self._fetch_nearest_marine_data(lat, lon)
-
-        return {
-            "location_id": location_id,
-            "coords": coords,
-            "alerts": alerts,
-            "hourly_forecast": hourly_forecast,
-            "daily_forecast": daily_forecast,
-            "grid_forecast": grid_forecast,
-            "current_conditions": current_conditions,
-            "marine_data": marine_data,
-            "fetched_at": time.time(),
-        }
-
-    @Slot(object)
-    def _on_location_data_loaded(self, result: Dict[str, Any]):
-        location_id = result["location_id"]
-        if location_id == self.current_location_id:
-            self.network_status_indicator.setText("● Network OK")
-            self.network_status_indicator.setStyleSheet("color: green; font-weight: bold;")
-        coords = result["coords"]
-        alerts = result["alerts"]
-        if coords:
-            alerts = rank_alerts_by_proximity(alerts, coords[0], coords[1])
-        result = dict(result)
-        result["alerts"] = alerts
-        previous = self.last_active_alerts_by_location.get(location_id, {})
-        lifecycle = summarize_lifecycle(previous, alerts)
-        self.last_active_alerts_by_location[location_id] = lifecycle["active"]
-        self.current_alerts_by_location[location_id] = alerts
-        self.current_conditions_by_location[location_id] = result.get("current_conditions") or {}
-        self.current_marine_data_by_location[location_id] = result.get("marine_data") or {}
-        self.last_lifecycle_by_location[location_id] = lifecycle
-        self.last_known_data_by_location[location_id] = result
-        self.location_runtime_status[location_id] = {
-            "state": "online",
-            "detail": f"{len(alerts)} active alerts",
-            "fetched_at": result.get("fetched_at"),
-        }
-        self._record_lifecycle_events(location_id, lifecycle)
-        new_alert_titles = self._process_alerts_for_location(alerts, location_id, coords)
-        if location_id == self.current_location_id or new_alert_titles:
-            self._handle_timed_announcements(new_alert_titles, location_id)
-        self._dispatch_webhooks_for_location(location_id, alerts, coords)
-
-        self.log_to_gui(f"Successfully fetched data for {self.get_location_name_by_id(location_id)} at {coords}",
-                        level="INFO")
-        if lifecycle["new"] or lifecycle["updated"] or lifecycle["expired"] or lifecycle["cancelled"]:
-            self.log_to_gui(
-                f"Lifecycle: +{len(lifecycle['new'])} new, {len(lifecycle['updated'])} updated, "
-                f"{len(lifecycle['expired'])} expired, {len(lifecycle['cancelled'])} cancelled.",
-                level="INFO",
-            )
-            for update in lifecycle["updated"][:3]:
-                self.log_to_gui(f"Updated alert: {update['title']} | {'; '.join(update['changes'])}", level="INFO")
-
-        if location_id != self.current_location_id:
-            self.log_to_gui(
-                f"Cached data for {self.get_location_name_by_id(location_id)}; current selection changed before render.",
-                level="DEBUG",
-            )
-            self._update_dashboard_summary()
-            self._finish_check_cycle()
-            return
-
-        self.current_coords = coords
-        self._update_alerts_display_area(alerts, location_id, lifecycle)
-        self._update_lifecycle_display(lifecycle)
-        self._update_hourly_forecast_display(result["hourly_forecast"], result.get("grid_forecast"))
-        self._update_daily_forecast_display(result["daily_forecast"], result.get("grid_forecast"))
-        self._update_forecast_trends(result.get("hourly_forecast"), result.get("grid_forecast"))
-        self._update_fishing_conditions(
-            result.get("hourly_forecast"),
-            result.get("grid_forecast"),
-            result.get("marine_data"),
-        )
-        self._update_alert_map(alerts)
-        self._update_nws_tab()
-        if QWebEngineView and self.web_view:
-            self._load_web_view_url(self.current_radar_url)
-        self._update_dashboard_summary()
-        self.update_status(f"Data for {self.get_location_name_by_id(location_id)} updated.")
-
-        self._finish_check_cycle()
-
-    @Slot(Exception)
-    def _on_data_load_error(self, e: Exception, location_id: Optional[str] = None):
-        failed_location_id = location_id or self.current_location_id
-        self.log_to_gui(f"{self.get_location_name_by_id(failed_location_id)} refresh failed: {e}", level="ERROR")
-
-        if failed_location_id != self.current_location_id:
-            self.location_runtime_status[failed_location_id] = {
-                "state": "error",
-                "detail": str(e),
-            }
-            self._update_dashboard_summary()
-            self._finish_check_cycle()
-            return
-
-        self.network_status_indicator.setText("● Network FAIL")
-        self.network_status_indicator.setStyleSheet("color: red; font-weight: bold;")
-        self.update_status(f"Error: {e}. Showing last known data if available.")
-        cached = self.last_known_data_by_location.get(failed_location_id)
-        if cached:
-            fetched_at = cached.get("fetched_at")
-            stale_text = ""
-            if fetched_at:
-                stale_seconds = int(max(time.time() - fetched_at, 0))
-                stale_text = f", stale {stale_seconds // 60}m {stale_seconds % 60}s"
-            self.network_status_indicator.setText(f"● Offline (Using Cached Data{stale_text})")
-            self.network_status_indicator.setStyleSheet("color: #b58900; font-weight: bold;")
-            self.location_runtime_status[failed_location_id] = {
-                "state": "cached",
-                "detail": f"Cached data in use{stale_text}",
-                "fetched_at": cached.get("fetched_at"),
-            }
-            self._render_cached_location_data(failed_location_id)
-            self._update_dashboard_summary()
-            self._finish_check_cycle()
-            return
-
-        self.current_coords = None
-        self.location_runtime_status[failed_location_id] = {
-            "state": "error",
-            "detail": str(e),
-        }
-        self._update_alerts_display_area([], failed_location_id, None)
-        self._update_lifecycle_display(None)
-        self._update_hourly_forecast_display(None, None)
-        self._update_daily_forecast_display(None, None)
-        self._update_forecast_trends(None, None)
-        self._update_fishing_conditions(None, None, None)
-        self.forecast_board_status_label.setText("Forecast unavailable · refresh to retry")
-        self.forecast_board_status_label.setToolTip(str(e))
-        self.lifecycle_display_area.clear()
-        self.lifecycle_display_area.addItem("Lifecycle status unavailable until a check succeeds.")
-        self._set_location_web_placeholder("Weather data unavailable. Use Refresh to try again.")
-        self._update_dashboard_summary()
-        self._finish_check_cycle()
-
     def _render_cached_location_data(self, location_id: str) -> None:
         cached = self.last_known_data_by_location.get(location_id)
         if not cached:
@@ -5514,7 +5386,8 @@ class WeatherAlertApp(QMainWindow):
         map_zoom = "8" if coords else "4"
         polygon_count = len((geojson or {}).get("features", []))
         missing_geometry_count = max(len(alert_payload) - polygon_count, 0)
-        active_count_text = f"{len(alert_payload)} active"
+        alerts_available = self.location_runtime_status.get(self.current_location_id, {}).get("alerts_available", bool(alerts) or self.current_location_id in self.last_known_data_by_location)
+        active_count_text = f"{len(alert_payload)} active" if alerts_available else "Unknown"
         polygon_count_text = f"{polygon_count} mapped"
         missing_count_text = f"{missing_geometry_count} listed only"
         status_text = (
@@ -5526,6 +5399,10 @@ class WeatherAlertApp(QMainWindow):
                 else f"{polygon_count} alert area(s) drawn."
             )
         )
+        if not alerts_available:
+            status_text = "Alert status unavailable; this map is not an all-clear."
+        else:
+            status_text += " " + self._describe_location_health(self.current_location_id)
         body_class = "theme-dark" if self.current_dark_mode_enabled else "theme-light"
         html_template = """
 <!DOCTYPE html>
@@ -5867,7 +5744,7 @@ class WeatherAlertApp(QMainWindow):
     `;
     const list = document.getElementById('alert-list');
     if (!alerts.length) {
-      list.innerHTML = '<div class="empty"><b>No active alerts.</b><br>The map remains centered on the selected monitoring point so you can keep spatial context while conditions are quiet.</div>';
+      list.innerHTML = '<div class="empty"><b>__EMPTY_ALERT_TEXT__</b><br>The map remains centered on the selected monitoring point.</div>';
     } else {
       list.innerHTML = alerts.map((alert) => `
         <article class="alert" data-alert-index="${alert.index}" style="border-left-color:${severityColor(alert.severity)}">
@@ -5973,6 +5850,7 @@ class WeatherAlertApp(QMainWindow):
             "__BODY_CLASS__": body_class,
             "__LOCATION__": html.escape(location_name),
             "__ACTIVE_COUNT__": html.escape(active_count_text),
+            "__EMPTY_ALERT_TEXT__": "No active alerts in the last successful check." if alerts_available else "Alert status unavailable; refresh to verify.",
             "__POLYGON_COUNT__": html.escape(polygon_count_text),
             "__MISSING_COUNT__": html.escape(missing_count_text),
             "__STATUS_TEXT__": html.escape(status_text),
@@ -5992,6 +5870,8 @@ class WeatherAlertApp(QMainWindow):
             return
 
         map_signature = (
+            self.location_runtime_status.get(self.current_location_id, {}).get("alerts_available"),
+            self.location_runtime_status.get(self.current_location_id, {}).get("state"),
             round(self.current_coords[0], 4) if self.current_coords else None,
             round(self.current_coords[1], 4) if self.current_coords else None,
             self.current_dark_mode_enabled,
@@ -6974,7 +6854,7 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         self.alerts_display_area.clear()
         if not alerts:
             state = self.location_runtime_status.get(location_id, {}).get("state", "idle")
-            has_data = bool(self.last_known_data_by_location.get(location_id)) or state in {"online", "cached"}
+            has_data = self.location_runtime_status.get(location_id, {}).get("alerts_available", bool(self.last_known_data_by_location.get(location_id)) or state in {"online", "cached"})
             if has_data:
                 self._add_alert_placeholder(f"No active alerts in the last successful check for {self.get_location_name_by_id(location_id)}.", "none")
             elif state == "error":
@@ -6986,12 +6866,12 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
 
         rendered_alert_count = 0
         for alert in alerts:
-            if not alert.get("_rule_allowed", False):
-                continue
             distance_miles = alert.get("distance_miles")
             escalation = alert.get("_escalation", {})
             title = alert.get('title', 'N/A Title')
             alert_text = self._alert_display_text(alert, distance_miles, escalation)
+            if not alert.get("_rule_allowed", True):
+                alert_text += "\nNotifications suppressed: " + alert.get("_rule_reason", "location rules")
             item = QListWidgetItem(alert_text)
             alert_category = self._classify_alert_category(alert)
             alert_detail = dict(alert)
@@ -7864,6 +7744,17 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         due_ids = [aid for aid, data in self.escalation_repeat_state.items() if now_ts >= data.get("next_ts", now_ts + 1)]
         for alert_id in due_ids:
             data = self.escalation_repeat_state.get(alert_id, {})
+            if data.get("expires_at") is not None and now_ts >= data["expires_at"]:
+                self.escalation_repeat_state.pop(alert_id, None)
+                continue
+            location_state = self.location_runtime_status.get(data.get("location_id"), {})
+            fetched_at = location_state.get("fetched_at")
+            verified = (location_state.get("state") == "online" and fetched_at and
+                        now_ts - fetched_at <= max(120, self.current_check_interval_ms / 1000 * 2))
+            if not verified:
+                # Do not repeatedly announce an unverified or expired warning as active.
+                data["next_ts"] = now_ts + 60
+                continue
             title = data.get("title", "Severe alert")
             location_name = data.get("location_name", "current location")
             self._speak_message_internal(
@@ -7897,7 +7788,9 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
             time_text = f"Time {time.strftime('%I:%M:%S %p')}"
             self.current_time_label.setText(time_text)
             self.current_time_label.setToolTip(time_text)
-        if int(time.time()) % 30 == 0 and hasattr(self, "runtime") and not self.runtime.closing:
+        if time.time() - getattr(self, "_last_freshness_check", 0) >= 30 and hasattr(self, "runtime") and not self.runtime.closing:
+            self._last_freshness_check = time.time()
+            self.runtime.expire_cached_alerts()
             self._update_dashboard_summary()
 
     def _update_top_status_bar_display(self):
@@ -8066,10 +7959,7 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         distance = alert.get("distance_miles")
         distance_text = f"{distance:.1f} mi away" if isinstance(distance, (int, float)) else "distance unavailable"
         action = self._compact_text(alert.get("instruction") or alert.get("summary") or "Review the active alert.", 130)
-        detail = (
-            f"{event}; {severity}, {urgency}, {certainty}; {distance_text}; "
-            f"{self._expiration_countdown_text(alert)}. {action}"
-        )
+        detail = f"{urgency} · {distance_text} · {self._expiration_countdown_text(alert)}"
         return severity.upper(), detail
 
     def _set_metric_card(self, value_label: QLabel, detail_label: QLabel, value: str, detail: str, limit: int = 86, tone: str = "neutral") -> None:
@@ -8115,10 +8005,7 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         elif data_is_old:
             summary = "Showing the last available weather data while refreshing." if state == "loading" else "Showing the last available weather data. Check source status before relying on its freshness."
         elif worst_alert:
-            summary = (
-                f"Primary hazard is {worst_alert.get('title', 'active alert')} "
-                f"({self._expiration_countdown_text(worst_alert)})."
-            )
+            summary = self._describe_location_health(self.current_location_id)
         else:
             summary = "No active NWS alerts for this location."
         self.dashboard_subheadline.setText(summary)
@@ -8135,6 +8022,8 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
 
         condition_value, condition_detail = self._condition_card_text(conditions)
         self._set_metric_card(self.conditions_value_label, self.conditions_detail_label, condition_value, condition_detail, 86, "info")
+        if conditions:
+            self.conditions_detail_label.setText(f"RH {self._format_optional_number(conditions.get('humidity'), '%')} · Wind {self._format_optional_number(conditions.get('wind_mph'), ' mph')} · {self._observation_age_text(conditions.get('timestamp'))}")
 
         active_detail = (
             "No active alerts." if not alerts else
@@ -8192,56 +8081,65 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
             self.location_combo.setCurrentIndex(index)
 
     def _apply_loaded_settings_to_ui(self):
-        self.announce_alerts_action.setChecked(self.current_announce_alerts_checked)
-        self.auto_refresh_action.setChecked(self.current_auto_refresh_content_checked)
-        self.mute_action.setChecked(self.current_mute_audio_checked)
-        self.enable_sounds_action.setChecked(self.current_enable_sounds)
-        self.desktop_notification_action.setChecked(self.current_enable_desktop_notifications)
-        self.dark_mode_action.setChecked(self.current_dark_mode_enabled)
-        
-        # Block signals to prevent toggled slots from firing during setup
-        self.show_log_action.blockSignals(True)
-        self.show_alerts_area_action.blockSignals(True)
-        self.show_hourly_forecast_action.blockSignals(True)
-        self.show_daily_forecast_action.blockSignals(True)
-        self.show_monitoring_status_action.blockSignals(True)
-        self.show_location_overview_action.blockSignals(True)
-        self.file_show_monitoring_status_action.blockSignals(True)
+        self._applying_settings = True
+        try:
+            self.announce_alerts_action.setChecked(self.current_announce_alerts_checked)
+            self.auto_refresh_action.setChecked(self.current_auto_refresh_content_checked)
+            self.mute_action.setChecked(self.current_mute_audio_checked)
+            self.enable_sounds_action.setChecked(self.current_enable_sounds)
+            self.desktop_notification_action.setChecked(self.current_enable_desktop_notifications)
+            self.dark_mode_action.setChecked(self.current_dark_mode_enabled)
 
-        self.show_log_action.setChecked(self.current_show_log_checked)
-        self.show_alerts_area_action.setChecked(self.current_show_alerts_area_checked)
-        self.show_hourly_forecast_action.setChecked(self.current_show_hourly_forecast_checked)
-        self.show_daily_forecast_action.setChecked(self.current_show_daily_forecast_checked)
-        self.show_monitoring_status_action.setChecked(self.current_show_monitoring_status_checked)
-        self.show_location_overview_action.setChecked(self.current_show_location_overview_checked)
-        self.file_show_monitoring_status_action.setChecked(self.current_show_monitoring_status_checked)
+            # Block signals to prevent toggled slots from firing during setup
+            self.show_log_action.blockSignals(True)
+            self.show_alerts_area_action.blockSignals(True)
+            self.show_hourly_forecast_action.blockSignals(True)
+            self.show_daily_forecast_action.blockSignals(True)
+            self.show_monitoring_status_action.blockSignals(True)
+            self.show_location_overview_action.blockSignals(True)
+            self.file_show_monitoring_status_action.blockSignals(True)
 
-        self.show_log_action.blockSignals(False)
-        self.show_alerts_area_action.blockSignals(False)
-        self.show_hourly_forecast_action.blockSignals(False)
-        self.show_daily_forecast_action.blockSignals(False)
-        self.show_monitoring_status_action.blockSignals(False)
-        self.show_location_overview_action.blockSignals(False)
-        self.file_show_monitoring_status_action.blockSignals(False)
+            self.show_log_action.setChecked(self.current_show_log_checked)
+            self.show_alerts_area_action.setChecked(self.current_show_alerts_area_checked)
+            self.show_hourly_forecast_action.setChecked(self.current_show_hourly_forecast_checked)
+            self.show_daily_forecast_action.setChecked(self.current_show_daily_forecast_checked)
+            self.show_monitoring_status_action.setChecked(self.current_show_monitoring_status_checked)
+            self.show_location_overview_action.setChecked(self.current_show_location_overview_checked)
+            self.file_show_monitoring_status_action.setChecked(self.current_show_monitoring_status_checked)
 
-        self._update_panel_visibility()
+            self.show_log_action.blockSignals(False)
+            self.show_alerts_area_action.blockSignals(False)
+            self.show_hourly_forecast_action.blockSignals(False)
+            self.show_daily_forecast_action.blockSignals(False)
+            self.show_monitoring_status_action.blockSignals(False)
+            self.show_location_overview_action.blockSignals(False)
+            self.file_show_monitoring_status_action.blockSignals(False)
 
-        self._update_location_dropdown()
-        self.top_interval_combo.setCurrentText(self.current_interval_key)
+            self._update_panel_visibility()
 
-        self._apply_toolbar_visibility()
-        self._update_top_status_bar_display()
-        self._update_web_sources_menu()
-        self._apply_color_scheme()
-        self._apply_log_sort()
+            self._update_location_dropdown()
+            self.top_interval_combo.setCurrentText(self.current_interval_key)
 
-        if QWebEngineView and self.web_view:
-            self._load_web_view_url(self.current_radar_url)
-        self._update_nws_tab()
+            self._apply_toolbar_visibility()
+            self._update_top_status_bar_display()
+            self._update_web_sources_menu()
+            self._apply_color_scheme()
+            self._apply_log_sort()
 
-        self._refresh_location_overview()
-        self._update_dashboard_summary()
-        self.log_to_gui("Settings applied to UI.", level="INFO")
+            if QWebEngineView and self.web_view:
+                self._load_web_view_url(self.current_radar_url)
+            self._update_nws_tab()
+
+            self._refresh_location_overview()
+            self._update_dashboard_summary()
+            self.log_to_gui("Settings applied to UI.", level="INFO")
+            with QSignalBlocker(self.specialist_tools_action):
+                self.specialist_tools_action.setChecked(self.current_show_specialist_tools)
+            self._apply_specialist_tools_visibility()
+            self._set_initial_panel_sizes()
+            self._sync_monitoring_controls(self.auto_refresh_action.isChecked())
+        finally:
+            self._applying_settings = False
 
     def _update_location_dropdown(self):
         self.location_combo.blockSignals(True)
@@ -8727,12 +8625,12 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         self.daily_forecast_widget.setFont(daily_font)
 
     def _apply_forecast_panel_sizes(self) -> None:
-        self.alerts_display_area.setMinimumHeight(140)
+        self.alerts_display_area.setMinimumHeight(90)
         self.alerts_display_area.setMaximumHeight(16777215)
         self.alerts_display_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.lifecycle_display_area.setMinimumHeight(28)
         self.lifecycle_display_area.setMaximumHeight(32)
-        self.alerts_group.setMinimumHeight(260)
+        self.alerts_group.setMinimumHeight(230)
         self.alerts_group.setMaximumHeight(16777215)
         for scroll, group in (
             (self.hourly_forecast_scroll, self.hourly_forecast_group),
@@ -8783,6 +8681,7 @@ body {{ font-family:Segoe UI, Arial, sans-serif; background:{colors['bg']}; colo
         self._on_workbench_resized()
 
     def _on_workbench_resized(self, *_args) -> None:
+        self._reflow_header_status()
         self._apply_forecast_layout_mode()
         self._apply_forecast_panel_sizes()
         for index in range(self.alerts_display_area.count()):
